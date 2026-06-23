@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: myapp
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: myapp_development
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mail:
+    image: sj26/mailcatcher
+    ports:
+      - "1080:1080"   # Web UI — open http://localhost:1080
+      - "1025:1025"   # SMTP — Rails sends here
+
+volumes:
+  db_data:

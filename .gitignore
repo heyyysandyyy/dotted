@@ -1,0 +1,23 @@
+# Rails
+api/.bundle/
+api/log/*.log
+api/tmp/
+api/storage/*.sqlite3
+api/storage/*.sqlite3-*
+api/db/*.sqlite3
+api/db/*.sqlite3-*
+api/config/master.key
+api/config/credentials/*.key
+api/.env*
+api/public/packs/
+api/public/packs-test/
+api/node_modules/
+
+# React / Node
+web/node_modules/
+web/dist/
+web/.env*
+
+# OS
+.DS_Store
+*.swp
