@@ -4,6 +4,7 @@ import { CanvasStage } from './components/CanvasStage'
 import { NewDesignModal } from './components/NewDesignModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
+import { ContextToolbar } from './components/ContextToolbar'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 
 export function Editor() {
@@ -13,6 +14,7 @@ export function Editor() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950">
       <TopBar onNewDesign={() => setNewOpen(true)} />
+      <ContextToolbar />
 
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />

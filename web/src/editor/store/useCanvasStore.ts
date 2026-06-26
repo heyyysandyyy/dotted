@@ -28,8 +28,11 @@ interface CanvasState {
   addObject: (obj: fabric.Object) => void
   /** Quick-add a default rectangle (used to test selection/transform). */
   addBox: () => void
-  /** Apply property changes to the single active object, live. */
-  updateActive: (props: Partial<fabric.Object>) => void
+  /** Add an editable, wrapping text box. */
+  addText: () => void
+  /** Apply property changes to the single active object, live.
+   *  Typed against Textbox so text + shape props are both accepted. */
+  updateActive: (props: Partial<fabric.Textbox>) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
   nudge: (dx: number, dy: number) => void
   /** Delete the active selection. */
@@ -92,6 +95,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       fill: '#4f46e5',
     })
     addObject(rect)
+  },
+
+  addText: () => {
+    const { canvas, addObject } = get()
+    if (!canvas) return
+    const text = new fabric.Textbox('Add a heading', {
+      left: canvas.getWidth() / 2,
+      top: canvas.getHeight() / 2,
+      originX: 'center',
+      originY: 'center',
+      width: 400,
+      fontSize: 48,
+      fontFamily: 'Arial',
+      fill: '#111111',
+      textAlign: 'left',
+    })
+    addObject(text)
   },
 
   updateActive: (props) => {
