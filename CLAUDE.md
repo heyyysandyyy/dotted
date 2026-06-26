@@ -22,7 +22,7 @@
 - [x] TXT-003 Text alignment and line height
 - [x] IMG-001 Upload and place images
 - [x] IMG-002 Basic shape library
-- [ ] IMG-003 Layers panel
+- [x] IMG-003 Layers panel
 - [ ] EXP-001 Export as transparent PNG
 - [ ] EXP-002 Export as JPEG
 - [ ] EXP-003 Export as PDF

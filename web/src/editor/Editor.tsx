@@ -4,6 +4,7 @@ import { CanvasStage } from './components/CanvasStage'
 import { NewDesignModal } from './components/NewDesignModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
+import { LayersPanel } from './components/LayersPanel'
 import { ContextToolbar } from './components/ContextToolbar'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 
@@ -21,8 +22,13 @@ export function Editor() {
 
         <CanvasStage />
 
-        <aside className="w-64 shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900">
-          <PropertiesPanel />
+        <aside className="flex w-64 shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
+          <div className="shrink-0 border-b border-neutral-800">
+            <PropertiesPanel />
+          </div>
+          <div className="min-h-0 flex-1">
+            <LayersPanel />
+          </div>
         </aside>
       </div>
 

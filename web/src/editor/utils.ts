@@ -12,6 +12,32 @@ export function isShape(obj: fabric.Object | undefined | null): boolean {
   return !!obj && !isText(obj) && obj.type !== 'image'
 }
 
+/** Human-readable name for a canvas object, shown in the layers panel. */
+export function layerName(obj: fabric.Object): string {
+  switch (obj.type) {
+    case 'textbox':
+    case 'i-text':
+    case 'text': {
+      const t = (obj as fabric.Textbox).text?.trim()
+      return t ? (t.length > 20 ? t.slice(0, 20) + '…' : t) : 'Text'
+    }
+    case 'image':
+      return 'Image'
+    case 'rect':
+      return (obj as fabric.Rect).rx ? 'Rounded rectangle' : 'Rectangle'
+    case 'ellipse':
+      return 'Ellipse'
+    case 'triangle':
+      return 'Triangle'
+    case 'line':
+      return 'Line'
+    case 'path':
+      return 'Arrow'
+    default:
+      return obj.type ?? 'Object'
+  }
+}
+
 /** Trigger a browser download for a data/object URL. */
 export function downloadUrl(url: string, filename: string) {
   const a = document.createElement('a')

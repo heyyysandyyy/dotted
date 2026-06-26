@@ -49,6 +49,14 @@ export function CanvasStage() {
     canvas.on('object:added', schedule)
     canvas.on('object:removed', schedule)
     canvas.on('object:modified', schedule)
+    // Keep the layers panel in sync when objects are added/removed.
+    canvas.on('object:added', bump)
+    canvas.on('object:removed', bump)
+    // Guarantee every object (incl. those restored from history) has an id.
+    canvas.on('object:added', (e) => {
+      const o = e.target as (fabric.Object & { id?: string }) | undefined
+      if (o && !o.id) o.id = crypto.randomUUID()
+    })
 
     setCanvas(canvas)
     // Seed the baseline snapshot for the empty canvas.

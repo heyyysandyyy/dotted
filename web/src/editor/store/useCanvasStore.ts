@@ -50,6 +50,12 @@ interface CanvasState {
   /** Apply property changes to the single active object, live.
    *  Typed against Textbox so text + shape props are both accepted. */
   updateActive: (props: Partial<fabric.Textbox>) => void
+  /** Programmatically select a single object (e.g. from the layers panel). */
+  selectObject: (obj: fabric.Object) => void
+  /** Show or hide an object. */
+  setObjectVisible: (obj: fabric.Object, visible: boolean) => void
+  /** Restack objects given the desired bottom-to-top order. */
+  applyStackingOrder: (bottomFirst: fabric.Object[]) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
   nudge: (dx: number, dy: number) => void
   /** Delete the active selection. */
@@ -94,6 +100,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addObject: (obj) => {
     const { canvas } = get()
     if (!canvas) return
+    // Assign a stable id so the layers panel can track/reorder objects.
+    const withId = obj as fabric.Object & { id?: string }
+    if (!withId.id) withId.id = crypto.randomUUID()
     canvas.add(obj)
     canvas.setActiveObject(obj)
     canvas.requestRenderAll()
@@ -224,6 +233,31 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.setCoords()
     canvas.requestRenderAll()
     canvas.fire('object:modified', { target: obj })
+  },
+
+  selectObject: (obj) => {
+    const { canvas } = get()
+    if (!canvas) return
+    canvas.setActiveObject(obj)
+    canvas.requestRenderAll()
+    set({ selection: [obj] })
+  },
+
+  setObjectVisible: (obj, visible) => {
+    const { canvas } = get()
+    if (!canvas) return
+    obj.visible = visible
+    canvas.requestRenderAll()
+    set((s) => ({ tick: s.tick + 1 }))
+  },
+
+  applyStackingOrder: (bottomFirst) => {
+    const { canvas } = get()
+    if (!canvas) return
+    bottomFirst.forEach((o, i) => canvas.moveTo(o, i))
+    canvas.requestRenderAll()
+    canvas.fire('object:modified', { target: bottomFirst[0] })
+    set((s) => ({ tick: s.tick + 1 }))
   },
 
   nudge: (dx, dy) => {
