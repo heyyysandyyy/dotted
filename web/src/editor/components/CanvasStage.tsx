@@ -17,6 +17,8 @@ export function CanvasStage() {
 
   const setCanvas = useCanvasStore((s) => s.setCanvas)
   const setZoom = useCanvasStore((s) => s.setZoom)
+  const setSelection = useCanvasStore((s) => s.setSelection)
+  const bump = useCanvasStore((s) => s.bump)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
@@ -30,6 +32,17 @@ export function CanvasStage() {
       backgroundColor: '#ffffff',
       preserveObjectStacking: true,
     })
+
+    const syncSelection = () => setSelection(canvas.getActiveObjects())
+    canvas.on('selection:created', syncSelection)
+    canvas.on('selection:updated', syncSelection)
+    canvas.on('selection:cleared', () => setSelection([]))
+    // Keep property read-outs live during direct-manipulation.
+    canvas.on('object:moving', bump)
+    canvas.on('object:scaling', bump)
+    canvas.on('object:rotating', bump)
+    canvas.on('object:modified', bump)
+
     setCanvas(canvas)
     return () => {
       setCanvas(null)

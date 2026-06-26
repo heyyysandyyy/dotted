@@ -63,7 +63,7 @@ export function NewDesignModal({ open, onClose }: Props) {
                 type="number"
                 min={1}
                 value={customW}
-                onChange={(e) => setCustomW(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setCustomW(Math.max(1, Number(e.target.value) || 1))}
                 className="mt-1 w-24 rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
               />
             </label>
@@ -74,7 +74,7 @@ export function NewDesignModal({ open, onClose }: Props) {
                 type="number"
                 min={1}
                 value={customH}
-                onChange={(e) => setCustomH(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setCustomH(Math.max(1, Number(e.target.value) || 1))}
                 className="mt-1 w-24 rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
               />
             </label>

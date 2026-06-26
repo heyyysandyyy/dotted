@@ -15,7 +15,7 @@
 
 ## Ticket Checklist
 - [x] CVS-001 Blank canvas with configurable dimensions
-- [ ] CVS-002 Select, drag, resize, rotate objects
+- [x] CVS-002 Select, drag, resize, rotate objects
 - [ ] CVS-003 Undo and redo
 - [ ] TXT-001 Add and edit text objects
 - [ ] TXT-002 Google Fonts picker
