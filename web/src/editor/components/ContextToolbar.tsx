@@ -1,6 +1,7 @@
 import { Bold, Italic, Underline } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText } from '../utils'
+import { FontPicker } from './FontPicker'
 
 export function ContextToolbar() {
   useCanvasStore((s) => s.tick) // re-render on live changes
@@ -15,12 +16,17 @@ export function ContextToolbar() {
   const isItalic = obj.fontStyle === 'italic'
   const isUnderline = !!obj.underline
   const fill = typeof obj.fill === 'string' ? obj.fill : '#111111'
+  const fontFamily = obj.fontFamily ?? 'Arial'
 
   const toggleBtn = (active: boolean) =>
     `rounded p-1.5 ${active ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`
 
   return (
     <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 text-neutral-200">
+      <FontPicker value={fontFamily} onChange={(family) => updateActive({ fontFamily: family })} />
+
+      <div className="mx-1 h-5 w-px bg-neutral-700" />
+
       <label className="flex items-center gap-1 text-xs text-neutral-400">
         Size
         <input

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { fabric } from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
+import { getLastFont, loadGoogleFont } from '../fonts'
 
 interface CanvasState {
   /** The live Fabric.js canvas instance. Components must never mutate it directly. */
@@ -100,6 +101,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addText: () => {
     const { canvas, addObject } = get()
     if (!canvas) return
+    const lastFont = getLastFont()
     const text = new fabric.Textbox('Add a heading', {
       left: canvas.getWidth() / 2,
       top: canvas.getHeight() / 2,
@@ -107,10 +109,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       originY: 'center',
       width: 400,
       fontSize: 48,
-      fontFamily: 'Arial',
+      fontFamily: lastFont ?? 'Arial',
       fill: '#111111',
       textAlign: 'left',
     })
+    // If reusing a remembered Google Font, make sure its glyphs are loaded.
+    if (lastFont) {
+      loadGoogleFont(lastFont).then(() => canvas.requestRenderAll())
+    }
     addObject(text)
   },
 
