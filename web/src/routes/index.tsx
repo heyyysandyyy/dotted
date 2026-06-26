@@ -1,11 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
-import App from '@/App'
+import { Editor } from '@/editor/Editor'
 
 export const Route = createFileRoute('/')({
-  component: () => (
-    <ProtectedRoute>
-      <App />
-    </ProtectedRoute>
-  ),
+  component: Editor,
 })
