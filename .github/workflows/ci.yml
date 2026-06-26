@@ -80,5 +80,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test
+        run: npm test -- --run --passWithNoTests
+
       - name: Build
         run: npm run build
