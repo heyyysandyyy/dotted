@@ -4,6 +4,17 @@ import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { saveCurrentDesign } from '../storage'
 
+export type ShapeKind =
+  | 'rect'
+  | 'roundedRect'
+  | 'ellipse'
+  | 'triangle'
+  | 'line'
+  | 'arrow'
+
+const SHAPE_FILL = '#4f46e5'
+const SHAPE_STROKE = '#111111'
+
 interface CanvasState {
   /** The live Fabric.js canvas instance. Components must never mutate it directly. */
   canvas: fabric.Canvas | null
@@ -30,6 +41,8 @@ interface CanvasState {
   addObject: (obj: fabric.Object) => void
   /** Quick-add a default rectangle (used to test selection/transform). */
   addBox: () => void
+  /** Add a shape from the shape library. */
+  addShape: (kind: ShapeKind) => void
   /** Add an editable, wrapping text box. */
   addText: () => void
   /** Read an image file, place it centred (base64), and persist it. */
@@ -99,6 +112,55 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       fill: '#4f46e5',
     })
     addObject(rect)
+  },
+
+  addShape: (kind) => {
+    const { canvas, addObject } = get()
+    if (!canvas) return
+    const cx = canvas.getWidth() / 2
+    const cy = canvas.getHeight() / 2
+    const base = {
+      left: cx,
+      top: cy,
+      originX: 'center' as const,
+      originY: 'center' as const,
+      fill: SHAPE_FILL,
+      stroke: SHAPE_STROKE,
+      strokeWidth: 0,
+    }
+
+    let obj: fabric.Object
+    switch (kind) {
+      case 'rect':
+        obj = new fabric.Rect({ ...base, width: 200, height: 140 })
+        break
+      case 'roundedRect':
+        obj = new fabric.Rect({ ...base, width: 200, height: 140, rx: 24, ry: 24 })
+        break
+      case 'ellipse':
+        obj = new fabric.Ellipse({ ...base, rx: 100, ry: 100 })
+        break
+      case 'triangle':
+        obj = new fabric.Triangle({ ...base, width: 180, height: 160 })
+        break
+      case 'line':
+        obj = new fabric.Line([0, 0, 220, 0], {
+          left: cx,
+          top: cy,
+          originX: 'center',
+          originY: 'center',
+          stroke: SHAPE_STROKE,
+          strokeWidth: 6,
+        })
+        break
+      case 'arrow': {
+        // Filled block arrow so fill, stroke and stroke width all apply.
+        const path = 'M 0 12 L 60 12 L 60 0 L 100 22 L 60 44 L 60 32 L 0 32 Z'
+        obj = new fabric.Path(path, { ...base, strokeWidth: 0 })
+        break
+      }
+    }
+    addObject(obj)
   },
 
   addText: () => {

@@ -7,6 +7,11 @@ export function isText(obj: fabric.Object | undefined | null): obj is fabric.Tex
   return !!obj && TEXT_TYPES.includes(obj.type ?? '')
 }
 
+/** True for vector shapes (everything that isn't text or a raster image). */
+export function isShape(obj: fabric.Object | undefined | null): boolean {
+  return !!obj && !isText(obj) && obj.type !== 'image'
+}
+
 /** Trigger a browser download for a data/object URL. */
 export function downloadUrl(url: string, filename: string) {
   const a = document.createElement('a')

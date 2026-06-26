@@ -21,7 +21,7 @@
 - [x] TXT-002 Google Fonts picker
 - [x] TXT-003 Text alignment and line height
 - [x] IMG-001 Upload and place images
-- [ ] IMG-002 Basic shape library
+- [x] IMG-002 Basic shape library
 - [ ] IMG-003 Layers panel
 - [ ] EXP-001 Export as transparent PNG
 - [ ] EXP-002 Export as JPEG

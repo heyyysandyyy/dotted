@@ -1,5 +1,27 @@
 import { useCanvasStore } from '../store/useCanvasStore'
-import { isText } from '../utils'
+import { isText, isShape } from '../utils'
+
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="flex items-center justify-between text-xs text-neutral-400">
+      <span>{label}</span>
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-6 w-10 cursor-pointer rounded border border-neutral-700 bg-neutral-800"
+      />
+    </label>
+  )
+}
 
 function NumberField({
   label,
@@ -76,6 +98,31 @@ export function PropertiesPanel() {
         value={obj.angle ?? 0}
         onCommit={(v) => updateActive({ angle: v })}
       />
+
+      {isShape(obj) && (
+        <div className="space-y-2 border-t border-neutral-800 pt-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Style
+          </div>
+          {obj.type !== 'line' && (
+            <ColorRow
+              label="Fill"
+              value={typeof obj.fill === 'string' ? obj.fill : '#000000'}
+              onChange={(v) => updateActive({ fill: v })}
+            />
+          )}
+          <ColorRow
+            label="Stroke"
+            value={typeof obj.stroke === 'string' ? obj.stroke : '#000000'}
+            onChange={(v) => updateActive({ stroke: v })}
+          />
+          <NumberField
+            label="SW"
+            value={obj.strokeWidth ?? 0}
+            onCommit={(v) => updateActive({ strokeWidth: Math.max(0, v) })}
+          />
+        </div>
+      )}
 
       {isText(obj) && (
         <div className="space-y-2 border-t border-neutral-800 pt-3">

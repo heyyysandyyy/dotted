@@ -1,6 +1,7 @@
 import { useRef } from 'react'
-import { Square, Type, ImagePlus } from 'lucide-react'
+import { Type, ImagePlus } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { ShapesMenu } from './ShapesMenu'
 
 function ToolButton({
   icon,
@@ -26,7 +27,6 @@ function ToolButton({
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/svg+xml,image/gif'
 
 export function LeftSidebar() {
-  const addBox = useCanvasStore((s) => s.addBox)
   const addText = useCanvasStore((s) => s.addText)
   const addImageFromFile = useCanvasStore((s) => s.addImageFromFile)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -39,7 +39,7 @@ export function LeftSidebar() {
         label="Upload"
         onClick={() => fileRef.current?.click()}
       />
-      <ToolButton icon={<Square size={18} />} label="Box" onClick={addBox} />
+      <ShapesMenu />
 
       <input
         ref={fileRef}
