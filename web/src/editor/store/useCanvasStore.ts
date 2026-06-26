@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { fabric } from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
+import { saveCurrentDesign } from '../storage'
 
 interface CanvasState {
   /** The live Fabric.js canvas instance. Components must never mutate it directly. */
@@ -31,6 +32,8 @@ interface CanvasState {
   addBox: () => void
   /** Add an editable, wrapping text box. */
   addText: () => void
+  /** Read an image file, place it centred (base64), and persist it. */
+  addImageFromFile: (file: File) => void
   /** Apply property changes to the single active object, live.
    *  Typed against Textbox so text + shape props are both accepted. */
   updateActive: (props: Partial<fabric.Textbox>) => void
@@ -118,6 +121,36 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       loadGoogleFont(lastFont).then(() => canvas.requestRenderAll())
     }
     addObject(text)
+  },
+
+  addImageFromFile: (file) => {
+    // Defence-in-depth: the file picker's accept list is only a hint.
+    if (!file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      if (typeof dataUrl !== 'string') return
+      // Always a base64 data URL, so the image persists in localStorage.
+      fabric.Image.fromURL(dataUrl, (img) => {
+        const { canvas, width, height } = get()
+        if (!canvas) return
+        const imgW = img.width || 1
+        const imgH = img.height || 1
+        // Fit within 80% of the artboard, preserving aspect ratio.
+        const scale = Math.min((width * 0.8) / imgW, (height * 0.8) / imgH, 1)
+        img.set({
+          originX: 'center',
+          originY: 'center',
+          left: width / 2,
+          top: height / 2,
+          scaleX: scale,
+          scaleY: scale,
+        })
+        get().addObject(img)
+        saveCurrentDesign(canvas, width, height)
+      })
+    }
+    reader.readAsDataURL(file)
   },
 
   updateActive: (props) => {
