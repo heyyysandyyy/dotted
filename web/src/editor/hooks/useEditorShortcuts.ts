@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 
 function isTypingTarget(): boolean {
   const el = document.activeElement
@@ -16,9 +17,24 @@ export function useEditorShortcuts() {
       if (!canvas) return
       const active = canvas.getActiveObject()
 
-      // Never hijack keys while editing text or typing in a panel input.
+      // Undo / redo (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Cmd/Ctrl+Y).
+      const mod = e.metaKey || e.ctrlKey
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((active as any)?.isEditing || isTypingTarget()) return
+      const editing = (active as any)?.isEditing
+      if (mod && !editing && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault()
+        if (e.shiftKey) useHistoryStore.getState().redo()
+        else useHistoryStore.getState().undo()
+        return
+      }
+      if (mod && !editing && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        useHistoryStore.getState().redo()
+        return
+      }
+
+      // Never hijack keys while editing text or typing in a panel input.
+      if (editing || isTypingTarget()) return
 
       const step = e.shiftKey ? 10 : 1
       switch (e.key) {

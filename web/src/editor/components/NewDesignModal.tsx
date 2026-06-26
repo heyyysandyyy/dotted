@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SIZE_PRESETS } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   open: boolean
@@ -16,6 +17,8 @@ export function NewDesignModal({ open, onClose }: Props) {
 
   const choose = (w: number, h: number) => {
     newDesign(w, h)
+    // History resets when a new design is created.
+    useHistoryStore.getState().reset()
     onClose()
   }
 

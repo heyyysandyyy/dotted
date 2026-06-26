@@ -1,4 +1,6 @@
+import { Undo2, Redo2 } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   onNewDesign: () => void
@@ -8,6 +10,11 @@ export function TopBar({ onNewDesign }: Props) {
   const zoom = useCanvasStore((s) => s.zoom)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
+
+  const canUndo = useHistoryStore((s) => s.canUndo)
+  const canRedo = useHistoryStore((s) => s.canRedo)
+  const undo = useHistoryStore((s) => s.undo)
+  const redo = useHistoryStore((s) => s.redo)
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-3 text-neutral-200">
@@ -19,6 +26,25 @@ export function TopBar({ onNewDesign }: Props) {
       >
         New design
       </button>
+
+      <div className="flex items-center gap-1">
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Cmd/Ctrl+Z)"
+          className="rounded-md p-1.5 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <Undo2 size={16} />
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Cmd/Ctrl+Shift+Z)"
+          className="rounded-md p-1.5 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <Redo2 size={16} />
+        </button>
+      </div>
 
       <div className="ml-auto flex items-center gap-3 text-xs text-neutral-400">
         <span>

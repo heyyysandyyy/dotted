@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { fabric } from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { useHistoryStore } from '../store/useHistoryStore'
 import { DARK_SURROUND } from '../constants'
 
 const PADDING = 56
@@ -43,7 +44,15 @@ export function CanvasStage() {
     canvas.on('object:rotating', bump)
     canvas.on('object:modified', bump)
 
+    // Push a debounced history snapshot on any structural/transform change.
+    const schedule = () => useHistoryStore.getState().scheduleRecord()
+    canvas.on('object:added', schedule)
+    canvas.on('object:removed', schedule)
+    canvas.on('object:modified', schedule)
+
     setCanvas(canvas)
+    // Seed the baseline snapshot for the empty canvas.
+    useHistoryStore.getState().reset()
     return () => {
       setCanvas(null)
       canvas.dispose()

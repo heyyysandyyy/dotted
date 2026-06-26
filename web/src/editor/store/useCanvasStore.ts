@@ -102,7 +102,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.set(props)
     obj.setCoords()
     canvas.requestRenderAll()
-    set((s) => ({ tick: s.tick + 1 }))
+    canvas.fire('object:modified', { target: obj })
   },
 
   nudge: (dx, dy) => {
@@ -113,7 +113,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.set({ left: (obj.left ?? 0) + dx, top: (obj.top ?? 0) + dy })
     obj.setCoords()
     canvas.requestRenderAll()
-    set((s) => ({ tick: s.tick + 1 }))
+    canvas.fire('object:modified', { target: obj })
   },
 
   deleteActive: () => {
