@@ -1,4 +1,12 @@
-import { Bold, Italic, Underline } from 'lucide-react'
+import {
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+} from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText } from '../utils'
 import { FontPicker } from './FontPicker'
@@ -17,6 +25,7 @@ export function ContextToolbar() {
   const isUnderline = !!obj.underline
   const fill = typeof obj.fill === 'string' ? obj.fill : '#111111'
   const fontFamily = obj.fontFamily ?? 'Arial'
+  const align = obj.textAlign ?? 'left'
 
   const toggleBtn = (active: boolean) =>
     `rounded p-1.5 ${active ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`
@@ -64,6 +73,37 @@ export function ContextToolbar() {
         onClick={() => updateActive({ underline: !isUnderline })}
       >
         <Underline size={16} />
+      </button>
+
+      <div className="mx-1 h-5 w-px bg-neutral-700" />
+
+      <button
+        className={toggleBtn(align === 'left')}
+        title="Align left"
+        onClick={() => updateActive({ textAlign: 'left' })}
+      >
+        <AlignLeft size={16} />
+      </button>
+      <button
+        className={toggleBtn(align === 'center')}
+        title="Align centre"
+        onClick={() => updateActive({ textAlign: 'center' })}
+      >
+        <AlignCenter size={16} />
+      </button>
+      <button
+        className={toggleBtn(align === 'right')}
+        title="Align right"
+        onClick={() => updateActive({ textAlign: 'right' })}
+      >
+        <AlignRight size={16} />
+      </button>
+      <button
+        className={toggleBtn(align === 'justify')}
+        title="Justify"
+        onClick={() => updateActive({ textAlign: 'justify' })}
+      >
+        <AlignJustify size={16} />
       </button>
 
       <div className="mx-1 h-5 w-px bg-neutral-700" />

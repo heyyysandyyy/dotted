@@ -1,4 +1,5 @@
 import { useCanvasStore } from '../store/useCanvasStore'
+import { isText } from '../utils'
 
 function NumberField({
   label,
@@ -75,6 +76,29 @@ export function PropertiesPanel() {
         value={obj.angle ?? 0}
         onCommit={(v) => updateActive({ angle: v })}
       />
+
+      {isText(obj) && (
+        <div className="space-y-2 border-t border-neutral-800 pt-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Text
+          </div>
+          <label className="block text-xs text-neutral-400">
+            <div className="mb-1 flex justify-between">
+              <span>Line height</span>
+              <span>{(obj.lineHeight ?? 1.16).toFixed(2)}</span>
+            </div>
+            <input
+              type="range"
+              min={0.8}
+              max={3}
+              step={0.05}
+              value={obj.lineHeight ?? 1.16}
+              onChange={(e) => updateActive({ lineHeight: Number(e.target.value) })}
+              className="w-full accent-indigo-500"
+            />
+          </label>
+        </div>
+      )}
     </div>
   )
 }

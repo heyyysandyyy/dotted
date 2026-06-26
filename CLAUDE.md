@@ -19,7 +19,7 @@
 - [x] CVS-003 Undo and redo
 - [x] TXT-001 Add and edit text objects
 - [x] TXT-002 Google Fonts picker
-- [ ] TXT-003 Text alignment and line height
+- [x] TXT-003 Text alignment and line height
 - [ ] IMG-001 Upload and place images
 - [ ] IMG-002 Basic shape library
 - [ ] IMG-003 Layers panel
