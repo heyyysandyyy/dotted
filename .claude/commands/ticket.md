@@ -32,11 +32,15 @@ reorder tickets.
 6. Re-read the acceptance criteria and self-check each one. Do a quick security
    pass (no network calls, file-type guards on uploads, no secrets committed).
 7. Stage and commit: `git commit -m "feat: $1 <title>"` (no co-author trailer).
-8. Push the branch: `git push -u origin feat/$1-<short-kebab-description>`.
-9. Open a PR with `gh pr create`. The body must:
-   - list every acceptance criterion as a `- [x]` checkbox, and
-   - end with `Closes #<issue-number>` if a matching issue exists.
-10. Print the PR URL. **Do not merge** — a human merges after CI + review pass.
+8. Run the review locally before pushing: invoke `/review-dotted` on this
+   commit's diff. This is the soft gate (it runs on the Pro subscription, no
+   API cost). Address anything it flags, then re-commit.
+9. Push the branch: `git push -u origin feat/$1-<short-kebab-description>`.
+10. Open a PR with `gh pr create`. The body must:
+    - list every acceptance criterion as a `- [x]` checkbox, and
+    - paste the `/review-dotted` verdict, and
+    - end with `Closes #<issue-number>` if a matching issue exists.
+11. Print the PR URL. Do not merge — a human merges after CI passes.
 
 ## After a merge (next run)
 When invoked again, before starting the next ticket:
