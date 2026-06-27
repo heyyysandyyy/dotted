@@ -26,9 +26,12 @@ interface CanvasState {
   selection: fabric.Object[]
   /** Bumped whenever a selected object is transformed, to refresh read-outs. */
   tick: number
+  /** Editable design name (used for filenames and the project list). */
+  designName: string
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
+  setDesignName: (name: string) => void
   setSelection: (objs: fabric.Object[]) => void
   bump: () => void
 
@@ -69,9 +72,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   zoom: 1,
   selection: [],
   tick: 0,
+  designName: 'Untitled design',
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
+  setDesignName: (designName) => set({ designName }),
   setSelection: (selection) => set({ selection }),
   bump: () => set((s) => ({ tick: s.tick + 1 })),
 
