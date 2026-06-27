@@ -1,25 +1,27 @@
 import { useState } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { exportPNG } from '../exporters'
+import { exportPNG, exportJPEG, DEFAULT_JPEG_QUALITY } from '../exporters'
 
 interface Props {
   open: boolean
   onClose: () => void
 }
 
-type Format = 'png'
+type Format = 'png' | 'jpeg'
 
 export function ExportModal({ open, onClose }: Props) {
   const canvas = useCanvasStore((s) => s.canvas)
   const designName = useCanvasStore((s) => s.designName)
   const [format, setFormat] = useState<Format>('png')
   const [scale, setScale] = useState(1)
+  const [quality, setQuality] = useState(DEFAULT_JPEG_QUALITY)
 
   if (!open) return null
 
   const doExport = () => {
     if (!canvas) return
     if (format === 'png') exportPNG(canvas, designName, scale)
+    else if (format === 'jpeg') exportJPEG(canvas, designName, scale, quality)
     onClose()
   }
 
@@ -39,7 +41,7 @@ export function ExportModal({ open, onClose }: Props) {
             Format
           </div>
           <div className="flex gap-2">
-            {(['png'] as Format[]).map((f) => (
+            {(['png', 'jpeg'] as Format[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}
@@ -54,6 +56,24 @@ export function ExportModal({ open, onClose }: Props) {
             ))}
           </div>
         </div>
+
+        {format === 'jpeg' && (
+          <div className="mb-5">
+            <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-neutral-500">
+              <span>Quality</span>
+              <span className="text-neutral-700">{Math.round(quality * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.01}
+              value={quality}
+              onChange={(e) => setQuality(Number(e.target.value))}
+              className="w-full accent-neutral-900"
+            />
+          </div>
+        )}
 
         <div className="mb-5">
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
