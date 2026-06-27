@@ -36,10 +36,17 @@ reorder tickets.
    commit's diff. This is the soft gate (it runs on the Pro subscription, no
    API cost). Address anything it flags, then re-commit.
 9. Push the branch: `git push -u origin feat/$1-<short-kebab-description>`.
-10. Open a PR with `gh pr create`. The body must:
-    - list every acceptance criterion as a `- [x]` checkbox, and
-    - paste the `/review-dotted` verdict, and
-    - end with `Closes #<issue-number>` if a matching issue exists.
+10. Open a PR (via `gh pr create`, or — if `gh` is unavailable — a pre-filled
+    GitHub compare URL with the title and body encoded). Every PR MUST have a
+    full written description with these sections, in order:
+    - **Summary** — one or two lines on what the ticket delivers.
+    - **Changes** — a bulleted list of *every* change in the branch, grouped by
+      file or area, covering all commits including any cleanups or unrelated
+      fixes that rode along. Nothing in the diff should be unmentioned.
+    - **Acceptance criteria** — each criterion as a `- [x]` checkbox.
+    - **Test plan** — build/test results plus the manual steps to verify.
+    - **Review** — paste the `/review-dotted` verdict.
+    - `Closes #<issue-number>` if a matching issue exists.
 11. Print the PR URL. Do not merge — a human merges after CI passes.
 
 ## After a merge (next run)

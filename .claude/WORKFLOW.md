@@ -33,6 +33,15 @@ you squash-merge     ← human gate
    the branch.
 4. The next `/ticket` run advances `.claude-progress` and marks CLAUDE.md.
 
+## Every PR needs a full description
+A PR is not done until its body documents the change. Required sections, in order:
+**Summary**, **Changes** (a bullet for *every* change in the branch — group by
+file/area, and include any cleanups or fixes that rode along; nothing in the diff
+goes unmentioned), **Acceptance criteria** (checkboxes), **Test plan** (build/test
+results + manual steps), **Review** (the `/review-dotted` verdict), and
+`Closes #<issue>` when applicable. If `gh` isn't installed, open the PR via a
+pre-filled GitHub compare URL with the title and body encoded.
+
 ## Files
 - `.claude/commands/ticket.md` — `/ticket <ID>`, implement one ticket then PR
 - `.claude/commands/review-dotted.md` — `/review-dotted`, the review skill
