@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TopBar } from './components/TopBar'
 import { CanvasStage } from './components/CanvasStage'
 import { NewDesignModal } from './components/NewDesignModal'
+import { ExportModal } from './components/ExportModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
@@ -10,11 +11,12 @@ import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 
 export function Editor() {
   const [newOpen, setNewOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   useEditorShortcuts()
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950">
-      <TopBar onNewDesign={() => setNewOpen(true)} />
+      <TopBar onNewDesign={() => setNewOpen(true)} onExport={() => setExportOpen(true)} />
       <ContextToolbar />
 
       <div className="flex flex-1 overflow-hidden">
@@ -33,6 +35,7 @@ export function Editor() {
       </div>
 
       <NewDesignModal open={newOpen} onClose={() => setNewOpen(false)} />
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   )
 }

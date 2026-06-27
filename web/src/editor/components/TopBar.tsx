@@ -1,12 +1,13 @@
-import { Undo2, Redo2 } from 'lucide-react'
+import { Undo2, Redo2, Download } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   onNewDesign: () => void
+  onExport: () => void
 }
 
-export function TopBar({ onNewDesign }: Props) {
+export function TopBar({ onNewDesign, onExport }: Props) {
   const zoom = useCanvasStore((s) => s.zoom)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
@@ -51,6 +52,13 @@ export function TopBar({ onNewDesign }: Props) {
           {width} × {height}
         </span>
         <span>{Math.round(zoom * 100)}%</span>
+        <button
+          onClick={onExport}
+          className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+        >
+          <Download size={15} />
+          Export
+        </button>
       </div>
     </header>
   )
