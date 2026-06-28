@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useCanvasStore } from './useCanvasStore'
+import { saveCurrentDesign } from '../storage'
 
 const MAX_STATES = 50
 const DEBOUNCE_MS = 300
@@ -31,6 +32,12 @@ function snapshot(): string | null {
   if (!canvas) return null
   // fabric 7: toJSON() no longer takes propertiesToInclude; toObject() does.
   return JSON.stringify(canvas.toObject(SNAPSHOT_PROPS))
+}
+
+/** Auto-save the current canvas to localStorage (SAV-001). */
+function persist(): void {
+  const { canvas, width, height } = useCanvasStore.getState()
+  if (canvas) saveCurrentDesign(canvas, width, height)
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
@@ -70,6 +77,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       canUndo: newIndex > 0,
       canRedo: false,
     })
+    // Every committed change is auto-saved (debounced via scheduleRecord).
+    persist()
   },
 
   scheduleRecord: () => {
@@ -113,5 +122,7 @@ function restore(
     })
     // Selection is cleared by loadFromJSON; reflect that.
     useCanvasStore.getState().setSelection([])
+    // Persist the post-undo/redo state so a reload restores what's on screen.
+    persist()
   })
 }

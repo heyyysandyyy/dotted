@@ -96,6 +96,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvas.backgroundColor = '#ffffff'
       canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
+      // Persist the fresh blank design immediately so a reload doesn't restore
+      // the previous one (SAV-001 auto-save).
+      saveCurrentDesign(canvas, width, height)
     }
     set({ width, height, selection: [] })
   },
@@ -204,7 +207,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     reader.onload = () => {
       const dataUrl = reader.result
       if (typeof dataUrl !== 'string') return
-      // Always a base64 data URL, so the image persists in localStorage.
+      // Always a base64 data URL, so the image persists in localStorage via
+      // the auto-save that addObject triggers (object:added -> history record).
       // fabric 7: Image is FabricImage and fromURL returns a Promise.
       fabric.FabricImage.fromURL(dataUrl).then((img) => {
         const { canvas, width, height } = get()
@@ -222,7 +226,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           scaleY: scale,
         })
         get().addObject(img)
-        saveCurrentDesign(canvas, width, height)
       })
     }
     reader.readAsDataURL(file)
