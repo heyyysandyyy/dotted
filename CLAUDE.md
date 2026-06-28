@@ -9,7 +9,7 @@
 - All canvas mutations go through Zustand (useCanvasStore)
 - Never manipulate Fabric.js canvas directly inside a React component
 - Every canvas change pushes a history snapshot, debounced 300ms
-- Transparent PNG export: set canvas.backgroundColor = "" (empty string)
+- PNG export preserves alpha and exports the artboard as-is; a transparent PNG comes from a transparent canvas background (backgroundColor = "" — empty string, not null/'transparent')
 - Google Fonts: use free CSS embed API (fonts.googleapis.com), no API key, lazy-load on demand
 - All design data persisted to localStorage, no backend calls
 
@@ -31,7 +31,7 @@
 - [x] SAV-002 Named projects and project list
 - [x] SAV-003 Duplicate a design
 - [x] SAV-004 JSON backup and restore
-- [ ] CLR-001 Canvas background colour and image
+- [x] CLR-001 Canvas background colour and image
 - [ ] CLR-002 Colour picker with opacity
 - [ ] CLR-003 Custom colour palettes
 - [ ] CLR-004 Snap-to-grid and alignment guides

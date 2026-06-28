@@ -122,6 +122,8 @@ function restore(
     })
     // Selection is cleared by loadFromJSON; reflect that.
     useCanvasStore.getState().setSelection([])
+    // Keep the background-colour read-out in sync with the restored canvas.
+    useCanvasStore.getState().syncBackgroundFromCanvas()
     // Persist the post-undo/redo state so a reload restores what's on screen.
     persist()
   })

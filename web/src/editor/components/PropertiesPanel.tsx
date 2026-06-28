@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { ImagePlus, Ban } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 
@@ -48,6 +50,58 @@ function NumberField({
   )
 }
 
+/** Canvas-level controls shown when no object is selected (CLR-001). */
+function CanvasBackground() {
+  const backgroundColor = useCanvasStore((s) => s.backgroundColor)
+  const setBackgroundColor = useCanvasStore((s) => s.setBackgroundColor)
+  const setBackgroundImageFromFile = useCanvasStore((s) => s.setBackgroundImageFromFile)
+  const clearBackground = useCanvasStore((s) => s.clearBackground)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="space-y-3 p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        Background
+      </div>
+      <ColorRow
+        label="Colour"
+        // The native colour input needs a valid hex; show white for transparent.
+        value={backgroundColor || '#ffffff'}
+        onChange={setBackgroundColor}
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+      >
+        <ImagePlus size={14} />
+        Background image
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) setBackgroundImageFromFile(file)
+          e.target.value = ''
+        }}
+      />
+      <button
+        onClick={clearBackground}
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+      >
+        <Ban size={14} />
+        Clear / transparent
+      </button>
+      <p className="text-[11px] leading-snug text-neutral-600">
+        Clear the background for a transparent PNG. JPEG and PDF fill
+        transparency with white.
+      </p>
+    </div>
+  )
+}
+
 export function PropertiesPanel() {
   // Subscribe to tick so read-outs update live during manipulation.
   useCanvasStore((s) => s.tick)
@@ -55,11 +109,7 @@ export function PropertiesPanel() {
   const updateActive = useCanvasStore((s) => s.updateActive)
 
   if (selection.length === 0) {
-    return (
-      <div className="p-4 text-xs text-neutral-500">
-        Select an object to edit its position and size.
-      </div>
-    )
+    return <CanvasBackground />
   }
 
   if (selection.length > 1) {

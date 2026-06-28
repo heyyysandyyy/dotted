@@ -12,6 +12,15 @@ import { DARK_SURROUND } from '../constants'
 
 const PADDING = 56
 
+/** Checkerboard shown behind a transparent artboard, like most design tools. */
+const CHECKERBOARD: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  backgroundImage:
+    'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+  backgroundSize: '20px 20px',
+  backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0',
+}
+
 /**
  * Owns the Fabric.js canvas instance and keeps the artboard fitted to the
  * viewport. The fabric canvas always stays at native pixel dimensions; the
@@ -28,6 +37,7 @@ export function CanvasStage() {
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
+  const backgroundColor = useCanvasStore((s) => s.backgroundColor)
 
   // Create the fabric canvas once.
   useEffect(() => {
@@ -108,6 +118,8 @@ export function CanvasStage() {
           transform: `scale(${zoom})`,
           transformOrigin: 'center center',
           boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          // Transparent artboard → show a checkerboard behind it.
+          ...(backgroundColor === '' ? CHECKERBOARD : null),
         }}
       >
         <canvas ref={canvasElRef} />
