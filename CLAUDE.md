@@ -26,6 +26,8 @@ lives in its **closed GitHub issue** — `gh issue list --state closed`. This fi
 checklist of the *active* batch only.
 
 ## Ticket Checklist
+<!-- Build order (deps): UX-013 → UX-003 → UX-004 → UX-005 → UX-008 → UX-012 →
+     UX-002 → UX-006 → UX-007 → UX-009 → UX-010 → UX-011 → UX-001 → UX-014 -->
 - [ ] UX-001 New design modal overhaul + book preset
 - [ ] UX-002 Draggable layers panel
 - [ ] UX-003 Undo/redo history panel
@@ -37,3 +39,6 @@ checklist of the *active* batch only.
 - [ ] UX-009 Image crop
 - [ ] UX-010 Background remover
 - [ ] UX-011 Shadow and glow effects
+- [ ] UX-012 Color picker redesign with fill and stroke
+- [ ] UX-013 Canvas zoom
+- [ ] UX-014 Resize canvas
