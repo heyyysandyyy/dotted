@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { useCanvasStore } from './useCanvasStore'
-import { saveProject } from '../storage'
 
 const MAX_STATES = 50
 const DEBOUNCE_MS = 300
@@ -34,10 +33,9 @@ function snapshot(): string | null {
   return JSON.stringify(canvas.toObject(SNAPSHOT_PROPS))
 }
 
-/** Auto-save the current project to localStorage (SAV-001 / SAV-002). */
+/** Auto-save the current project to localStorage (SAV-001 / SAV-002 / TPL-001). */
 function persist(): void {
-  const { canvas, width, height, designName, currentProjectId } = useCanvasStore.getState()
-  if (canvas && currentProjectId) saveProject(currentProjectId, designName, canvas, width, height)
+  useCanvasStore.getState().saveCurrentProject()
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({

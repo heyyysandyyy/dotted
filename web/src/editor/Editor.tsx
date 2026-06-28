@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { TopBar } from './components/TopBar'
 import { CanvasStage } from './components/CanvasStage'
+import { PageBar } from './components/PageBar'
 import { NewDesignModal } from './components/NewDesignModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
@@ -28,7 +29,10 @@ export function Editor() {
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
 
-        <CanvasStage />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <CanvasStage />
+          <PageBar />
+        </div>
 
         <aside className="flex w-64 shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
           <div className="shrink-0 border-b border-neutral-800">
