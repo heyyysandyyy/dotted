@@ -13,29 +13,18 @@
 - Google Fonts: use free CSS embed API (fonts.googleapis.com), no API key, lazy-load on demand
 - All design data persisted to localStorage, no backend calls
 
+## Shipped so far
+Foundational editor work is done — core canvas (configurable size, select/drag/resize/rotate,
+undo+redo), text (add/edit, Google Fonts, alignment + line height), images & shapes (upload,
+shape library, layers panel), export (PNG/JPEG/PDF/SVG), save (autosave, named projects + list,
+duplicate, JSON backup/restore), colour (canvas background colour/image, opacity picker, custom
+palettes, snap-to-grid + alignment guides), templates (multi-page, duplicate a page, starter
+gallery, save-as-template), plus the fabric.js 5→7 security upgrade.
+
+The detailed record (description, acceptance criteria, implementing PR) for every shipped ticket
+lives in its **closed GitHub issue** — `gh issue list --state closed`. This file stays a lean
+checklist of the *active* batch only.
+
 ## Ticket Checklist
-- [x] CVS-001 Blank canvas with configurable dimensions
-- [x] CVS-002 Select, drag, resize, rotate objects
-- [x] CVS-003 Undo and redo
-- [x] TXT-001 Add and edit text objects
-- [x] TXT-002 Google Fonts picker
-- [x] TXT-003 Text alignment and line height
-- [x] IMG-001 Upload and place images
-- [x] IMG-002 Basic shape library
-- [x] IMG-003 Layers panel
-- [x] EXP-001 Export as transparent PNG
-- [x] EXP-002 Export as JPEG
-- [x] EXP-003 Export as PDF
-- [x] EXP-004 Export as SVG
-- [x] SAV-001 Auto-save to localStorage
-- [x] SAV-002 Named projects and project list
-- [x] SAV-003 Duplicate a design
-- [x] SAV-004 JSON backup and restore
-- [x] CLR-001 Canvas background colour and image
-- [x] CLR-002 Colour picker with opacity
-- [x] CLR-003 Custom colour palettes
-- [x] CLR-004 Snap-to-grid and alignment guides
-- [x] TPL-001 Multi-page designs
-- [x] TPL-002 Duplicate a page
-- [x] TPL-003 Starter template gallery
-- [x] TPL-004 Save design as a template
+- [ ] UX-001 New design modal overhaul + book preset
+- [ ] UX-002 Draggable layers panel
