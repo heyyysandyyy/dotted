@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type * as fabric from 'fabric'
-import { isText, isShape, layerName } from './utils'
+import { isText, isShape, layerName, toColorString } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
@@ -41,5 +41,15 @@ describe('layerName', () => {
     expect(layerName(obj('textbox', { text: '  Hello  ' }))).toBe('Hello')
     expect(layerName(obj('textbox', { text: 'x'.repeat(40) }))).toBe('x'.repeat(20) + '…')
     expect(layerName(obj('textbox', { text: '   ' }))).toBe('Text')
+  })
+})
+
+describe('toColorString', () => {
+  it('returns a plain hex when fully opaque', () => {
+    expect(toColorString('#ff0000', 100)).toBe('#ff0000')
+  })
+  it('returns an rgba string when translucent', () => {
+    expect(toColorString('#ff0000', 50)).toBe('rgba(255, 0, 0, 0.5)')
+    expect(toColorString('#000000', 0)).toBe('rgba(0, 0, 0, 0)')
   })
 })

@@ -1,6 +1,17 @@
 import type * as fabric from 'fabric'
+import tinycolor from 'tinycolor2'
 
 const TEXT_TYPES = ['text', 'i-text', 'textbox']
+
+/**
+ * Combine a hex colour with an opacity percentage (0–100) into a CSS colour:
+ * a plain hex string when fully opaque, otherwise an rgba() string (CLR-002).
+ */
+export function toColorString(hex: string, alphaPct: number): string {
+  const c = tinycolor(hex)
+  c.setAlpha(alphaPct / 100)
+  return alphaPct >= 100 ? c.toHexString() : c.toRgbString()
+}
 
 /** True when the object is any kind of editable text. */
 export function isText(obj: fabric.FabricObject | undefined | null): obj is fabric.Textbox {

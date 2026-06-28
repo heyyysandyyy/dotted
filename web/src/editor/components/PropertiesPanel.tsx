@@ -2,28 +2,7 @@ import { useRef } from 'react'
 import { ImagePlus, Ban } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
-
-function ColorRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <label className="flex items-center justify-between text-xs text-neutral-400">
-      <span>{label}</span>
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-6 w-10 cursor-pointer rounded border border-neutral-700 bg-neutral-800"
-      />
-    </label>
-  )
-}
+import { ColorField } from './ColorField'
 
 function NumberField({
   label,
@@ -63,7 +42,7 @@ function CanvasBackground() {
       <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
         Background
       </div>
-      <ColorRow
+      <ColorField
         label="Colour"
         // The native colour input needs a valid hex; show white for transparent.
         value={backgroundColor || '#ffffff'}
@@ -155,13 +134,13 @@ export function PropertiesPanel() {
             Style
           </div>
           {obj.type !== 'line' && (
-            <ColorRow
+            <ColorField
               label="Fill"
               value={typeof obj.fill === 'string' ? obj.fill : '#000000'}
               onChange={(v) => updateActive({ fill: v })}
             />
           )}
-          <ColorRow
+          <ColorField
             label="Stroke"
             value={typeof obj.stroke === 'string' ? obj.stroke : '#000000'}
             onChange={(v) => updateActive({ stroke: v })}
