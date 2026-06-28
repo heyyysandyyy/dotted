@@ -1,13 +1,18 @@
 import { create } from 'zustand'
 import { useCanvasStore } from './useCanvasStore'
+import { EXTRA_PROPS, type PageData } from '../storage'
 
 const MAX_STATES = 50
 const DEBOUNCE_MS = 300
 
-/** Extra fabric props to persist in snapshots (custom ids, names, etc.). */
-const SNAPSHOT_PROPS = ['selectable', 'name', 'id']
-
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+/** A history entry: the whole multi-page project state, so page add/delete/
+ *  duplicate are undoable alongside in-page edits (TPL-001). */
+interface ProjectSnapshot {
+  pages: PageData[]
+  activePageId: string
+}
 
 interface HistoryState {
   stack: string[]
@@ -27,10 +32,13 @@ interface HistoryState {
 }
 
 function snapshot(): string | null {
-  const canvas = useCanvasStore.getState().canvas
-  if (!canvas) return null
-  // fabric 7: toJSON() no longer takes propertiesToInclude; toObject() does.
-  return JSON.stringify(canvas.toObject(SNAPSHOT_PROPS))
+  const { canvas, pages, activePageId, currentProjectId } = useCanvasStore.getState()
+  if (!canvas || !currentProjectId || pages.length === 0) return null
+  // Sync the active page from the live canvas, then capture all pages.
+  const synced = pages.map((p) =>
+    p.id === activePageId ? { ...p, canvas: canvas.toObject(EXTRA_PROPS) } : p,
+  )
+  return JSON.stringify({ pages: synced, activePageId } satisfies ProjectSnapshot)
 }
 
 /** Auto-save the current project to localStorage (SAV-001 / SAV-002 / TPL-001). */
@@ -107,22 +115,21 @@ function restore(
   if (!canvas) return
   if (debounceTimer) clearTimeout(debounceTimer)
   set({ isRestoring: true })
-  // fabric 7: loadFromJSON returns a Promise; the second arg is now a
-  // per-object reviver, so completion logic moves to .then().
-  canvas.loadFromJSON(JSON.parse(json)).then(() => {
-    canvas.renderAll()
-    const stackLen = useHistoryStore.getState().stack.length
-    set({
-      isRestoring: false,
-      index: newIndex,
-      canUndo: newIndex > 0,
-      canRedo: newIndex < stackLen - 1,
+  const { pages, activePageId } = JSON.parse(json) as ProjectSnapshot
+  // Restore the whole project state (pages + active page) onto the canvas.
+  useCanvasStore
+    .getState()
+    .applyHistorySnapshot(pages, activePageId)
+    .then(() => {
+      const stackLen = useHistoryStore.getState().stack.length
+      set({
+        isRestoring: false,
+        index: newIndex,
+        canUndo: newIndex > 0,
+        canRedo: newIndex < stackLen - 1,
+      })
+      useCanvasStore.getState().setSelection([])
+      // Persist the post-undo/redo state so a reload restores what's on screen.
+      persist()
     })
-    // Selection is cleared by loadFromJSON; reflect that.
-    useCanvasStore.getState().setSelection([])
-    // Keep the background-colour read-out in sync with the restored canvas.
-    useCanvasStore.getState().syncBackgroundFromCanvas()
-    // Persist the post-undo/redo state so a reload restores what's on screen.
-    persist()
-  })
 }

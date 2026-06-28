@@ -32,6 +32,9 @@ export type ShapeKind =
 /** Drag-time snapping mode (CLR-004): off, alignment guides, or grid. */
 export type SnapMode = 'none' | 'guides' | 'grid'
 
+/** Canvas view: edit one page, or see all pages stacked (TPL-001). */
+export type ViewMode = 'single' | 'stack'
+
 const SHAPE_FILL = '#4f46e5'
 const SHAPE_STROKE = '#111111'
 
@@ -54,6 +57,8 @@ interface CanvasState {
   pages: PageData[]
   /** Id of the page currently shown on the canvas. */
   activePageId: string
+  /** Whether the editor shows one page or all pages stacked. */
+  viewMode: ViewMode
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
   /** Drag-time snapping mode: off, alignment guides, or grid (CLR-004). */
@@ -86,6 +91,12 @@ interface CanvasState {
   selectPage: (id: string) => void
   /** Delete a page (no-op when it's the only page). */
   deletePage: (id: string) => void
+  /** Duplicate a page, inserting the copy right after it. */
+  duplicatePage: (id: string) => void
+  /** Switch between single-page editing and the all-pages stack view. */
+  setViewMode: (mode: ViewMode) => void
+  /** Restore a project state (pages + active page) for undo/redo. */
+  applyHistorySnapshot: (pages: PageData[], activePageId: string) => Promise<void>
 
   /** Set the artboard's solid background colour. */
   setBackgroundColor: (color: string) => void
@@ -134,6 +145,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   currentProjectId: null,
   pages: [],
   activePageId: '',
+  viewMode: 'single',
   backgroundColor: '#ffffff',
   snapMode: 'guides',
 
@@ -256,8 +268,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ...synced.slice(idx + 1),
     ]
     set({ pages: next, activePageId: newPageId, selection: [], backgroundColor: '#ffffff' })
-    useHistoryStore.getState().reset()
-    get().saveCurrentProject()
+    // Record so adding a page is undoable (record() also auto-saves).
+    useHistoryStore.getState().record()
   },
 
   selectPage: (pageId) => {
@@ -272,8 +284,40 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.loadFromJSON(target.canvas).then(() => {
       canvas.requestRenderAll()
       get().syncBackgroundFromCanvas()
-      useHistoryStore.getState().reset()
-      get().saveCurrentProject()
+      useHistoryStore.getState().record()
+    })
+  },
+
+  duplicatePage: (pageId) => {
+    const { canvas, pages, activePageId } = get()
+    // Sync the active page from the live canvas first so a duplicate of it
+    // captures the latest edits.
+    const synced = canvas
+      ? pages.map((p) => (p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p))
+      : pages
+    const idx = synced.findIndex((p) => p.id === pageId)
+    if (idx < 0) return
+    const copy: PageData = { id: crypto.randomUUID(), canvas: structuredClone(synced[idx].canvas) }
+    const next = [...synced.slice(0, idx + 1), copy, ...synced.slice(idx + 1)]
+    set({ pages: next })
+    // Record so duplicating a page is undoable (record() also auto-saves).
+    useHistoryStore.getState().record()
+  },
+
+  setViewMode: (mode) => {
+    // Flush the live canvas into the active page so previews are current.
+    if (mode === 'stack') get().saveCurrentProject()
+    set({ viewMode: mode })
+  },
+
+  applyHistorySnapshot: (pages, activePageId) => {
+    const { canvas } = get()
+    if (!canvas) return Promise.resolve()
+    const active = pages.find((p) => p.id === activePageId) ?? pages[0]
+    set({ pages, activePageId: active.id, selection: [] })
+    return canvas.loadFromJSON(active.canvas).then(() => {
+      canvas.requestRenderAll()
+      get().syncBackgroundFromCanvas()
     })
   },
 
@@ -286,7 +330,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     if (pageId !== activePageId) {
       set({ pages: remaining })
-      get().saveCurrentProject()
+      // Record so deleting a page is undoable (record() also auto-saves).
+      useHistoryStore.getState().record()
       return
     }
     // Deleting the active page → switch to a neighbour.
@@ -295,8 +340,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.loadFromJSON(neighbour.canvas).then(() => {
       canvas.requestRenderAll()
       get().syncBackgroundFromCanvas()
-      useHistoryStore.getState().reset()
-      get().saveCurrentProject()
+      useHistoryStore.getState().record()
     })
   },
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TopBar } from './components/TopBar'
 import { CanvasStage } from './components/CanvasStage'
 import { PageBar } from './components/PageBar'
+import { PageStack } from './components/PageStack'
 import { NewDesignModal } from './components/NewDesignModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
@@ -10,11 +11,13 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
 import { ContextToolbar } from './components/ContextToolbar'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
+import { useCanvasStore } from './store/useCanvasStore'
 
 export function Editor() {
   const [newOpen, setNewOpen] = useState(false)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const viewMode = useCanvasStore((s) => s.viewMode)
   useEditorShortcuts()
 
   return (
@@ -30,7 +33,13 @@ export function Editor() {
         <LeftSidebar />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <CanvasStage />
+          <div className="relative flex-1 overflow-hidden">
+            {/* CanvasStage stays mounted (canvas alive) but hidden in stack view. */}
+            <div className={viewMode === 'stack' ? 'hidden' : 'flex h-full'}>
+              <CanvasStage />
+            </div>
+            {viewMode === 'stack' && <PageStack />}
+          </div>
           <PageBar />
         </div>
 
