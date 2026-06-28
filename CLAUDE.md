@@ -34,7 +34,7 @@
 - [x] CLR-001 Canvas background colour and image
 - [x] CLR-002 Colour picker with opacity
 - [x] CLR-003 Custom colour palettes
-- [ ] CLR-004 Snap-to-grid and alignment guides
+- [x] CLR-004 Snap-to-grid and alignment guides
 - [ ] TPL-001 Multi-page designs
 - [ ] TPL-002 Duplicate a page
 - [ ] TPL-003 Starter template gallery

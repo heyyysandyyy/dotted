@@ -1,4 +1,4 @@
-import { Undo2, Redo2, Download, FolderOpen } from 'lucide-react'
+import { Undo2, Redo2, Download, FolderOpen, Magnet, Grid3x3 } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
@@ -15,6 +15,8 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
   const designName = useCanvasStore((s) => s.designName)
   const setDesignName = useCanvasStore((s) => s.setDesignName)
   const renameProject = useCanvasStore((s) => s.renameProject)
+  const snapMode = useCanvasStore((s) => s.snapMode)
+  const setSnapMode = useCanvasStore((s) => s.setSnapMode)
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -69,6 +71,31 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
           className="rounded-md p-1.5 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Redo2 size={16} />
+        </button>
+      </div>
+
+      {/* Snapping (CLR-004) — guides and grid are mutually exclusive; clicking
+          the active one again turns snapping off. */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setSnapMode(snapMode === 'guides' ? 'none' : 'guides')}
+          title="Alignment guides"
+          aria-pressed={snapMode === 'guides'}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            snapMode === 'guides' ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Magnet size={16} />
+        </button>
+        <button
+          onClick={() => setSnapMode(snapMode === 'grid' ? 'none' : 'grid')}
+          title="Snap to grid"
+          aria-pressed={snapMode === 'grid'}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            snapMode === 'grid' ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Grid3x3 size={16} />
         </button>
       </div>
 

@@ -22,6 +22,9 @@ export type ShapeKind =
   | 'line'
   | 'arrow'
 
+/** Drag-time snapping mode (CLR-004): off, alignment guides, or grid. */
+export type SnapMode = 'none' | 'guides' | 'grid'
+
 const SHAPE_FILL = '#4f46e5'
 const SHAPE_STROKE = '#111111'
 
@@ -42,6 +45,8 @@ interface CanvasState {
   currentProjectId: string | null
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
+  /** Drag-time snapping mode: off, alignment guides, or grid (CLR-004). */
+  snapMode: SnapMode
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -70,6 +75,8 @@ interface CanvasState {
   clearBackground: () => void
   /** Refresh the backgroundColor mirror from the live canvas (after load/undo). */
   syncBackgroundFromCanvas: () => void
+  /** Set the drag-time snapping mode. */
+  setSnapMode: (mode: SnapMode) => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -106,6 +113,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   designName: DEFAULT_NAME,
   currentProjectId: null,
   backgroundColor: '#ffffff',
+  snapMode: 'guides',
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -240,6 +248,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!canvas) return
     set({ backgroundColor: typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '' })
   },
+
+  setSnapMode: (snapMode) => set({ snapMode }),
 
   addObject: (obj) => {
     const { canvas } = get()

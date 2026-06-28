@@ -17,3 +17,8 @@ export const DEFAULT_WIDTH = 1080
 export const DEFAULT_HEIGHT = 1080
 
 export const DARK_SURROUND = '#1e1e1e'
+
+/** Grid step (px) used by snap-to-grid (CLR-004). */
+export const GRID_SIZE = 10
+/** Distance (px) at which alignment guides engage. */
+export const SNAP_MARGIN = 6
