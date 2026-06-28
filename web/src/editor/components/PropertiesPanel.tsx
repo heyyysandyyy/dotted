@@ -95,7 +95,8 @@ function CanvasBackground() {
         Clear / transparent
       </button>
       <p className="text-[11px] leading-snug text-neutral-600">
-        Background colour applies to JPEG and PDF exports; PNG stays transparent.
+        Clear the background for a transparent PNG. JPEG and PDF fill
+        transparency with white.
       </p>
     </div>
   )

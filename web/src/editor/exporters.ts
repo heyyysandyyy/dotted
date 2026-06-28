@@ -12,23 +12,12 @@ export function slugify(name: string): string {
 }
 
 /**
- * Export the canvas as a transparent PNG at native pixel dimensions.
- * Per the export rule, backgroundColor is set to "" (empty string) — not null
- * or 'transparent' — before reading the pixels, then restored.
+ * Export the canvas as a PNG at native pixel dimensions. PNG preserves alpha,
+ * so the artboard is exported exactly as set — the result is transparent only
+ * when the user's canvas background is transparent (CLR-001).
  */
 export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
-  const prevBg = canvas.backgroundColor
-  canvas.backgroundColor = ''
-  canvas.renderAll()
-
-  let dataUrl: string
-  try {
-    dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
-  } finally {
-    canvas.backgroundColor = prevBg
-    canvas.renderAll()
-  }
-
+  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
   downloadUrl(dataUrl, `${slugify(name)}.png`)
 }
 
