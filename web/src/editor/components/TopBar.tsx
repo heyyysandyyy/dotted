@@ -1,16 +1,20 @@
-import { Undo2, Redo2, Download } from 'lucide-react'
+import { Undo2, Redo2, Download, FolderOpen } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   onNewDesign: () => void
+  onProjects: () => void
   onExport: () => void
 }
 
-export function TopBar({ onNewDesign, onExport }: Props) {
+export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
   const zoom = useCanvasStore((s) => s.zoom)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
+  const designName = useCanvasStore((s) => s.designName)
+  const setDesignName = useCanvasStore((s) => s.setDesignName)
+  const renameProject = useCanvasStore((s) => s.renameProject)
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -27,6 +31,27 @@ export function TopBar({ onNewDesign, onExport }: Props) {
       >
         New design
       </button>
+
+      <button
+        onClick={onProjects}
+        title="Projects"
+        className="flex items-center gap-1.5 rounded-md bg-neutral-700 px-3 py-1.5 text-sm font-medium hover:bg-neutral-600"
+      >
+        <FolderOpen size={15} />
+        Projects
+      </button>
+
+      {/* Editable project name — persisted on blur / Enter via renameProject. */}
+      <input
+        value={designName}
+        onChange={(e) => setDesignName(e.target.value)}
+        onBlur={renameProject}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
+        aria-label="Project name"
+        className="w-48 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-neutral-200 hover:border-neutral-700 focus:border-neutral-600 focus:bg-neutral-800 focus:outline-none"
+      />
 
       <div className="flex items-center gap-1">
         <button

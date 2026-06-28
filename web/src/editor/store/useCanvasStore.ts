@@ -2,7 +2,10 @@ import { create } from 'zustand'
 import * as fabric from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
-import { saveCurrentDesign } from '../storage'
+import { saveProject, loadProject, deleteProject, listProjects, setCurrentProjectId } from '../storage'
+import { useHistoryStore } from './useHistoryStore'
+
+const DEFAULT_NAME = 'Untitled design'
 
 export type ShapeKind =
   | 'rect'
@@ -26,8 +29,10 @@ interface CanvasState {
   selection: fabric.FabricObject[]
   /** Bumped whenever a selected object is transformed, to refresh read-outs. */
   tick: number
-  /** Editable design name (used for filenames and the project list). */
+  /** Editable name of the open project (used for filenames and the project list). */
   designName: string
+  /** Id of the project currently open in the editor (null before first load). */
+  currentProjectId: string | null
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -37,8 +42,14 @@ interface CanvasState {
 
   /** Resize the artboard, preserving existing objects. */
   setDimensions: (w: number, h: number) => void
-  /** Wipe the canvas and start a fresh blank design at the given size. */
-  newDesign: (w: number, h: number) => void
+  /** Start a fresh blank project at the given size and switch to it. */
+  newProject: (w: number, h: number) => void
+  /** Load a saved project by id, replacing the canvas contents. */
+  openProject: (id: string) => void
+  /** Persist the current project's name (after the user edits it). */
+  renameProject: () => void
+  /** Delete a project; if it's the current one, switch to another (or a new one). */
+  deleteProjectById: (id: string) => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -72,7 +83,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   zoom: 1,
   selection: [],
   tick: 0,
-  designName: 'Untitled design',
+  designName: DEFAULT_NAME,
+  currentProjectId: null,
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -89,18 +101,57 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ width, height })
   },
 
-  newDesign: (width, height) => {
+  newProject: (width, height) => {
     const { canvas } = get()
+    const id = crypto.randomUUID()
     if (canvas) {
       canvas.clear()
       canvas.backgroundColor = '#ffffff'
       canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
-      // Persist the fresh blank design immediately so a reload doesn't restore
-      // the previous one (SAV-001 auto-save).
-      saveCurrentDesign(canvas, width, height)
     }
-    set({ width, height, selection: [] })
+    set({ width, height, selection: [], designName: DEFAULT_NAME, currentProjectId: id })
+    setCurrentProjectId(id)
+    // Persist the fresh blank project immediately so it appears in the list.
+    if (canvas) saveProject(id, DEFAULT_NAME, canvas, width, height)
+    useHistoryStore.getState().reset()
+  },
+
+  openProject: (id) => {
+    const { canvas } = get()
+    const proj = loadProject(id)
+    if (!canvas || !proj) return
+    set({
+      width: proj.width,
+      height: proj.height,
+      selection: [],
+      designName: proj.name,
+      currentProjectId: id,
+    })
+    canvas.setDimensions({ width: proj.width, height: proj.height })
+    setCurrentProjectId(id)
+    canvas.loadFromJSON(proj.canvas).then(() => {
+      canvas.requestRenderAll()
+      // A loaded project is a fresh history baseline.
+      useHistoryStore.getState().reset()
+    })
+  },
+
+  renameProject: () => {
+    const { canvas, currentProjectId, designName, width, height } = get()
+    if (!canvas || !currentProjectId) return
+    // Re-persist so the project index reflects the new name.
+    saveProject(currentProjectId, designName, canvas, width, height)
+  },
+
+  deleteProjectById: (id) => {
+    deleteProject(id)
+    if (id !== get().currentProjectId) return
+    // The open project was deleted — switch to the most recent remaining one,
+    // or start a fresh project if none are left.
+    const remaining = listProjects()
+    if (remaining[0]) get().openProject(remaining[0].id)
+    else get().newProject(DEFAULT_WIDTH, DEFAULT_HEIGHT)
   },
 
   addObject: (obj) => {
