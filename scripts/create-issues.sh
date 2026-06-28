@@ -33,12 +33,22 @@ grep -E '^- \[[ x]\] [A-Z]{3}-[0-9]{3} ' "$CHECKLIST" | while read -r line; do
   fi
 
   gh label create "$label" --color ededed 2>/dev/null || true
+  # The issue is the source of truth for the ticket's detail, so create it with a
+  # self-contained template (description + acceptance criteria) — never a pointer
+  # back to CLAUDE.md (which stays a lean checklist). Fill in the specifics after
+  # creation (see the /sync-issues skill).
   gh issue create \
     --title "$id $title" \
     --label "$label" \
-    --body "Implement **$id $title**.
+    --body "## $id $title
 
-Acceptance criteria live in CLAUDE.md. Implement with \`/ticket $id\`.
-A PR that closes this issue must satisfy every criterion and pass CI + review." \
+_Describe what this ticket delivers (1–2 lines)._
+
+### Acceptance criteria
+- [ ] _…_
+
+<!-- Replace the description and acceptance criteria above with the real spec.
+     Do NOT point back to CLAUDE.md; this issue holds the detail. Implement with
+     \`/ticket $id\`; the closing PR must satisfy every criterion + pass CI/review. -->" \
     && echo "created $id"
 done
