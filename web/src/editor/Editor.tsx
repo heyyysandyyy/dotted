@@ -4,6 +4,7 @@ import { CanvasStage } from './components/CanvasStage'
 import { PageBar } from './components/PageBar'
 import { PageStack } from './components/PageStack'
 import { NewDesignModal } from './components/NewDesignModal'
+import { TemplatesModal } from './components/TemplatesModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
 import { LeftSidebar } from './components/LeftSidebar'
@@ -15,6 +16,7 @@ import { useCanvasStore } from './store/useCanvasStore'
 
 export function Editor() {
   const [newOpen, setNewOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const viewMode = useCanvasStore((s) => s.viewMode)
@@ -24,6 +26,7 @@ export function Editor() {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950">
       <TopBar
         onNewDesign={() => setNewOpen(true)}
+        onTemplates={() => setTemplatesOpen(true)}
         onProjects={() => setProjectsOpen(true)}
         onExport={() => setExportOpen(true)}
       />
@@ -54,6 +57,7 @@ export function Editor() {
       </div>
 
       <NewDesignModal open={newOpen} onClose={() => setNewOpen(false)} />
+      <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>

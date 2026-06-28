@@ -12,6 +12,7 @@ import {
   EXTRA_PROPS,
   type PageData,
 } from '../storage'
+import type { StarterTemplate } from '../templates'
 
 /** Serialize the live canvas into a page payload. */
 function serializeCanvas(canvas: fabric.Canvas): object {
@@ -74,6 +75,8 @@ interface CanvasState {
   setDimensions: (w: number, h: number) => void
   /** Start a fresh blank project at the given size and switch to it. */
   newProject: (w: number, h: number) => void
+  /** Start a new project pre-filled from a starter template (TPL-003). */
+  newProjectFromTemplate: (tpl: StarterTemplate) => void
   /** Load a saved project by id, replacing the canvas contents. */
   openProject: (id: string) => void
   /** Persist the current project's name (after the user edits it). */
@@ -189,6 +192,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     // Persist the fresh blank project immediately so it appears in the list.
     saveProject({ id, name: DEFAULT_NAME, width, height, pages, activePageId: pageId })
     useHistoryStore.getState().reset()
+  },
+
+  newProjectFromTemplate: (tpl) => {
+    // Start a blank project at the template's size, then drop in its objects.
+    get().newProject(tpl.width, tpl.height)
+    const { canvas } = get()
+    if (!canvas) return
+    canvas.backgroundColor = tpl.background
+    tpl.build().forEach((obj) => canvas.add(obj))
+    canvas.requestRenderAll()
+    set({ designName: tpl.name, backgroundColor: tpl.background })
+    get().syncBackgroundFromCanvas()
+    // Template content is the starting point, so reset history to it.
+    useHistoryStore.getState().reset()
+    get().saveCurrentProject()
   },
 
   openProject: (id) => {
