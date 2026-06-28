@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Frontend dependencies (Vite/React app).
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # Collapse routine minor/patch bumps into one PR to cut noise.
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Rails API dependencies.
+  - package-ecosystem: "bundler"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      bundler-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Keep GitHub Actions (CI workflow) pinned versions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
