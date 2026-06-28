@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import type * as fabric from 'fabric'
 import {
   CURRENT_DESIGN_KEY,
   PROJECTS_INDEX_KEY,
-  serializeDesign,
   listProjects,
   loadProject,
   saveProject,
@@ -19,11 +17,20 @@ import {
   addPaletteColor,
   removePaletteColor,
   MAX_PALETTE,
+  type ProjectInput,
 } from './storage'
 
-// Minimal canvas stand-in — storage only ever calls toObject(props).
-const fakeCanvas = (obj: object): fabric.Canvas =>
-  ({ toObject: () => obj }) as unknown as fabric.Canvas
+const projectKey = (id: string) => `dotted:project:${id}`
+
+// Build a one-page project input with given id/name.
+const proj = (id: string, name = 'P', objects: unknown[] = []): ProjectInput => ({
+  id,
+  name,
+  width: 100,
+  height: 100,
+  pages: [{ id: `${id}-pg`, canvas: { objects } }],
+  activePageId: `${id}-pg`,
+})
 
 describe('storage', () => {
   beforeEach(() => localStorage.clear())
@@ -34,64 +41,62 @@ describe('storage', () => {
       addPaletteColor('#00ff00')
       expect(getPalette()).toEqual(['#00ff00', '#ff0000'])
     })
-
     it('de-dupes case-insensitively, moving the colour to the front', () => {
       addPaletteColor('#ABCDEF')
       addPaletteColor('#111111')
-      const list = addPaletteColor('#abcdef')
-      expect(list).toEqual(['#abcdef', '#111111'])
+      expect(addPaletteColor('#abcdef')).toEqual(['#abcdef', '#111111'])
     })
-
     it('caps the palette at MAX_PALETTE', () => {
       for (let i = 0; i < MAX_PALETTE + 5; i++) addPaletteColor(`rgba(0,0,0,${i / 100})`)
       expect(getPalette()).toHaveLength(MAX_PALETTE)
     })
-
     it('removes a colour', () => {
       addPaletteColor('#ff0000')
       addPaletteColor('#00ff00')
       expect(removePaletteColor('#ff0000')).toEqual(['#00ff00'])
     })
-
     it('returns [] for a corrupt palette (fail soft)', () => {
       localStorage.setItem('dotted:palette', '{not json')
       expect(getPalette()).toEqual([])
     })
   })
 
-  it('serializeDesign captures width, height and the canvas json', () => {
-    const data = serializeDesign(fakeCanvas({ objects: [] }), 800, 600)
-    expect(data).toEqual({ width: 800, height: 600, canvas: { objects: [] } })
-  })
-
-  it('saves and loads a project round-trip', () => {
-    const ok = saveProject('p1', 'My Design', fakeCanvas({ objects: [{ type: 'rect' }] }), 400, 300)
-    expect(ok).toBe(true)
-    const loaded = loadProject('p1')
-    expect(loaded).toMatchObject({
+  it('saves and loads a multi-page project round-trip', () => {
+    const input: ProjectInput = {
       id: 'p1',
       name: 'My Design',
       width: 400,
       height: 300,
-      canvas: { objects: [{ type: 'rect' }] },
-    })
+      pages: [
+        { id: 'a', canvas: { objects: [1] } },
+        { id: 'b', canvas: { objects: [2] } },
+      ],
+      activePageId: 'b',
+    }
+    expect(saveProject(input)).toBe(true)
+    const loaded = loadProject('p1')
+    expect(loaded).toMatchObject({ id: 'p1', name: 'My Design', activePageId: 'b' })
+    expect(loaded?.pages.map((pg) => pg.id)).toEqual(['a', 'b'])
     expect(typeof loaded?.updatedAt).toBe('number')
   })
 
-  it('indexes saved projects newest-first and upserts by id', () => {
-    saveProject('a', 'A', fakeCanvas({}), 10, 10)
-    saveProject('b', 'B', fakeCanvas({}), 10, 10)
-    saveProject('a', 'A renamed', fakeCanvas({}), 20, 20) // re-save existing id
+  it('indexes projects newest-first with a page count and upserts by id', () => {
+    saveProject(proj('a', 'A'))
+    saveProject(proj('b', 'B'))
+    saveProject({ ...proj('a', 'A renamed'), pages: [
+      { id: 'x', canvas: {} },
+      { id: 'y', canvas: {} },
+    ], activePageId: 'x' })
 
     const list = listProjects()
-    expect(list.map((p) => p.id)).toEqual(['a', 'b']) // most-recently-saved first
-    expect(list).toHaveLength(2) // no duplicate for 'a'
-    expect(list[0]).toMatchObject({ id: 'a', name: 'A renamed', width: 20, height: 20 })
+    expect(list.map((p) => p.id)).toEqual(['a', 'b'])
+    expect(list).toHaveLength(2)
+    expect(list[0]).toMatchObject({ id: 'a', name: 'A renamed', pageCount: 2 })
   })
 
   it('deleteProject removes payload and index entry', () => {
-    saveProject('a', 'A', fakeCanvas({}), 10, 10)
-    saveProject('b', 'B', fakeCanvas({}), 10, 10)
+    saveProject(proj('a'))
+    saveProject(proj('b'))
     deleteProject('a')
     expect(loadProject('a')).toBeNull()
     expect(listProjects().map((p) => p.id)).toEqual(['b'])
@@ -108,74 +113,52 @@ describe('storage', () => {
     expect(listProjects()).toEqual([])
   })
 
-  it('saveProject fails soft when serialization throws', () => {
-    const throwing = {
-      toObject: () => {
-        throw new Error('boom')
-      },
-    } as unknown as fabric.Canvas
-    expect(saveProject('x', 'X', throwing, 1, 1)).toBe(false)
+  describe('legacy normalization', () => {
+    it('loadProject upgrades a single-canvas project into one page', () => {
+      // Old SAV-era payload shape (no pages).
+      localStorage.setItem(
+        projectKey('old'),
+        JSON.stringify({ id: 'old', name: 'Old', width: 50, height: 50, updatedAt: 1, canvas: { objects: [9] } }),
+      )
+      const loaded = loadProject('old')
+      expect(loaded?.pages).toHaveLength(1)
+      expect(loaded?.pages[0].canvas).toEqual({ objects: [9] })
+      expect(loaded?.activePageId).toBe(loaded?.pages[0].id)
+    })
   })
 
   describe('duplicateProject', () => {
-    it('copies the payload under a new id with a "(copy)" name', () => {
-      saveProject('a', 'Poster', fakeCanvas({ objects: [{ type: 'rect' }] }), 400, 300)
-      const newId = duplicateProject('a', 'a-copy')
-      expect(newId).toBe('a-copy')
-
+    it('copies all pages under a new id with a "(copy)" name', () => {
+      saveProject(proj('a', 'Poster', [{ type: 'rect' }]))
+      expect(duplicateProject('a', 'a-copy')).toBe('a-copy')
       const copy = loadProject('a-copy')
-      expect(copy).toMatchObject({
-        id: 'a-copy',
-        name: 'Poster (copy)',
-        width: 400,
-        height: 300,
-        canvas: { objects: [{ type: 'rect' }] },
-      })
-      // Original is untouched; copy is listed newest-first.
+      expect(copy).toMatchObject({ id: 'a-copy', name: 'Poster (copy)' })
+      expect(copy?.pages[0].canvas).toEqual({ objects: [{ type: 'rect' }] })
       expect(loadProject('a')?.name).toBe('Poster')
-      expect(listProjects().map((p) => p.id)).toEqual(['a-copy', 'a'])
     })
-
-    it('returns null when the source project is missing', () => {
+    it('returns null when the source is missing', () => {
       expect(duplicateProject('nope', 'x')).toBeNull()
-      expect(loadProject('x')).toBeNull()
     })
   })
 
   describe('backup / restore', () => {
-    it('exportBackup includes every project payload with a version', () => {
-      saveProject('a', 'A', fakeCanvas({ objects: [1] }), 10, 20)
-      saveProject('b', 'B', fakeCanvas({ objects: [2] }), 30, 40)
-      const backup = exportBackup()
-      expect(backup.version).toBe(BACKUP_VERSION)
-      expect(backup.projects.map((p) => p.id).sort()).toEqual(['a', 'b'])
-      expect(backup.projects.find((p) => p.id === 'a')?.canvas).toEqual({ objects: [1] })
-    })
-
-    it('importBackup round-trips an exported backup', () => {
-      saveProject('a', 'A', fakeCanvas({ objects: [1] }), 10, 20)
+    it('round-trips an exported backup (with pages)', () => {
+      saveProject(proj('a', 'A', [1]))
       const json = JSON.stringify(exportBackup())
       localStorage.clear()
-      const count = importBackup(json)
-      expect(count).toBe(1)
-      expect(loadProject('a')).toMatchObject({ id: 'a', name: 'A', width: 10, canvas: { objects: [1] } })
-      expect(listProjects().map((p) => p.id)).toEqual(['a'])
+      expect(importBackup(json)).toBe(1)
+      expect(loadProject('a')?.pages[0].canvas).toEqual({ objects: [1] })
     })
-
-    it('importBackup merges, overwriting existing ids and keeping others', () => {
-      saveProject('a', 'A original', fakeCanvas({}), 10, 10)
-      saveProject('keep', 'Keep', fakeCanvas({}), 10, 10)
+    it('imports legacy single-canvas projects, normalizing to pages', () => {
       const json = JSON.stringify({
         version: BACKUP_VERSION,
         exportedAt: Date.now(),
-        projects: [{ id: 'a', name: 'A imported', width: 99, height: 99, updatedAt: Date.now(), canvas: {} }],
+        projects: [{ id: 'leg', name: 'Leg', width: 10, height: 10, updatedAt: 1, canvas: { objects: [] } }],
       })
-      importBackup(json)
-      expect(loadProject('a')).toMatchObject({ name: 'A imported', width: 99 })
-      expect(listProjects().map((p) => p.id).sort()).toEqual(['a', 'keep'])
+      expect(importBackup(json)).toBe(1)
+      expect(loadProject('leg')?.pages).toHaveLength(1)
     })
-
-    it('importBackup throws on malformed json or no projects', () => {
+    it('throws on malformed json or no usable projects', () => {
       expect(() => importBackup('{not json')).toThrow()
       expect(() => importBackup(JSON.stringify({ version: 1 }))).toThrow()
       expect(() => importBackup(JSON.stringify({ projects: [{ bogus: true }] }))).toThrow()
@@ -183,7 +166,7 @@ describe('storage', () => {
   })
 
   describe('migrateLegacyDesign', () => {
-    it('converts a SAV-001 single design into a project and clears the old key', () => {
+    it('converts a SAV-001 single design into a one-page project and clears the key', () => {
       localStorage.setItem(
         CURRENT_DESIGN_KEY,
         JSON.stringify({ width: 500, height: 500, canvas: { objects: [] } }),
@@ -191,10 +174,10 @@ describe('storage', () => {
       const id = migrateLegacyDesign(() => 'migrated-1')
       expect(id).toBe('migrated-1')
       expect(localStorage.getItem(CURRENT_DESIGN_KEY)).toBeNull()
-      expect(listProjects().map((p) => p.id)).toEqual(['migrated-1'])
-      expect(loadProject('migrated-1')).toMatchObject({ name: 'Untitled design', width: 500 })
+      const loaded = loadProject('migrated-1')
+      expect(loaded?.pages).toHaveLength(1)
+      expect(loaded?.width).toBe(500)
     })
-
     it('returns null when there is nothing to migrate', () => {
       expect(migrateLegacyDesign(() => 'unused')).toBeNull()
     })

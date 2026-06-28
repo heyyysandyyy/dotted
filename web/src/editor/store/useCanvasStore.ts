@@ -9,7 +9,14 @@ import {
   duplicateProject,
   listProjects,
   setCurrentProjectId,
+  EXTRA_PROPS,
+  type PageData,
 } from '../storage'
+
+/** Serialize the live canvas into a page payload. */
+function serializeCanvas(canvas: fabric.Canvas): object {
+  return canvas.toObject(EXTRA_PROPS)
+}
 import { useHistoryStore } from './useHistoryStore'
 
 const DEFAULT_NAME = 'Untitled design'
@@ -24,6 +31,9 @@ export type ShapeKind =
 
 /** Drag-time snapping mode (CLR-004): off, alignment guides, or grid. */
 export type SnapMode = 'none' | 'guides' | 'grid'
+
+/** Canvas view: edit one page, or see all pages stacked (TPL-001). */
+export type ViewMode = 'single' | 'stack'
 
 const SHAPE_FILL = '#4f46e5'
 const SHAPE_STROKE = '#111111'
@@ -43,6 +53,12 @@ interface CanvasState {
   designName: string
   /** Id of the project currently open in the editor (null before first load). */
   currentProjectId: string | null
+  /** Pages of the open design; the active page's content lives in the canvas. */
+  pages: PageData[]
+  /** Id of the page currently shown on the canvas. */
+  activePageId: string
+  /** Whether the editor shows one page or all pages stacked. */
+  viewMode: ViewMode
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
   /** Drag-time snapping mode: off, alignment guides, or grid (CLR-004). */
@@ -66,6 +82,21 @@ interface CanvasState {
   deleteProjectById: (id: string) => void
   /** Duplicate a project; returns the copy's id (or null on failure). */
   duplicateProjectById: (id: string) => string | null
+
+  /** Serialize the live canvas into the active page and persist the project. */
+  saveCurrentProject: () => void
+  /** Add a blank page after the active one and switch to it. */
+  addPage: () => void
+  /** Switch to a page by id, persisting the current page first. */
+  selectPage: (id: string) => void
+  /** Delete a page (no-op when it's the only page). */
+  deletePage: (id: string) => void
+  /** Duplicate a page, inserting the copy right after it. */
+  duplicatePage: (id: string) => void
+  /** Switch between single-page editing and the all-pages stack view. */
+  setViewMode: (mode: ViewMode) => void
+  /** Restore a project state (pages + active page) for undo/redo. */
+  applyHistorySnapshot: (pages: PageData[], activePageId: string) => Promise<void>
 
   /** Set the artboard's solid background colour. */
   setBackgroundColor: (color: string) => void
@@ -112,6 +143,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   tick: 0,
   designName: DEFAULT_NAME,
   currentProjectId: null,
+  pages: [],
+  activePageId: '',
+  viewMode: 'single',
   backgroundColor: '#ffffff',
   snapMode: 'guides',
 
@@ -133,23 +167,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   newProject: (width, height) => {
     const { canvas } = get()
     const id = crypto.randomUUID()
+    const pageId = crypto.randomUUID()
     if (canvas) {
       canvas.clear()
       canvas.backgroundColor = '#ffffff'
       canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
     }
+    const pages: PageData[] = [{ id: pageId, canvas: canvas ? serializeCanvas(canvas) : { objects: [] } }]
     set({
       width,
       height,
       selection: [],
       designName: DEFAULT_NAME,
       currentProjectId: id,
+      pages,
+      activePageId: pageId,
       backgroundColor: '#ffffff',
     })
     setCurrentProjectId(id)
     // Persist the fresh blank project immediately so it appears in the list.
-    if (canvas) saveProject(id, DEFAULT_NAME, canvas, width, height)
+    saveProject({ id, name: DEFAULT_NAME, width, height, pages, activePageId: pageId })
     useHistoryStore.getState().reset()
   },
 
@@ -157,16 +195,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { canvas } = get()
     const proj = loadProject(id)
     if (!canvas || !proj) return
+    const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0]
     set({
       width: proj.width,
       height: proj.height,
       selection: [],
       designName: proj.name,
       currentProjectId: id,
+      pages: proj.pages,
+      activePageId: active.id,
     })
     canvas.setDimensions({ width: proj.width, height: proj.height })
     setCurrentProjectId(id)
-    canvas.loadFromJSON(proj.canvas).then(() => {
+    canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
       // Mirror the restored background colour for the controls.
       get().syncBackgroundFromCanvas()
@@ -176,10 +217,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   renameProject: () => {
-    const { canvas, currentProjectId, designName, width, height } = get()
-    if (!canvas || !currentProjectId) return
+    if (!get().currentProjectId) return
     // Re-persist so the project index reflects the new name.
-    saveProject(currentProjectId, designName, canvas, width, height)
+    get().saveCurrentProject()
   },
 
   deleteProjectById: (id) => {
@@ -193,13 +233,115 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   duplicateProjectById: (id) => {
-    const { canvas, currentProjectId, designName, width, height } = get()
     // If duplicating the open project, flush its latest edits first so the
     // copy captures the on-screen state, not just the last debounced save.
-    if (id === currentProjectId && canvas) {
-      saveProject(currentProjectId, designName, canvas, width, height)
-    }
+    if (id === get().currentProjectId) get().saveCurrentProject()
     return duplicateProject(id, crypto.randomUUID())
+  },
+
+  saveCurrentProject: () => {
+    const { canvas, currentProjectId, designName, width, height, pages, activePageId } = get()
+    if (!canvas || !currentProjectId) return
+    // Sync the active page from the live canvas, then persist all pages.
+    const synced = pages.map((p) =>
+      p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
+    )
+    set({ pages: synced })
+    saveProject({ id: currentProjectId, name: designName, width, height, pages: synced, activePageId })
+  },
+
+  addPage: () => {
+    const { canvas, pages, activePageId } = get()
+    if (!canvas) return
+    // Capture the current page, then start a blank one after it.
+    const synced = pages.map((p) =>
+      p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
+    )
+    const newPageId = crypto.randomUUID()
+    canvas.clear()
+    canvas.backgroundColor = '#ffffff'
+    canvas.requestRenderAll()
+    const idx = synced.findIndex((p) => p.id === activePageId)
+    const next = [
+      ...synced.slice(0, idx + 1),
+      { id: newPageId, canvas: serializeCanvas(canvas) },
+      ...synced.slice(idx + 1),
+    ]
+    set({ pages: next, activePageId: newPageId, selection: [], backgroundColor: '#ffffff' })
+    // Record so adding a page is undoable (record() also auto-saves).
+    useHistoryStore.getState().record()
+  },
+
+  selectPage: (pageId) => {
+    const { canvas, pages, activePageId } = get()
+    if (!canvas || pageId === activePageId) return
+    const synced = pages.map((p) =>
+      p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
+    )
+    const target = synced.find((p) => p.id === pageId)
+    if (!target) return
+    set({ pages: synced, activePageId: pageId, selection: [] })
+    canvas.loadFromJSON(target.canvas).then(() => {
+      canvas.requestRenderAll()
+      get().syncBackgroundFromCanvas()
+      useHistoryStore.getState().record()
+    })
+  },
+
+  duplicatePage: (pageId) => {
+    const { canvas, pages, activePageId } = get()
+    // Sync the active page from the live canvas first so a duplicate of it
+    // captures the latest edits.
+    const synced = canvas
+      ? pages.map((p) => (p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p))
+      : pages
+    const idx = synced.findIndex((p) => p.id === pageId)
+    if (idx < 0) return
+    const copy: PageData = { id: crypto.randomUUID(), canvas: structuredClone(synced[idx].canvas) }
+    const next = [...synced.slice(0, idx + 1), copy, ...synced.slice(idx + 1)]
+    set({ pages: next })
+    // Record so duplicating a page is undoable (record() also auto-saves).
+    useHistoryStore.getState().record()
+  },
+
+  setViewMode: (mode) => {
+    // Flush the live canvas into the active page so previews are current.
+    if (mode === 'stack') get().saveCurrentProject()
+    set({ viewMode: mode })
+  },
+
+  applyHistorySnapshot: (pages, activePageId) => {
+    const { canvas } = get()
+    if (!canvas) return Promise.resolve()
+    const active = pages.find((p) => p.id === activePageId) ?? pages[0]
+    set({ pages, activePageId: active.id, selection: [] })
+    return canvas.loadFromJSON(active.canvas).then(() => {
+      canvas.requestRenderAll()
+      get().syncBackgroundFromCanvas()
+    })
+  },
+
+  deletePage: (pageId) => {
+    const { canvas, pages, activePageId } = get()
+    if (!canvas || pages.length <= 1) return
+    const idx = pages.findIndex((p) => p.id === pageId)
+    if (idx < 0) return
+    const remaining = pages.filter((p) => p.id !== pageId)
+
+    if (pageId !== activePageId) {
+      set({ pages: remaining })
+      // Record so deleting a page is undoable (record() also auto-saves).
+      useHistoryStore.getState().record()
+      return
+    }
+    // Deleting the active page → switch to a neighbour.
+    const neighbour = remaining[Math.min(idx, remaining.length - 1)]
+    set({ pages: remaining, activePageId: neighbour.id, selection: [] })
+    canvas.loadFromJSON(neighbour.canvas).then(() => {
+      canvas.requestRenderAll()
+      get().syncBackgroundFromCanvas()
+      useHistoryStore.getState().record()
+    })
   },
 
   setBackgroundColor: (color) => {
