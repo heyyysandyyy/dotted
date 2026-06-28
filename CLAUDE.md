@@ -33,7 +33,7 @@
 - [x] SAV-004 JSON backup and restore
 - [x] CLR-001 Canvas background colour and image
 - [x] CLR-002 Colour picker with opacity
-- [ ] CLR-003 Custom colour palettes
+- [x] CLR-003 Custom colour palettes
 - [ ] CLR-004 Snap-to-grid and alignment guides
 - [ ] TPL-001 Multi-page designs
 - [ ] TPL-002 Duplicate a page
