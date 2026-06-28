@@ -6,6 +6,10 @@ export const CURRENT_DESIGN_KEY = 'dotted:currentDesign'
 export const PROJECTS_INDEX_KEY = 'dotted:projects'
 /** Id of the project currently open in the editor. */
 export const CURRENT_PROJECT_KEY = 'dotted:currentProjectId'
+/** User's saved custom colour palette (shared across projects). */
+export const PALETTE_KEY = 'dotted:palette'
+/** Cap on saved palette swatches. */
+export const MAX_PALETTE = 24
 
 const projectPayloadKey = (id: string) => `dotted:project:${id}`
 
@@ -141,6 +145,43 @@ export function setCurrentProjectId(id: string): void {
   } catch {
     // Ignore — the in-memory store still tracks the current project.
   }
+}
+
+/** The user's saved custom palette colours (newest first). */
+export function getPalette(): string[] {
+  try {
+    const raw = localStorage.getItem(PALETTE_KEY)
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Add a colour to the front of the palette (de-duped, capped). Returns the new list. */
+export function addPaletteColor(color: string): string[] {
+  const next = [color, ...getPalette().filter((c) => c.toLowerCase() !== color.toLowerCase())].slice(
+    0,
+    MAX_PALETTE,
+  )
+  try {
+    localStorage.setItem(PALETTE_KEY, JSON.stringify(next))
+  } catch {
+    // Storage unavailable — return the computed list anyway.
+  }
+  return next
+}
+
+/** Remove a colour from the palette. Returns the new list. */
+export function removePaletteColor(color: string): string[] {
+  const next = getPalette().filter((c) => c !== color)
+  try {
+    localStorage.setItem(PALETTE_KEY, JSON.stringify(next))
+  } catch {
+    // Storage unavailable — return the computed list anyway.
+  }
+  return next
 }
 
 /** Current schema version for exported backup files. */

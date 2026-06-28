@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import tinycolor from 'tinycolor2'
 import { toColorString } from '../utils'
+import { getPalette, addPaletteColor, removePaletteColor } from '../storage'
 
 interface Props {
   label: string
@@ -27,9 +29,13 @@ const CHECKER: React.CSSProperties = {
  */
 export function ColorField({ label, value, onChange }: Props) {
   const [open, setOpen] = useState(false)
+  // Bump to re-read the saved palette after add/remove.
+  const [, refreshPalette] = useState(0)
   const color = tinycolor(value || '#000000')
   const hex = color.toHexString()
   const alphaPct = Math.round(color.getAlpha() * 100)
+  const current = toColorString(hex, alphaPct)
+  const palette = open ? getPalette() : []
 
   const emit = (nextHex: string, nextAlphaPct: number) => {
     onChange(toColorString(nextHex, nextAlphaPct))
@@ -71,6 +77,46 @@ export function ColorField({ label, value, onChange }: Props) {
               onChange={(e) => emit(hex, Number(e.target.value))}
               className="w-full accent-indigo-500"
             />
+
+            {/* Custom palette (CLR-003) — shared across projects. */}
+            <div className="mt-3 flex items-center justify-between text-[11px] text-neutral-400">
+              <span>Palette</span>
+              <button
+                type="button"
+                onClick={() => {
+                  addPaletteColor(current)
+                  refreshPalette((n) => n + 1)
+                }}
+                title="Save current colour"
+                className="flex items-center gap-0.5 text-neutral-300 hover:text-white"
+              >
+                <Plus size={12} />
+                Save
+              </button>
+            </div>
+            {palette.length === 0 ? (
+              <p className="mt-1 text-[11px] text-neutral-600">No saved colours yet</p>
+            ) : (
+              <div className="mt-1 grid grid-cols-8 gap-1">
+                {palette.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => onChange(c)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      removePaletteColor(c)
+                      refreshPalette((n) => n + 1)
+                    }}
+                    title={`${c} — click to apply, right-click to remove`}
+                    className="h-4 w-4 overflow-hidden rounded border border-neutral-700"
+                    style={CHECKER}
+                  >
+                    <span className="block h-full w-full" style={{ backgroundColor: c }} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

@@ -15,6 +15,10 @@ import {
   getCurrentProjectId,
   setCurrentProjectId,
   migrateLegacyDesign,
+  getPalette,
+  addPaletteColor,
+  removePaletteColor,
+  MAX_PALETTE,
 } from './storage'
 
 // Minimal canvas stand-in — storage only ever calls toObject(props).
@@ -23,6 +27,37 @@ const fakeCanvas = (obj: object): fabric.Canvas =>
 
 describe('storage', () => {
   beforeEach(() => localStorage.clear())
+
+  describe('palette', () => {
+    it('adds colours newest-first and round-trips', () => {
+      addPaletteColor('#ff0000')
+      addPaletteColor('#00ff00')
+      expect(getPalette()).toEqual(['#00ff00', '#ff0000'])
+    })
+
+    it('de-dupes case-insensitively, moving the colour to the front', () => {
+      addPaletteColor('#ABCDEF')
+      addPaletteColor('#111111')
+      const list = addPaletteColor('#abcdef')
+      expect(list).toEqual(['#abcdef', '#111111'])
+    })
+
+    it('caps the palette at MAX_PALETTE', () => {
+      for (let i = 0; i < MAX_PALETTE + 5; i++) addPaletteColor(`rgba(0,0,0,${i / 100})`)
+      expect(getPalette()).toHaveLength(MAX_PALETTE)
+    })
+
+    it('removes a colour', () => {
+      addPaletteColor('#ff0000')
+      addPaletteColor('#00ff00')
+      expect(removePaletteColor('#ff0000')).toEqual(['#00ff00'])
+    })
+
+    it('returns [] for a corrupt palette (fail soft)', () => {
+      localStorage.setItem('dotted:palette', '{not json')
+      expect(getPalette()).toEqual([])
+    })
+  })
 
   it('serializeDesign captures width, height and the canvas json', () => {
     const data = serializeDesign(fakeCanvas({ objects: [] }), 800, 600)
