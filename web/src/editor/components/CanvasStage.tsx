@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import * as fabric from 'fabric'
+import { AligningGuidelines } from 'fabric/extensions'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 import {
@@ -8,7 +9,7 @@ import {
   listProjects,
   migrateLegacyDesign,
 } from '../storage'
-import { DARK_SURROUND } from '../constants'
+import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
 
 const PADDING = 56
 
@@ -38,6 +39,9 @@ export function CanvasStage() {
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
   const backgroundColor = useCanvasStore((s) => s.backgroundColor)
+  const canvas = useCanvasStore((s) => s.canvas)
+  const snapEnabled = useCanvasStore((s) => s.snapEnabled)
+  const gridEnabled = useCanvasStore((s) => s.gridEnabled)
 
   // Create the fabric canvas once.
   useEffect(() => {
@@ -106,6 +110,29 @@ export function CanvasStage() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [width, height, setZoom])
+
+  // CLR-004: smart alignment guides while dragging (suppressed when the grid
+  // is on, so the two snapping modes don't fight).
+  useEffect(() => {
+    if (!canvas || !snapEnabled || gridEnabled) return
+    const guidelines = new AligningGuidelines(canvas, { margin: SNAP_MARGIN, color: '#ec4899' })
+    return () => guidelines.dispose()
+  }, [canvas, snapEnabled, gridEnabled])
+
+  // CLR-004: snap object positions to a fixed grid while dragging.
+  useEffect(() => {
+    if (!canvas || !gridEnabled) return
+    const onMoving = (e: { target?: fabric.FabricObject }) => {
+      const obj = e.target
+      if (!obj) return
+      obj.set({
+        left: Math.round((obj.left ?? 0) / GRID_SIZE) * GRID_SIZE,
+        top: Math.round((obj.top ?? 0) / GRID_SIZE) * GRID_SIZE,
+      })
+    }
+    canvas.on('object:moving', onMoving)
+    return () => canvas.off('object:moving', onMoving)
+  }, [canvas, gridEnabled])
 
   return (
     <div

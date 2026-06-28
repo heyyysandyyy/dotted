@@ -1,4 +1,4 @@
-import { Undo2, Redo2, Download, FolderOpen } from 'lucide-react'
+import { Undo2, Redo2, Download, FolderOpen, Magnet, Grid3x3 } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
@@ -15,6 +15,10 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
   const designName = useCanvasStore((s) => s.designName)
   const setDesignName = useCanvasStore((s) => s.setDesignName)
   const renameProject = useCanvasStore((s) => s.renameProject)
+  const snapEnabled = useCanvasStore((s) => s.snapEnabled)
+  const gridEnabled = useCanvasStore((s) => s.gridEnabled)
+  const toggleSnap = useCanvasStore((s) => s.toggleSnap)
+  const toggleGrid = useCanvasStore((s) => s.toggleGrid)
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -69,6 +73,29 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
           className="rounded-md p-1.5 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Redo2 size={16} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          onClick={toggleSnap}
+          title="Alignment guides"
+          aria-pressed={snapEnabled}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            snapEnabled ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Magnet size={16} />
+        </button>
+        <button
+          onClick={toggleGrid}
+          title="Snap to grid"
+          aria-pressed={gridEnabled}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            gridEnabled ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Grid3x3 size={16} />
         </button>
       </div>
 

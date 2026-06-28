@@ -42,6 +42,10 @@ interface CanvasState {
   currentProjectId: string | null
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
+  /** Smart alignment guides on while dragging (CLR-004). */
+  snapEnabled: boolean
+  /** Snap object positions to a fixed grid while dragging (CLR-004). */
+  gridEnabled: boolean
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -70,6 +74,10 @@ interface CanvasState {
   clearBackground: () => void
   /** Refresh the backgroundColor mirror from the live canvas (after load/undo). */
   syncBackgroundFromCanvas: () => void
+  /** Toggle smart alignment guides. */
+  toggleSnap: () => void
+  /** Toggle snap-to-grid. */
+  toggleGrid: () => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -106,6 +114,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   designName: DEFAULT_NAME,
   currentProjectId: null,
   backgroundColor: '#ffffff',
+  snapEnabled: true,
+  gridEnabled: false,
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -240,6 +250,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!canvas) return
     set({ backgroundColor: typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '' })
   },
+
+  toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+  toggleGrid: () => set((s) => ({ gridEnabled: !s.gridEnabled })),
 
   addObject: (obj) => {
     const { canvas } = get()
