@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { exportPNG, exportJPEG, exportPDF, DEFAULT_JPEG_QUALITY } from '../exporters'
+import { exportPNG, exportJPEG, exportPDF, exportSVG, DEFAULT_JPEG_QUALITY } from '../exporters'
 
 interface Props {
   open: boolean
   onClose: () => void
 }
 
-type Format = 'png' | 'jpeg' | 'pdf'
+type Format = 'png' | 'jpeg' | 'pdf' | 'svg'
 
 export function ExportModal({ open, onClose }: Props) {
   const canvas = useCanvasStore((s) => s.canvas)
@@ -29,6 +29,7 @@ export function ExportModal({ open, onClose }: Props) {
         console.error('PDF export failed', err)
       })
     }
+    else if (format === 'svg') exportSVG(canvas, designName)
     onClose()
   }
 
@@ -48,7 +49,7 @@ export function ExportModal({ open, onClose }: Props) {
             Format
           </div>
           <div className="flex gap-2">
-            {(['png', 'jpeg', 'pdf'] as Format[]).map((f) => (
+            {(['png', 'jpeg', 'pdf', 'svg'] as Format[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}
@@ -82,26 +83,29 @@ export function ExportModal({ open, onClose }: Props) {
           </div>
         )}
 
-        <div className="mb-5">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-            Scale
+        {/* SVG is vector and resolution-independent, so scale does not apply. */}
+        {format !== 'svg' && (
+          <div className="mb-5">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Scale
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setScale(s)}
+                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+                    scale === s
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
+                      : 'border-neutral-300 text-neutral-700 hover:border-neutral-500'
+                  }`}
+                >
+                  {s}×
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {[1, 2, 3].map((s) => (
-              <button
-                key={s}
-                onClick={() => setScale(s)}
-                className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                  scale === s
-                    ? 'border-neutral-900 bg-neutral-900 text-white'
-                    : 'border-neutral-300 text-neutral-700 hover:border-neutral-500'
-                }`}
-              >
-                {s}×
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <button

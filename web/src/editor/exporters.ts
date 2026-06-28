@@ -89,3 +89,21 @@ export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) 
   pdf.addImage(dataUrl, 'PNG', 0, 0, pageW, pageH)
   pdf.save(`${slugify(name)}.pdf`)
 }
+
+/**
+ * Export the canvas as an SVG. SVG is vector and resolution-independent, so
+ * there is no scale or quality option. fabric's toSVG serializes the artboard
+ * (including its background) to markup, which we hand to the browser as a Blob.
+ *
+ * fabric 7 escapes text and gradient colour stops during SVG serialization
+ * (the fix for the SVG-export stored-XSS advisories), so no extra sanitization
+ * is needed here.
+ */
+export function exportSVG(canvas: fabric.Canvas, name: string) {
+  const svg = canvas.toSVG()
+  const blob = new Blob([svg], { type: 'image/svg+xml' })
+  const url = URL.createObjectURL(blob)
+  downloadUrl(url, `${slugify(name)}.svg`)
+  // Free the object URL after the synchronous download click has fired.
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
