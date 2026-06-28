@@ -46,6 +46,14 @@ No co-authoring or AI attribution anywhere — not in the PR title/body and not 
 any commit message. That means no "Co-Authored-By" trailer, no "Generated with
 Claude Code" line, and no 🤖 footer.
 
+This also applies at squash-merge. GitHub auto-fills the merge commit with
+`Co-authored-by` lines, and bot PRs (Dependabot) carry a `Signed-off-by:
+dependabot[bot]` / `Co-authored-by: dependabot[bot]` signature in their commits.
+Always merge with an explicit, clean commit message so none of that reaches
+`main`, e.g.:
+
+    gh pr merge <n> --squash --delete-branch --subject "<clean subject>" --body ""
+
 ## Files
 - `.claude/commands/ticket.md` — `/ticket <ID>`, implement one ticket then PR
 - `.claude/commands/review-dotted.md` — `/review-dotted`, the review skill
