@@ -15,10 +15,8 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
   const designName = useCanvasStore((s) => s.designName)
   const setDesignName = useCanvasStore((s) => s.setDesignName)
   const renameProject = useCanvasStore((s) => s.renameProject)
-  const snapEnabled = useCanvasStore((s) => s.snapEnabled)
-  const gridEnabled = useCanvasStore((s) => s.gridEnabled)
-  const toggleSnap = useCanvasStore((s) => s.toggleSnap)
-  const toggleGrid = useCanvasStore((s) => s.toggleGrid)
+  const snapMode = useCanvasStore((s) => s.snapMode)
+  const setSnapMode = useCanvasStore((s) => s.setSnapMode)
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -76,23 +74,25 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
         </button>
       </div>
 
+      {/* Snapping (CLR-004) — guides and grid are mutually exclusive; clicking
+          the active one again turns snapping off. */}
       <div className="flex items-center gap-1">
         <button
-          onClick={toggleSnap}
+          onClick={() => setSnapMode(snapMode === 'guides' ? 'none' : 'guides')}
           title="Alignment guides"
-          aria-pressed={snapEnabled}
+          aria-pressed={snapMode === 'guides'}
           className={`rounded-md p-1.5 hover:bg-neutral-800 ${
-            snapEnabled ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+            snapMode === 'guides' ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
           }`}
         >
           <Magnet size={16} />
         </button>
         <button
-          onClick={toggleGrid}
+          onClick={() => setSnapMode(snapMode === 'grid' ? 'none' : 'grid')}
           title="Snap to grid"
-          aria-pressed={gridEnabled}
+          aria-pressed={snapMode === 'grid'}
           className={`rounded-md p-1.5 hover:bg-neutral-800 ${
-            gridEnabled ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+            snapMode === 'grid' ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
           }`}
         >
           <Grid3x3 size={16} />

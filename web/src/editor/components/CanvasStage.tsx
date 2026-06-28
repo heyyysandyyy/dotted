@@ -40,8 +40,7 @@ export function CanvasStage() {
   const zoom = useCanvasStore((s) => s.zoom)
   const backgroundColor = useCanvasStore((s) => s.backgroundColor)
   const canvas = useCanvasStore((s) => s.canvas)
-  const snapEnabled = useCanvasStore((s) => s.snapEnabled)
-  const gridEnabled = useCanvasStore((s) => s.gridEnabled)
+  const snapMode = useCanvasStore((s) => s.snapMode)
 
   // Create the fabric canvas once.
   useEffect(() => {
@@ -111,17 +110,16 @@ export function CanvasStage() {
     return () => ro.disconnect()
   }, [width, height, setZoom])
 
-  // CLR-004: smart alignment guides while dragging (suppressed when the grid
-  // is on, so the two snapping modes don't fight).
+  // CLR-004: smart alignment guides while dragging (snap mode 'guides').
   useEffect(() => {
-    if (!canvas || !snapEnabled || gridEnabled) return
+    if (!canvas || snapMode !== 'guides') return
     const guidelines = new AligningGuidelines(canvas, { margin: SNAP_MARGIN, color: '#ec4899' })
     return () => guidelines.dispose()
-  }, [canvas, snapEnabled, gridEnabled])
+  }, [canvas, snapMode])
 
-  // CLR-004: snap object positions to a fixed grid while dragging.
+  // CLR-004: snap object positions to a fixed grid while dragging (mode 'grid').
   useEffect(() => {
-    if (!canvas || !gridEnabled) return
+    if (!canvas || snapMode !== 'grid') return
     const onMoving = (e: { target?: fabric.FabricObject }) => {
       const obj = e.target
       if (!obj) return
@@ -132,7 +130,7 @@ export function CanvasStage() {
     }
     canvas.on('object:moving', onMoving)
     return () => canvas.off('object:moving', onMoving)
-  }, [canvas, gridEnabled])
+  }, [canvas, snapMode])
 
   return (
     <div
