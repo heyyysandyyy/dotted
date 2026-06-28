@@ -31,7 +31,7 @@
 - [x] SAV-002 Named projects and project list
 - [x] SAV-003 Duplicate a design
 - [x] SAV-004 JSON backup and restore
-- [ ] CLR-001 Canvas background colour and image
+- [x] CLR-001 Canvas background colour and image
 - [ ] CLR-002 Colour picker with opacity
 - [ ] CLR-003 Custom colour palettes
 - [ ] CLR-004 Snap-to-grid and alignment guides
