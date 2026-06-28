@@ -19,7 +19,8 @@ reorder tickets.
 - All design data lives in localStorage. No backend/network calls.
 - TypeScript strict: `import type` for types, no enums (use const objects /
   unions), no unused locals/params.
-- Commit messages: `feat: $1 <title>`. **No `Co-Authored-By` trailer.**
+- Commit messages: `feat: $1 <title>`. **No `Co-Authored-By` trailer of any kind**
+  — single-author only (not AI, not bots, not even the repo owner's name).
 
 ## Steps
 1. Read the acceptance criteria for **$1** from `CLAUDE.md`.
@@ -31,8 +32,9 @@ reorder tickets.
 5. `cd web && npm test -- --run --passWithNoTests` — fix failures.
 6. Re-read the acceptance criteria and self-check each one. Do a quick security
    pass (no network calls, file-type guards on uploads, no secrets committed).
-7. Stage and commit: `git commit -m "feat: $1 <title>"`. No co-author trailer and
-   no AI/Claude/Anthropic attribution of any kind in the message.
+7. Stage and commit: `git commit -m "feat: $1 <title>"`. No `Co-Authored-By`
+   trailer of any kind and no AI attribution — commits are single-author (not
+   AI, not bots, not even the repo owner's name as a co-author).
 8. Run the review locally before pushing: invoke `/review-dotted` on this
    commit's diff. This is the soft gate (it runs on the Pro subscription, no
    API cost). Address anything it flags, then re-commit.
@@ -49,9 +51,10 @@ reorder tickets.
     - **Review** — paste the `/review-dotted` verdict.
     - `Closes #<issue-number>` if a matching issue exists.
 
-    The PR title and body must contain **no co-authoring and no AI/Claude/Anthropic
-    attribution** — no "Co-Authored-By", no "Generated with Claude Code", no 🤖
-    footer. The same applies to every commit message in the branch.
+    The PR title and body must contain **no co-authoring of any kind and no AI
+    attribution** — no "Co-Authored-By" (not for AI, bots, or the repo owner), no
+    "Generated with Claude Code", no 🤖 footer. Everything is single-author. The
+    same applies to every commit message in the branch.
 11. Print the PR URL. Do not merge — a human merges after CI passes.
 
 ## After a merge (next run)

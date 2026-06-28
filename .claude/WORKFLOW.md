@@ -42,9 +42,10 @@ results + manual steps), **Review** (the `/review-dotted` verdict), and
 `Closes #<issue>` when applicable. If `gh` isn't installed, open the PR via a
 pre-filled GitHub compare URL with the title and body encoded.
 
-No co-authoring or AI attribution anywhere — not in the PR title/body and not in
-any commit message. That means no "Co-Authored-By" trailer, no "Generated with
-Claude Code" line, and no 🤖 footer.
+No co-authoring of any kind, and no AI attribution, anywhere — not in the PR
+title/body and not in any commit message. Commits and PRs are single-author:
+that means no "Co-Authored-By" trailer for *anyone* (not AI, not bots, not even
+the repo owner), no "Generated with Claude Code" line, and no 🤖 footer.
 
 This also applies at squash-merge. GitHub auto-fills the merge commit with
 `Co-authored-by` lines, and bot PRs (Dependabot) carry a `Signed-off-by:
