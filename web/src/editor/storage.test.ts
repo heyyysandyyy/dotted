@@ -17,7 +17,12 @@ import {
   addPaletteColor,
   removePaletteColor,
   MAX_PALETTE,
+  listTemplates,
+  loadTemplate,
+  saveTemplate,
+  deleteTemplate,
   type ProjectInput,
+  type StoredTemplate,
 } from './storage'
 
 const projectKey = (id: string) => `dotted:project:${id}`
@@ -162,6 +167,37 @@ describe('storage', () => {
       expect(() => importBackup('{not json')).toThrow()
       expect(() => importBackup(JSON.stringify({ version: 1 }))).toThrow()
       expect(() => importBackup(JSON.stringify({ projects: [{ bogus: true }] }))).toThrow()
+    })
+  })
+
+  describe('templates (TPL-004)', () => {
+    const tpl = (id: string, name = 'T'): StoredTemplate => ({
+      id,
+      name,
+      width: 200,
+      height: 200,
+      pages: [{ id: `${id}-pg`, canvas: { objects: [{ type: 'rect' }] } }],
+    })
+
+    it('saves and loads a template, indexed newest-first with page count', () => {
+      expect(saveTemplate(tpl('a', 'Alpha'))).toBe(true)
+      expect(saveTemplate(tpl('b', 'Beta'))).toBe(true)
+      expect(listTemplates().map((t) => t.id)).toEqual(['b', 'a'])
+      expect(listTemplates()[0]).toMatchObject({ id: 'b', name: 'Beta', pageCount: 1 })
+      expect(loadTemplate('a')?.pages[0].canvas).toEqual({ objects: [{ type: 'rect' }] })
+    })
+
+    it('deletes a template', () => {
+      saveTemplate(tpl('a'))
+      saveTemplate(tpl('b'))
+      deleteTemplate('a')
+      expect(loadTemplate('a')).toBeNull()
+      expect(listTemplates().map((t) => t.id)).toEqual(['b'])
+    })
+
+    it('listTemplates fails soft on a corrupt index', () => {
+      localStorage.setItem('dotted:templates', '{not json')
+      expect(listTemplates()).toEqual([])
     })
   })
 

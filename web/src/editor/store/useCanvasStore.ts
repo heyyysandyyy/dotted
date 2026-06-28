@@ -9,6 +9,8 @@ import {
   duplicateProject,
   listProjects,
   setCurrentProjectId,
+  saveTemplate,
+  loadTemplate,
   EXTRA_PROPS,
   type PageData,
 } from '../storage'
@@ -77,6 +79,10 @@ interface CanvasState {
   newProject: (w: number, h: number) => void
   /** Start a new project pre-filled from a starter template (TPL-003). */
   newProjectFromTemplate: (tpl: StarterTemplate) => void
+  /** Save the current design as a reusable template (TPL-004). */
+  saveAsTemplate: (name: string) => boolean
+  /** Start a new project from a user-saved template by id (TPL-004). */
+  newProjectFromSavedTemplate: (templateId: string) => void
   /** Load a saved project by id, replacing the canvas contents. */
   openProject: (id: string) => void
   /** Persist the current project's name (after the user edits it). */
@@ -207,6 +213,54 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     // Template content is the starting point, so reset history to it.
     useHistoryStore.getState().reset()
     get().saveCurrentProject()
+  },
+
+  saveAsTemplate: (name) => {
+    const { canvas, designName, width, height, pages, activePageId } = get()
+    if (!canvas) return false
+    // Snapshot all pages (active synced from the live canvas), independent of
+    // the project so later edits don't mutate the template.
+    const snapPages = pages.map((p) => ({
+      id: p.id,
+      canvas: structuredClone(p.id === activePageId ? serializeCanvas(canvas) : p.canvas),
+    }))
+    return saveTemplate({
+      id: crypto.randomUUID(),
+      name: name.trim() || designName,
+      width,
+      height,
+      pages: snapPages,
+    })
+  },
+
+  newProjectFromSavedTemplate: (templateId) => {
+    const { canvas } = get()
+    const tpl = loadTemplate(templateId)
+    if (!canvas || !tpl) return
+    const id = crypto.randomUUID()
+    // Fresh page ids so the new project is fully independent of the template.
+    const pages: PageData[] = tpl.pages.map((p) => ({
+      id: crypto.randomUUID(),
+      canvas: structuredClone(p.canvas),
+    }))
+    const active = pages[0]
+    set({
+      width: tpl.width,
+      height: tpl.height,
+      selection: [],
+      designName: tpl.name,
+      currentProjectId: id,
+      pages,
+      activePageId: active.id,
+    })
+    canvas.setDimensions({ width: tpl.width, height: tpl.height })
+    setCurrentProjectId(id)
+    saveProject({ id, name: tpl.name, width: tpl.width, height: tpl.height, pages, activePageId: active.id })
+    canvas.loadFromJSON(active.canvas).then(() => {
+      canvas.requestRenderAll()
+      get().syncBackgroundFromCanvas()
+      useHistoryStore.getState().reset()
+    })
   },
 
   openProject: (id) => {

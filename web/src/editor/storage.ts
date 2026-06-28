@@ -8,8 +8,11 @@ export const CURRENT_PROJECT_KEY = 'dotted:currentProjectId'
 export const PALETTE_KEY = 'dotted:palette'
 /** Cap on saved palette swatches. */
 export const MAX_PALETTE = 24
+/** Index of user-saved templates (TPL-004). */
+export const TEMPLATES_INDEX_KEY = 'dotted:templates'
 
 const projectPayloadKey = (id: string) => `dotted:project:${id}`
+const templatePayloadKey = (id: string) => `dotted:template:${id}`
 
 /** Fabric props persisted beyond the defaults (custom ids/names, lock flags). */
 export const EXTRA_PROPS = ['selectable', 'name', 'id', 'lockUniScaling']
@@ -43,6 +46,24 @@ export interface StoredProject {
 
 /** What callers hand to saveProject (updatedAt is stamped on write). */
 export type ProjectInput = Omit<StoredProject, 'updatedAt'>
+
+/** Lightweight descriptor for a user-saved template (TPL-004). */
+export interface TemplateMeta {
+  id: string
+  name: string
+  width: number
+  height: number
+  pageCount: number
+}
+
+/** A user-saved template: a design's pages, reusable as a starting point. */
+export interface StoredTemplate {
+  id: string
+  name: string
+  width: number
+  height: number
+  pages: PageData[]
+}
 
 /**
  * Normalize a parsed payload into a StoredProject, upgrading the legacy
@@ -181,6 +202,60 @@ export function setCurrentProjectId(id: string): void {
     localStorage.setItem(CURRENT_PROJECT_KEY, id)
   } catch {
     // Ignore — the in-memory store still tracks the current project.
+  }
+}
+
+/** User-saved templates, newest first. Fails soft to an empty list. */
+export function listTemplates(): TemplateMeta[] {
+  try {
+    const raw = localStorage.getItem(TEMPLATES_INDEX_KEY)
+    if (!raw) return []
+    const list = JSON.parse(raw) as TemplateMeta[]
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+export function loadTemplate(id: string): StoredTemplate | null {
+  try {
+    const raw = localStorage.getItem(templatePayloadKey(id))
+    if (!raw) return null
+    return JSON.parse(raw) as StoredTemplate
+  } catch {
+    return null
+  }
+}
+
+/** Save a design as a reusable template (payload + index upsert). Fails soft. */
+export function saveTemplate(tpl: StoredTemplate): boolean {
+  try {
+    localStorage.setItem(templatePayloadKey(tpl.id), JSON.stringify(tpl))
+    const meta: TemplateMeta = {
+      id: tpl.id,
+      name: tpl.name,
+      width: tpl.width,
+      height: tpl.height,
+      pageCount: tpl.pages.length,
+    }
+    const list = listTemplates().filter((t) => t.id !== tpl.id)
+    list.unshift(meta)
+    localStorage.setItem(TEMPLATES_INDEX_KEY, JSON.stringify(list))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function deleteTemplate(id: string): void {
+  try {
+    localStorage.removeItem(templatePayloadKey(id))
+    localStorage.setItem(
+      TEMPLATES_INDEX_KEY,
+      JSON.stringify(listTemplates().filter((t) => t.id !== id)),
+    )
+  } catch {
+    // Storage unavailable — nothing more we can do.
   }
 }
 
