@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { fabric } from 'fabric'
+import * as fabric from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { saveCurrentDesign } from '../storage'
@@ -23,7 +23,7 @@ interface CanvasState {
   /** Display scale applied to the artboard so it fits the viewport. */
   zoom: number
   /** Currently selected objects (mirror of fabric's active selection). */
-  selection: fabric.Object[]
+  selection: fabric.FabricObject[]
   /** Bumped whenever a selected object is transformed, to refresh read-outs. */
   tick: number
   /** Editable design name (used for filenames and the project list). */
@@ -32,7 +32,7 @@ interface CanvasState {
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
   setDesignName: (name: string) => void
-  setSelection: (objs: fabric.Object[]) => void
+  setSelection: (objs: fabric.FabricObject[]) => void
   bump: () => void
 
   /** Resize the artboard, preserving existing objects. */
@@ -41,7 +41,7 @@ interface CanvasState {
   newDesign: (w: number, h: number) => void
 
   /** Canonical way to add an object: every tool routes through here. */
-  addObject: (obj: fabric.Object) => void
+  addObject: (obj: fabric.FabricObject) => void
   /** Quick-add a default rectangle (used to test selection/transform). */
   addBox: () => void
   /** Add a shape from the shape library. */
@@ -54,11 +54,11 @@ interface CanvasState {
    *  Typed against Textbox so text + shape props are both accepted. */
   updateActive: (props: Partial<fabric.Textbox>) => void
   /** Programmatically select a single object (e.g. from the layers panel). */
-  selectObject: (obj: fabric.Object) => void
+  selectObject: (obj: fabric.FabricObject) => void
   /** Show or hide an object. */
-  setObjectVisible: (obj: fabric.Object, visible: boolean) => void
+  setObjectVisible: (obj: fabric.FabricObject, visible: boolean) => void
   /** Restack objects given the desired bottom-to-top order. */
-  applyStackingOrder: (bottomFirst: fabric.Object[]) => void
+  applyStackingOrder: (bottomFirst: fabric.FabricObject[]) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
   nudge: (dx: number, dy: number) => void
   /** Delete the active selection. */
@@ -83,8 +83,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setDimensions: (width, height) => {
     const { canvas } = get()
     if (canvas) {
-      canvas.setWidth(width)
-      canvas.setHeight(height)
+      canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
     }
     set({ width, height })
@@ -95,8 +94,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (canvas) {
       canvas.clear()
       canvas.backgroundColor = '#ffffff'
-      canvas.setWidth(width)
-      canvas.setHeight(height)
+      canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
     }
     set({ width, height, selection: [] })
@@ -106,7 +104,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { canvas } = get()
     if (!canvas) return
     // Assign a stable id so the layers panel can track/reorder objects.
-    const withId = obj as fabric.Object & { id?: string }
+    const withId = obj as fabric.FabricObject & { id?: string }
     if (!withId.id) withId.id = crypto.randomUUID()
     canvas.add(obj)
     canvas.setActiveObject(obj)
@@ -143,7 +141,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       strokeWidth: 0,
     }
 
-    let obj: fabric.Object
+    let obj: fabric.FabricObject
     switch (kind) {
       case 'rect':
         obj = new fabric.Rect({ ...base, width: 200, height: 140 })
@@ -207,7 +205,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const dataUrl = reader.result
       if (typeof dataUrl !== 'string') return
       // Always a base64 data URL, so the image persists in localStorage.
-      fabric.Image.fromURL(dataUrl, (img) => {
+      // fabric 7: Image is FabricImage and fromURL returns a Promise.
+      fabric.FabricImage.fromURL(dataUrl).then((img) => {
         const { canvas, width, height } = get()
         if (!canvas) return
         const imgW = img.width || 1
@@ -259,7 +258,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   applyStackingOrder: (bottomFirst) => {
     const { canvas } = get()
     if (!canvas) return
-    bottomFirst.forEach((o, i) => canvas.moveTo(o, i))
+    bottomFirst.forEach((o, i) => canvas.moveObjectTo(o, i))
     canvas.requestRenderAll()
     canvas.fire('object:modified', { target: bottomFirst[0] })
     set((s) => ({ tick: s.tick + 1 }))

@@ -1,4 +1,4 @@
-import type { fabric } from 'fabric'
+import type * as fabric from 'fabric'
 import { downloadUrl } from './utils'
 
 /** Make a filesystem-friendly base filename from a design name. */

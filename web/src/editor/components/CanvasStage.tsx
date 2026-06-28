@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { fabric } from 'fabric'
+import * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 import { DARK_SURROUND } from '../constants'
@@ -53,7 +53,7 @@ export function CanvasStage() {
     canvas.on('object:removed', bump)
     // Guarantee every object (incl. those restored from history) has an id.
     canvas.on('object:added', (e) => {
-      const o = e.target as (fabric.Object & { id?: string }) | undefined
+      const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
       if (o && !o.id) o.id = crypto.randomUUID()
     })
 
