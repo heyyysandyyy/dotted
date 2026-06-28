@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { exportPNG, exportJPEG, DEFAULT_JPEG_QUALITY } from '../exporters'
+import { exportPNG, exportJPEG, exportPDF, DEFAULT_JPEG_QUALITY } from '../exporters'
 
 interface Props {
   open: boolean
   onClose: () => void
 }
 
-type Format = 'png' | 'jpeg'
+type Format = 'png' | 'jpeg' | 'pdf'
 
 export function ExportModal({ open, onClose }: Props) {
   const canvas = useCanvasStore((s) => s.canvas)
@@ -22,6 +22,13 @@ export function ExportModal({ open, onClose }: Props) {
     if (!canvas) return
     if (format === 'png') exportPNG(canvas, designName, scale)
     else if (format === 'jpeg') exportJPEG(canvas, designName, scale, quality)
+    // PDF export is async (jsPDF is lazy-loaded); surface load/render failures
+    // instead of leaving an unhandled rejection.
+    else if (format === 'pdf') {
+      exportPDF(canvas, designName, scale).catch((err) => {
+        console.error('PDF export failed', err)
+      })
+    }
     onClose()
   }
 
@@ -41,7 +48,7 @@ export function ExportModal({ open, onClose }: Props) {
             Format
           </div>
           <div className="flex gap-2">
-            {(['png', 'jpeg'] as Format[]).map((f) => (
+            {(['png', 'jpeg', 'pdf'] as Format[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}

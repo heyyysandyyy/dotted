@@ -21,10 +21,13 @@ export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
   canvas.backgroundColor = ''
   canvas.renderAll()
 
-  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
-
-  canvas.backgroundColor = prevBg
-  canvas.renderAll()
+  let dataUrl: string
+  try {
+    dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
+  } finally {
+    canvas.backgroundColor = prevBg
+    canvas.renderAll()
+  }
 
   downloadUrl(dataUrl, `${slugify(name)}.png`)
 }
@@ -50,10 +53,39 @@ export function exportJPEG(
   if (!prevBg || typeof prevBg !== 'string') canvas.backgroundColor = JPEG_FLATTEN_COLOR
   canvas.renderAll()
 
-  const dataUrl = canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale })
-
-  canvas.backgroundColor = prevBg
-  canvas.renderAll()
+  let dataUrl: string
+  try {
+    dataUrl = canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale })
+  } finally {
+    canvas.backgroundColor = prevBg
+    canvas.renderAll()
+  }
 
   downloadUrl(dataUrl, `${slugify(name)}.jpg`)
+}
+
+/**
+ * Export the canvas as a single-page PDF. The page matches the artboard's
+ * logical dimensions; `scale` raises the embedded raster's resolution (DPI)
+ * rather than the page size, so a 2× export is sharper, not bigger.
+ *
+ * The artboard is embedded as a PNG so its background (and any transparency)
+ * is reproduced exactly over the PDF's white page.
+ *
+ * jsPDF is a large dependency only needed for this path, so it is lazy-loaded
+ * on demand to keep it out of the initial bundle.
+ */
+export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) {
+  const pageW = canvas.getWidth()
+  const pageH = canvas.getHeight()
+  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
+
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({
+    orientation: pageW > pageH ? 'landscape' : 'portrait',
+    unit: 'px',
+    format: [pageW, pageH],
+  })
+  pdf.addImage(dataUrl, 'PNG', 0, 0, pageW, pageH)
+  pdf.save(`${slugify(name)}.pdf`)
 }
