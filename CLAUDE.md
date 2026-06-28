@@ -26,7 +26,7 @@
 - [x] EXP-001 Export as transparent PNG
 - [x] EXP-002 Export as JPEG
 - [x] EXP-003 Export as PDF
-- [ ] EXP-004 Export as SVG
+- [x] EXP-004 Export as SVG
 - [x] SAV-001 Auto-save to localStorage
 - [x] SAV-002 Named projects and project list
 - [x] SAV-003 Duplicate a design
@@ -38,4 +38,4 @@
 - [x] TPL-001 Multi-page designs
 - [x] TPL-002 Duplicate a page
 - [x] TPL-003 Starter template gallery
-- [ ] TPL-004 Save design as a template
+- [x] TPL-004 Save design as a template
