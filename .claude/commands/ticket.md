@@ -38,7 +38,10 @@ reorder tickets.
 8. Run the review locally before pushing: invoke `/review-dotted` on this
    commit's diff. This is the soft gate (it runs on the Pro subscription, no
    API cost). Address anything it flags, then re-commit.
-9. Push the branch: `git push -u origin feat/$1-<short-kebab-description>`.
+9. Bookkeeping commit (so it merges with the PR, not pushed to `main` directly):
+   mark `[x] $1` in `CLAUDE.md` and set `.claude-progress` to the next ticket id,
+   then commit. Push the branch:
+   `git push -u origin feat/$1-<short-kebab-description>`.
 10. Open a PR (via `gh pr create`, or — if `gh` is unavailable — a pre-filled
     GitHub compare URL with the title and body encoded). Every PR MUST have a
     full written description with these sections, in order:
@@ -57,9 +60,14 @@ reorder tickets.
     same applies to every commit message in the branch.
 11. Print the PR URL. Do not merge — a human merges after CI passes.
 
-## After a merge (next run)
-When invoked again, before starting the next ticket:
-- `git checkout main && git pull`
-- Mark the just-merged ticket `[x]` in `CLAUDE.md`.
-- Update `.claude-progress` with the next ticket id.
-- Commit and push those bookkeeping changes to main (or include in the next PR).
+## Bookkeeping rides in the ticket PR
+`main` is protected — no direct pushes. So bookkeeping never goes straight to
+`main`; it lands through this ticket's own PR:
+
+- As a commit on this branch (e.g. just before step 9, push), mark `[x] $1` in
+  `CLAUDE.md` and set `.claude-progress` to the next ticket id.
+- That commit merges with the PR, so `main` only ever moves via PRs and the
+  checklist/progress become accurate exactly when the ticket lands.
+
+After the merge, confirm the linked issue auto-closed (`Closes #<n>` in the body)
+and that `main` CI is green — see `/finish-ticket`.
