@@ -104,6 +104,29 @@ export function deleteProject(id: string): void {
   }
 }
 
+/**
+ * Duplicate an existing project under a new id, named "<name> (copy)".
+ * Returns the new project's id, or null if the source is missing or save fails.
+ */
+export function duplicateProject(id: string, newId: string): string | null {
+  const source = loadProject(id)
+  if (!source) return null
+  try {
+    const updatedAt = Date.now()
+    const name = `${source.name} (copy)`
+    const payload: StoredProject = { ...source, id: newId, name, updatedAt }
+    localStorage.setItem(projectPayloadKey(newId), JSON.stringify(payload))
+
+    const meta: ProjectMeta = { id: newId, name, width: source.width, height: source.height, updatedAt }
+    const list = listProjects().filter((p) => p.id !== newId)
+    list.unshift(meta)
+    writeIndex(list)
+    return newId
+  } catch {
+    return null
+  }
+}
+
 export function getCurrentProjectId(): string | null {
   try {
     return localStorage.getItem(CURRENT_PROJECT_KEY)

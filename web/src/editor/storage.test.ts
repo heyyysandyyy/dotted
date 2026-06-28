@@ -8,6 +8,7 @@ import {
   loadProject,
   saveProject,
   deleteProject,
+  duplicateProject,
   getCurrentProjectId,
   setCurrentProjectId,
   migrateLegacyDesign,
@@ -76,6 +77,31 @@ describe('storage', () => {
       },
     } as unknown as fabric.Canvas
     expect(saveProject('x', 'X', throwing, 1, 1)).toBe(false)
+  })
+
+  describe('duplicateProject', () => {
+    it('copies the payload under a new id with a "(copy)" name', () => {
+      saveProject('a', 'Poster', fakeCanvas({ objects: [{ type: 'rect' }] }), 400, 300)
+      const newId = duplicateProject('a', 'a-copy')
+      expect(newId).toBe('a-copy')
+
+      const copy = loadProject('a-copy')
+      expect(copy).toMatchObject({
+        id: 'a-copy',
+        name: 'Poster (copy)',
+        width: 400,
+        height: 300,
+        canvas: { objects: [{ type: 'rect' }] },
+      })
+      // Original is untouched; copy is listed newest-first.
+      expect(loadProject('a')?.name).toBe('Poster')
+      expect(listProjects().map((p) => p.id)).toEqual(['a-copy', 'a'])
+    })
+
+    it('returns null when the source project is missing', () => {
+      expect(duplicateProject('nope', 'x')).toBeNull()
+      expect(loadProject('x')).toBeNull()
+    })
   })
 
   describe('migrateLegacyDesign', () => {

@@ -2,7 +2,14 @@ import { create } from 'zustand'
 import * as fabric from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
-import { saveProject, loadProject, deleteProject, listProjects, setCurrentProjectId } from '../storage'
+import {
+  saveProject,
+  loadProject,
+  deleteProject,
+  duplicateProject,
+  listProjects,
+  setCurrentProjectId,
+} from '../storage'
 import { useHistoryStore } from './useHistoryStore'
 
 const DEFAULT_NAME = 'Untitled design'
@@ -50,6 +57,8 @@ interface CanvasState {
   renameProject: () => void
   /** Delete a project; if it's the current one, switch to another (or a new one). */
   deleteProjectById: (id: string) => void
+  /** Duplicate a project; returns the copy's id (or null on failure). */
+  duplicateProjectById: (id: string) => string | null
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -152,6 +161,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const remaining = listProjects()
     if (remaining[0]) get().openProject(remaining[0].id)
     else get().newProject(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+  },
+
+  duplicateProjectById: (id) => {
+    const { canvas, currentProjectId, designName, width, height } = get()
+    // If duplicating the open project, flush its latest edits first so the
+    // copy captures the on-screen state, not just the last debounced save.
+    if (id === currentProjectId && canvas) {
+      saveProject(currentProjectId, designName, canvas, width, height)
+    }
+    return duplicateProject(id, crypto.randomUUID())
   },
 
   addObject: (obj) => {

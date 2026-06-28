@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Copy, Trash2 } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { listProjects } from '../storage'
 
@@ -12,7 +12,8 @@ export function ProjectsModal({ open, onClose }: Props) {
   const currentProjectId = useCanvasStore((s) => s.currentProjectId)
   const openProject = useCanvasStore((s) => s.openProject)
   const deleteProjectById = useCanvasStore((s) => s.deleteProjectById)
-  // Bump to re-read the project list after a delete.
+  const duplicateProjectById = useCanvasStore((s) => s.duplicateProjectById)
+  // Bump to re-read the project list after a delete or duplicate.
   const [, forceRefresh] = useState(0)
 
   if (!open) return null
@@ -27,6 +28,11 @@ export function ProjectsModal({ open, onClose }: Props) {
 
   const handleDelete = (id: string) => {
     deleteProjectById(id)
+    forceRefresh((n) => n + 1)
+  }
+
+  const handleDuplicate = (id: string) => {
+    duplicateProjectById(id)
     forceRefresh((n) => n + 1)
   }
 
@@ -59,6 +65,13 @@ export function ProjectsModal({ open, onClose }: Props) {
                   <div className="text-xs text-neutral-500">
                     {p.width} × {p.height} · {new Date(p.updatedAt).toLocaleString()}
                   </div>
+                </button>
+                <button
+                  onClick={() => handleDuplicate(p.id)}
+                  title="Duplicate project"
+                  className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                >
+                  <Copy size={16} />
                 </button>
                 <button
                   onClick={() => handleDelete(p.id)}
