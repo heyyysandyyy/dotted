@@ -143,6 +143,64 @@ export function setCurrentProjectId(id: string): void {
   }
 }
 
+/** Current schema version for exported backup files. */
+export const BACKUP_VERSION = 1
+
+/** A portable backup of every saved project. */
+export interface DesignBackup {
+  version: number
+  exportedAt: number
+  projects: StoredProject[]
+}
+
+function isStoredProject(p: unknown): p is StoredProject {
+  if (!p || typeof p !== 'object') return false
+  const o = p as Record<string, unknown>
+  return (
+    typeof o.id === 'string' &&
+    typeof o.name === 'string' &&
+    typeof o.width === 'number' &&
+    typeof o.height === 'number' &&
+    typeof o.updatedAt === 'number' &&
+    typeof o.canvas === 'object' &&
+    o.canvas !== null
+  )
+}
+
+/** Build a backup of every saved project (full payloads, not just metadata). */
+export function exportBackup(): DesignBackup {
+  const projects = listProjects()
+    .map((m) => loadProject(m.id))
+    .filter((p): p is StoredProject => p !== null)
+  return { version: BACKUP_VERSION, exportedAt: Date.now(), projects }
+}
+
+/**
+ * Restore projects from a backup file's JSON text, merging into storage
+ * (existing ids are overwritten). Returns the number of projects imported.
+ * Throws if the text is not a valid backup.
+ */
+export function importBackup(raw: string): number {
+  const data = JSON.parse(raw) as Partial<DesignBackup>
+  if (!data || !Array.isArray(data.projects)) {
+    throw new Error('Invalid backup file')
+  }
+
+  const index = new Map(listProjects().map((m) => [m.id, m]))
+  let imported = 0
+  for (const p of data.projects) {
+    if (!isStoredProject(p)) continue
+    localStorage.setItem(projectPayloadKey(p.id), JSON.stringify(p))
+    index.set(p.id, { id: p.id, name: p.name, width: p.width, height: p.height, updatedAt: p.updatedAt })
+    imported++
+  }
+
+  if (imported === 0) throw new Error('No projects found in backup file')
+  // Newest-updated first, consistent with saveProject ordering.
+  writeIndex([...index.values()].sort((a, b) => b.updatedAt - a.updatedAt))
+  return imported
+}
+
 /**
  * One-time migration of the SAV-001 single design into a named project.
  * Returns the migrated project's id, or null if there was nothing to migrate.

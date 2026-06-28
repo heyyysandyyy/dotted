@@ -9,6 +9,9 @@ import {
   saveProject,
   deleteProject,
   duplicateProject,
+  exportBackup,
+  importBackup,
+  BACKUP_VERSION,
   getCurrentProjectId,
   setCurrentProjectId,
   migrateLegacyDesign,
@@ -101,6 +104,46 @@ describe('storage', () => {
     it('returns null when the source project is missing', () => {
       expect(duplicateProject('nope', 'x')).toBeNull()
       expect(loadProject('x')).toBeNull()
+    })
+  })
+
+  describe('backup / restore', () => {
+    it('exportBackup includes every project payload with a version', () => {
+      saveProject('a', 'A', fakeCanvas({ objects: [1] }), 10, 20)
+      saveProject('b', 'B', fakeCanvas({ objects: [2] }), 30, 40)
+      const backup = exportBackup()
+      expect(backup.version).toBe(BACKUP_VERSION)
+      expect(backup.projects.map((p) => p.id).sort()).toEqual(['a', 'b'])
+      expect(backup.projects.find((p) => p.id === 'a')?.canvas).toEqual({ objects: [1] })
+    })
+
+    it('importBackup round-trips an exported backup', () => {
+      saveProject('a', 'A', fakeCanvas({ objects: [1] }), 10, 20)
+      const json = JSON.stringify(exportBackup())
+      localStorage.clear()
+      const count = importBackup(json)
+      expect(count).toBe(1)
+      expect(loadProject('a')).toMatchObject({ id: 'a', name: 'A', width: 10, canvas: { objects: [1] } })
+      expect(listProjects().map((p) => p.id)).toEqual(['a'])
+    })
+
+    it('importBackup merges, overwriting existing ids and keeping others', () => {
+      saveProject('a', 'A original', fakeCanvas({}), 10, 10)
+      saveProject('keep', 'Keep', fakeCanvas({}), 10, 10)
+      const json = JSON.stringify({
+        version: BACKUP_VERSION,
+        exportedAt: Date.now(),
+        projects: [{ id: 'a', name: 'A imported', width: 99, height: 99, updatedAt: Date.now(), canvas: {} }],
+      })
+      importBackup(json)
+      expect(loadProject('a')).toMatchObject({ name: 'A imported', width: 99 })
+      expect(listProjects().map((p) => p.id).sort()).toEqual(['a', 'keep'])
+    })
+
+    it('importBackup throws on malformed json or no projects', () => {
+      expect(() => importBackup('{not json')).toThrow()
+      expect(() => importBackup(JSON.stringify({ version: 1 }))).toThrow()
+      expect(() => importBackup(JSON.stringify({ projects: [{ bogus: true }] }))).toThrow()
     })
   })
 
