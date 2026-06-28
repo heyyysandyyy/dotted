@@ -21,10 +21,13 @@ export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
   canvas.backgroundColor = ''
   canvas.renderAll()
 
-  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
-
-  canvas.backgroundColor = prevBg
-  canvas.renderAll()
+  let dataUrl: string
+  try {
+    dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
+  } finally {
+    canvas.backgroundColor = prevBg
+    canvas.renderAll()
+  }
 
   downloadUrl(dataUrl, `${slugify(name)}.png`)
 }
@@ -50,10 +53,13 @@ export function exportJPEG(
   if (!prevBg || typeof prevBg !== 'string') canvas.backgroundColor = JPEG_FLATTEN_COLOR
   canvas.renderAll()
 
-  const dataUrl = canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale })
-
-  canvas.backgroundColor = prevBg
-  canvas.renderAll()
+  let dataUrl: string
+  try {
+    dataUrl = canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale })
+  } finally {
+    canvas.backgroundColor = prevBg
+    canvas.renderAll()
+  }
 
   downloadUrl(dataUrl, `${slugify(name)}.jpg`)
 }
