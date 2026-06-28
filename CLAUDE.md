@@ -37,5 +37,5 @@
 - [x] CLR-004 Snap-to-grid and alignment guides
 - [x] TPL-001 Multi-page designs
 - [x] TPL-002 Duplicate a page
-- [ ] TPL-003 Starter template gallery
+- [x] TPL-003 Starter template gallery
 - [ ] TPL-004 Save design as a template
