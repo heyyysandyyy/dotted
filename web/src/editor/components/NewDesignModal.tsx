@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { SIZE_PRESETS } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   open: boolean
@@ -9,16 +8,15 @@ interface Props {
 }
 
 export function NewDesignModal({ open, onClose }: Props) {
-  const newDesign = useCanvasStore((s) => s.newDesign)
+  const newProject = useCanvasStore((s) => s.newProject)
   const [customW, setCustomW] = useState(1080)
   const [customH, setCustomH] = useState(1080)
 
   if (!open) return null
 
   const choose = (w: number, h: number) => {
-    newDesign(w, h)
-    // History resets when a new design is created.
-    useHistoryStore.getState().reset()
+    // Starts a new named project (history reset is handled by newProject).
+    newProject(w, h)
     onClose()
   }
 

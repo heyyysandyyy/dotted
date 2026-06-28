@@ -28,7 +28,7 @@
 - [x] EXP-003 Export as PDF
 - [ ] EXP-004 Export as SVG
 - [x] SAV-001 Auto-save to localStorage
-- [ ] SAV-002 Named projects and project list
+- [x] SAV-002 Named projects and project list
 - [ ] SAV-003 Duplicate a design
 - [ ] SAV-004 JSON backup and restore
 - [ ] CLR-001 Canvas background colour and image
