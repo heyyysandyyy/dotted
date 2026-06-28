@@ -26,8 +26,8 @@
 - [x] EXP-001 Export as transparent PNG
 - [x] EXP-002 Export as JPEG
 - [x] EXP-003 Export as PDF
-- [x] EXP-004 Export as SVG
-- [ ] SAV-001 Auto-save to localStorage
+- [ ] EXP-004 Export as SVG
+- [x] SAV-001 Auto-save to localStorage
 - [ ] SAV-002 Named projects and project list
 - [ ] SAV-003 Duplicate a design
 - [ ] SAV-004 JSON backup and restore

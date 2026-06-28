@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
+import { loadCurrentDesign } from '../storage'
 import { DARK_SURROUND } from '../constants'
 
 const PADDING = 56
@@ -58,8 +59,23 @@ export function CanvasStage() {
     })
 
     setCanvas(canvas)
-    // Seed the baseline snapshot for the empty canvas.
-    useHistoryStore.getState().reset()
+
+    // SAV-001: restore the auto-saved design if one exists, then seed the
+    // history baseline. loadFromJSON is async, so reset() runs once it settles.
+    const saved = loadCurrentDesign()
+    if (saved) {
+      useCanvasStore.getState().setDimensions(saved.width, saved.height)
+      canvas
+        .loadFromJSON(saved.canvas)
+        .then(() => {
+          canvas.requestRenderAll()
+          useHistoryStore.getState().reset()
+        })
+        .catch(() => useHistoryStore.getState().reset())
+    } else {
+      // Seed the baseline snapshot for the empty canvas.
+      useHistoryStore.getState().reset()
+    }
     return () => {
       setCanvas(null)
       canvas.dispose()
