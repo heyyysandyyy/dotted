@@ -40,6 +40,8 @@ interface CanvasState {
   designName: string
   /** Id of the project currently open in the editor (null before first load). */
   currentProjectId: string | null
+  /** Mirror of the artboard's solid background colour ('' when transparent). */
+  backgroundColor: string
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -59,6 +61,15 @@ interface CanvasState {
   deleteProjectById: (id: string) => void
   /** Duplicate a project; returns the copy's id (or null on failure). */
   duplicateProjectById: (id: string) => string | null
+
+  /** Set the artboard's solid background colour. */
+  setBackgroundColor: (color: string) => void
+  /** Set an image (covering the artboard) as the background. */
+  setBackgroundImageFromFile: (file: File) => void
+  /** Clear the background colour and image (transparent artboard). */
+  clearBackground: () => void
+  /** Refresh the backgroundColor mirror from the live canvas (after load/undo). */
+  syncBackgroundFromCanvas: () => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -94,6 +105,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   tick: 0,
   designName: DEFAULT_NAME,
   currentProjectId: null,
+  backgroundColor: '#ffffff',
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -119,7 +131,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
     }
-    set({ width, height, selection: [], designName: DEFAULT_NAME, currentProjectId: id })
+    set({
+      width,
+      height,
+      selection: [],
+      designName: DEFAULT_NAME,
+      currentProjectId: id,
+      backgroundColor: '#ffffff',
+    })
     setCurrentProjectId(id)
     // Persist the fresh blank project immediately so it appears in the list.
     if (canvas) saveProject(id, DEFAULT_NAME, canvas, width, height)
@@ -141,6 +160,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     setCurrentProjectId(id)
     canvas.loadFromJSON(proj.canvas).then(() => {
       canvas.requestRenderAll()
+      // Mirror the restored background colour for the controls.
+      get().syncBackgroundFromCanvas()
       // A loaded project is a fresh history baseline.
       useHistoryStore.getState().reset()
     })
@@ -171,6 +192,53 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       saveProject(currentProjectId, designName, canvas, width, height)
     }
     return duplicateProject(id, crypto.randomUUID())
+  },
+
+  setBackgroundColor: (color) => {
+    const { canvas } = get()
+    if (!canvas) return
+    canvas.backgroundColor = color
+    canvas.requestRenderAll()
+    set({ backgroundColor: color })
+    // Background isn't an object, so trigger a history snapshot + auto-save.
+    useHistoryStore.getState().scheduleRecord()
+  },
+
+  setBackgroundImageFromFile: (file) => {
+    // Defence-in-depth: the file picker's accept list is only a hint.
+    if (!file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      if (typeof dataUrl !== 'string') return
+      fabric.FabricImage.fromURL(dataUrl).then((img) => {
+        const { canvas, width, height } = get()
+        if (!canvas) return
+        // Scale to cover the artboard, centred.
+        const scale = Math.max(width / (img.width || 1), height / (img.height || 1))
+        img.set({ originX: 'center', originY: 'center', left: width / 2, top: height / 2, scaleX: scale, scaleY: scale })
+        canvas.backgroundImage = img
+        canvas.requestRenderAll()
+        useHistoryStore.getState().scheduleRecord()
+      })
+    }
+    reader.readAsDataURL(file)
+  },
+
+  clearBackground: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    canvas.backgroundColor = ''
+    canvas.backgroundImage = undefined
+    canvas.requestRenderAll()
+    set({ backgroundColor: '' })
+    useHistoryStore.getState().scheduleRecord()
+  },
+
+  syncBackgroundFromCanvas: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    set({ backgroundColor: typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '' })
   },
 
   addObject: (obj) => {
