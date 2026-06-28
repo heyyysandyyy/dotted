@@ -28,3 +28,12 @@ checklist of the *active* batch only.
 ## Ticket Checklist
 - [ ] UX-001 New design modal overhaul + book preset
 - [ ] UX-002 Draggable layers panel
+- [ ] UX-003 Undo/redo history panel
+- [ ] UX-004 Rulers and guides
+- [ ] UX-005 Grid overlay
+- [ ] UX-006 Object alignment tools
+- [ ] UX-007 Copy and paste styles
+- [ ] UX-008 Eyedropper
+- [ ] UX-009 Image crop
+- [ ] UX-010 Background remover
+- [ ] UX-011 Shadow and glow effects
