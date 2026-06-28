@@ -28,4 +28,27 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // Architecture rule: components must not mutate the Fabric canvas directly —
+    // all canvas changes route through useCanvasStore. Block the fabric *value*
+    // import in components (type-only imports are fine). CanvasStage owns the
+    // canvas instance and is the sole exception.
+    files: ['src/editor/components/**/*.{ts,tsx}'],
+    ignores: ['src/editor/components/CanvasStage.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'fabric',
+              message:
+                'Components must not import the fabric value — route canvas changes through useCanvasStore. Type-only imports are allowed.',
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])
