@@ -33,6 +33,28 @@ you squash-merge     ← human gate
    the branch.
 4. The next `/ticket` run advances `.claude-progress` and marks CLAUDE.md.
 
+## Every PR needs a full description
+A PR is not done until its body documents the change. Required sections, in order:
+**Summary**, **Changes** (a bullet for *every* change in the branch — group by
+file/area, and include any cleanups or fixes that rode along; nothing in the diff
+goes unmentioned), **Acceptance criteria** (checkboxes), **Test plan** (build/test
+results + manual steps), **Review** (the `/review-dotted` verdict), and
+`Closes #<issue>` when applicable. If `gh` isn't installed, open the PR via a
+pre-filled GitHub compare URL with the title and body encoded.
+
+No co-authoring of any kind, and no AI attribution, anywhere — not in the PR
+title/body and not in any commit message. Commits and PRs are single-author:
+that means no "Co-Authored-By" trailer for *anyone* (not AI, not bots, not even
+the repo owner), no "Generated with Claude Code" line, and no 🤖 footer.
+
+This also applies at squash-merge. GitHub auto-fills the merge commit with
+`Co-authored-by` lines, and bot PRs (Dependabot) carry a `Signed-off-by:
+dependabot[bot]` / `Co-authored-by: dependabot[bot]` signature in their commits.
+Always merge with an explicit, clean commit message so none of that reaches
+`main`, e.g.:
+
+    gh pr merge <n> --squash --delete-branch --subject "<clean subject>" --body ""
+
 ## Files
 - `.claude/commands/ticket.md` — `/ticket <ID>`, implement one ticket then PR
 - `.claude/commands/review-dotted.md` — `/review-dotted`, the review skill
