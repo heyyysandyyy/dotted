@@ -14,7 +14,6 @@ const PADDING = 56
 export function CanvasStage() {
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
-  const scaleRef = useRef<HTMLDivElement>(null)
 
   const setCanvas = useCanvasStore((s) => s.setCanvas)
   const setZoom = useCanvasStore((s) => s.setZoom)
@@ -92,7 +91,6 @@ export function CanvasStage() {
       style={{ backgroundColor: DARK_SURROUND }}
     >
       <div
-        ref={scaleRef}
         style={{
           transform: `scale(${zoom})`,
           transformOrigin: 'center center',
