@@ -58,8 +58,16 @@ Always merge with an explicit, clean commit message so none of that reaches
 ## Files
 - `.claude/commands/ticket.md` — `/ticket <ID>`, implement one ticket then PR
 - `.claude/commands/review-dotted.md` — `/review-dotted`, the review skill
-- `.github/workflows/ci.yml` — build + lint + test (PR and main), free
+- `.claude/commands/security-scan.md` — `/security-scan`, the repeatable security pass
+- `.claude/commands/preflight.md` — `/preflight`, health-check main before a new ticket
+- `.claude/commands/finish-ticket.md` — `/finish-ticket`, post-merge bookkeeping
+- `.claude/commands/sync-issues.md` — `/sync-issues`, reconcile issues to the checklist
+- `.github/workflows/ci.yml` — build + lint + test + audit (PR and main), free
+- `.github/workflows/codeql.yml` — CodeQL static analysis (JS/TS)
+- `.github/dependabot.yml` — scheduled dependency update PRs
+- `.github/pull_request_template.md` — enforces the PR description in the GitHub UI
 - `scripts/create-issues.sh` — seed GitHub issues from CLAUDE.md (optional)
+- `web/audit-ci.jsonc` — npm audit gate config (allowlist tracked in #36)
 - `.claude-progress` — next ticket id to build
 - `web/vitest.config.ts` — test runner config (kept separate from vite.config)
 
