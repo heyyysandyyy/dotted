@@ -25,7 +25,7 @@
 - [x] IMG-003 Layers panel
 - [x] EXP-001 Export as transparent PNG
 - [x] EXP-002 Export as JPEG
-- [ ] EXP-003 Export as PDF
+- [x] EXP-003 Export as PDF
 - [ ] EXP-004 Export as SVG
 - [ ] SAV-001 Auto-save to localStorage
 - [ ] SAV-002 Named projects and project list
