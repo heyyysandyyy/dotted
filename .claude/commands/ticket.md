@@ -31,7 +31,8 @@ reorder tickets.
 5. `cd web && npm test -- --run --passWithNoTests` — fix failures.
 6. Re-read the acceptance criteria and self-check each one. Do a quick security
    pass (no network calls, file-type guards on uploads, no secrets committed).
-7. Stage and commit: `git commit -m "feat: $1 <title>"` (no co-author trailer).
+7. Stage and commit: `git commit -m "feat: $1 <title>"`. No co-author trailer and
+   no AI/Claude/Anthropic attribution of any kind in the message.
 8. Run the review locally before pushing: invoke `/review-dotted` on this
    commit's diff. This is the soft gate (it runs on the Pro subscription, no
    API cost). Address anything it flags, then re-commit.
@@ -47,6 +48,10 @@ reorder tickets.
     - **Test plan** — build/test results plus the manual steps to verify.
     - **Review** — paste the `/review-dotted` verdict.
     - `Closes #<issue-number>` if a matching issue exists.
+
+    The PR title and body must contain **no co-authoring and no AI/Claude/Anthropic
+    attribution** — no "Co-Authored-By", no "Generated with Claude Code", no 🤖
+    footer. The same applies to every commit message in the branch.
 11. Print the PR URL. Do not merge — a human merges after CI passes.
 
 ## After a merge (next run)

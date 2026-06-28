@@ -42,6 +42,10 @@ results + manual steps), **Review** (the `/review-dotted` verdict), and
 `Closes #<issue>` when applicable. If `gh` isn't installed, open the PR via a
 pre-filled GitHub compare URL with the title and body encoded.
 
+No co-authoring or AI attribution anywhere — not in the PR title/body and not in
+any commit message. That means no "Co-Authored-By" trailer, no "Generated with
+Claude Code" line, and no 🤖 footer.
+
 ## Files
 - `.claude/commands/ticket.md` — `/ticket <ID>`, implement one ticket then PR
 - `.claude/commands/review-dotted.md` — `/review-dotted`, the review skill
