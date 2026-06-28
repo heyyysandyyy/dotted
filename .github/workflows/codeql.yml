@@ -1,0 +1,39 @@
+name: CodeQL
+
+# Static analysis (SAST) for the JavaScript/TypeScript app. Complements Brakeman
+# (which covers the Rails API) and Dependabot (third-party CVEs) by scanning our
+# own front-end code for security issues. Free on public repositories.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly full scan (Mondays), so new CodeQL queries catch existing code too.
+    - cron: "23 5 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze JS/TS
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Add the higher-confidence security-focused query suite on top of the
+          # default queries.
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
