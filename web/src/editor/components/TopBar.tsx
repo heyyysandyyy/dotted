@@ -1,14 +1,15 @@
-import { Undo2, Redo2, Download, FolderOpen, Magnet, Grid3x3 } from 'lucide-react'
+import { Undo2, Redo2, Download, FolderOpen, Magnet, Grid3x3, LayoutTemplate } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
   onNewDesign: () => void
+  onTemplates: () => void
   onProjects: () => void
   onExport: () => void
 }
 
-export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
+export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props) {
   const zoom = useCanvasStore((s) => s.zoom)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
@@ -32,6 +33,15 @@ export function TopBar({ onNewDesign, onProjects, onExport }: Props) {
         className="rounded-md bg-neutral-700 px-3 py-1.5 text-sm font-medium hover:bg-neutral-600"
       >
         New design
+      </button>
+
+      <button
+        onClick={onTemplates}
+        title="Templates"
+        className="flex items-center gap-1.5 rounded-md bg-neutral-700 px-3 py-1.5 text-sm font-medium hover:bg-neutral-600"
+      >
+        <LayoutTemplate size={15} />
+        Templates
       </button>
 
       <button
