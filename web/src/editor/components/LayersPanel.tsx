@@ -25,13 +25,13 @@ import {
   EyeOff,
   GripVertical,
 } from 'lucide-react'
-import type { fabric } from 'fabric'
+import type * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { layerName } from '../utils'
 
-type WithId = fabric.Object & { id?: string }
+type WithId = fabric.FabricObject & { id?: string }
 
-function iconFor(obj: fabric.Object) {
+function iconFor(obj: fabric.FabricObject) {
   switch (obj.type) {
     case 'textbox':
     case 'i-text':

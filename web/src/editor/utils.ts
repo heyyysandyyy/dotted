@@ -1,19 +1,19 @@
-import type { fabric } from 'fabric'
+import type * as fabric from 'fabric'
 
 const TEXT_TYPES = ['text', 'i-text', 'textbox']
 
 /** True when the object is any kind of editable text. */
-export function isText(obj: fabric.Object | undefined | null): obj is fabric.Textbox {
+export function isText(obj: fabric.FabricObject | undefined | null): obj is fabric.Textbox {
   return !!obj && TEXT_TYPES.includes(obj.type ?? '')
 }
 
 /** True for vector shapes (everything that isn't text or a raster image). */
-export function isShape(obj: fabric.Object | undefined | null): boolean {
+export function isShape(obj: fabric.FabricObject | undefined | null): boolean {
   return !!obj && !isText(obj) && obj.type !== 'image'
 }
 
 /** Human-readable name for a canvas object, shown in the layers panel. */
-export function layerName(obj: fabric.Object): string {
+export function layerName(obj: fabric.FabricObject): string {
   switch (obj.type) {
     case 'textbox':
     case 'i-text':

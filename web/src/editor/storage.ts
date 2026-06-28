@@ -1,4 +1,4 @@
-import type { fabric } from 'fabric'
+import type * as fabric from 'fabric'
 
 /** localStorage key for the single in-progress design (auto-save). */
 export const CURRENT_DESIGN_KEY = 'dotted:currentDesign'
@@ -17,7 +17,8 @@ export function serializeDesign(
   width: number,
   height: number,
 ): SerializedDesign {
-  return { width, height, canvas: canvas.toJSON(EXTRA_PROPS) }
+  // fabric 7: toJSON() no longer takes propertiesToInclude; toObject() does.
+  return { width, height, canvas: canvas.toObject(EXTRA_PROPS) }
 }
 
 export function saveCurrentDesign(

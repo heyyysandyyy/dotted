@@ -29,7 +29,8 @@ interface HistoryState {
 function snapshot(): string | null {
   const canvas = useCanvasStore.getState().canvas
   if (!canvas) return null
-  return JSON.stringify(canvas.toJSON(SNAPSHOT_PROPS))
+  // fabric 7: toJSON() no longer takes propertiesToInclude; toObject() does.
+  return JSON.stringify(canvas.toObject(SNAPSHOT_PROPS))
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
@@ -99,7 +100,9 @@ function restore(
   if (!canvas) return
   if (debounceTimer) clearTimeout(debounceTimer)
   set({ isRestoring: true })
-  canvas.loadFromJSON(JSON.parse(json), () => {
+  // fabric 7: loadFromJSON returns a Promise; the second arg is now a
+  // per-object reviver, so completion logic moves to .then().
+  canvas.loadFromJSON(JSON.parse(json)).then(() => {
     canvas.renderAll()
     const stackLen = useHistoryStore.getState().stack.length
     set({

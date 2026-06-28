@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import type { fabric } from 'fabric'
+import type * as fabric from 'fabric'
 import { isText, isShape, layerName } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
-  ({ type, ...extra }) as unknown as fabric.Object
+  ({ type, ...extra }) as unknown as fabric.FabricObject
 
 describe('isText', () => {
   it('is true for text-like objects', () => {
