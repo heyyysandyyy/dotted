@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import * as fabric from 'fabric'
 import { DEFAULT_WIDTH, DEFAULT_HEIGHT, type UnitId } from '../constants'
-import { getLastFont, loadGoogleFont } from '../fonts'
+import { getLastFont, loadGoogleFont, GOOGLE_FONTS } from '../fonts'
 import {
   saveProject,
   loadProject,
@@ -18,6 +18,20 @@ import {
 } from '../storage'
 import type { StarterTemplate } from '../templates'
 import { kindName } from '../utils'
+
+/**
+ * Lazy-load every Google font used by the canvas's text and repaint once each
+ * is ready. A loaded project stores only font *names*; without this the canvas
+ * paints them with the fallback font until the font is fetched (BUG-001 on load).
+ */
+function loadCanvasFonts(canvas: fabric.Canvas): void {
+  const families = new Set<string>()
+  for (const o of canvas.getObjects()) {
+    const family = (o as unknown as { fontFamily?: string }).fontFamily
+    if (typeof family === 'string' && GOOGLE_FONTS.includes(family)) families.add(family)
+  }
+  families.forEach((family) => loadGoogleFont(family).then(() => canvas.requestRenderAll()))
+}
 
 /** Serialize the live canvas into a page payload. */
 function serializeCanvas(canvas: fabric.Canvas): object {
@@ -334,6 +348,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     saveProject({ id, name: tpl.name, width: tpl.width, height: tpl.height, pages, activePageId: active.id })
     canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
+      loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
       useHistoryStore.getState().reset()
     })
@@ -358,6 +373,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     setCurrentProjectId(id)
     canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
+      // Re-fetch the Google fonts the design uses, then repaint (BUG-001).
+      loadCanvasFonts(canvas)
       // Mirror the restored background colour for the controls.
       get().syncBackgroundFromCanvas()
       // A loaded project is a fresh history baseline.
@@ -432,6 +449,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ pages: synced, activePageId: pageId, selection: [] })
     canvas.loadFromJSON(target.canvas).then(() => {
       canvas.requestRenderAll()
+      loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
       useHistoryStore.getState().record('Switched page')
     })
@@ -466,6 +484,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ pages, activePageId: active.id, selection: [] })
     return canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
+      loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
     })
   },
@@ -488,6 +507,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ pages: remaining, activePageId: neighbour.id, selection: [] })
     canvas.loadFromJSON(neighbour.canvas).then(() => {
       canvas.requestRenderAll()
+      loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
       useHistoryStore.getState().record('Deleted page')
     })

@@ -17,6 +17,9 @@ export function ContextToolbar() {
   const updateActive = useCanvasStore((s) => s.updateActive)
 
   const obj = selection.length === 1 ? selection[0] : null
+  // Shown whenever a single text object is selected. It floats over the canvas
+  // (absolute) so appearing/disappearing never reflows the canvas — the jump
+  // came from it living in the layout, not from showing on selection.
   if (!isText(obj)) return null
 
   const fontSize = obj.fontSize ?? 48
@@ -31,7 +34,7 @@ export function ContextToolbar() {
     `rounded p-1.5 ${active ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`
 
   return (
-    <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 text-neutral-200">
+    <div className="absolute left-1/2 top-3 z-20 flex h-11 -translate-x-1/2 items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 text-neutral-200 shadow-xl backdrop-blur">
       <FontPicker value={fontFamily} onChange={(family) => updateActive({ fontFamily: family })} />
 
       <div className="mx-1 h-5 w-px bg-neutral-700" />

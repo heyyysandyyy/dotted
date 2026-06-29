@@ -31,7 +31,6 @@ export function Editor() {
         onProjects={() => setProjectsOpen(true)}
         onExport={() => setExportOpen(true)}
       />
-      <ContextToolbar />
 
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
@@ -43,6 +42,9 @@ export function Editor() {
               <CanvasStage />
             </div>
             {viewMode === 'stack' && <PageStack />}
+            {/* Floating text toolbar — overlays the canvas while editing text,
+                so showing/hiding it never reflows the canvas (no jump). */}
+            {viewMode !== 'stack' && <ContextToolbar />}
           </div>
           <PageBar />
         </div>
