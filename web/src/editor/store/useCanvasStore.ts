@@ -110,6 +110,8 @@ interface CanvasState {
   showGuides: boolean
   /** Whether objects snap to guides while dragging (UX-004). */
   snapGuides: boolean
+  /** Guides the dragging object is currently snapped to (transient highlight). */
+  activeGuides: Guides
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -177,6 +179,8 @@ interface CanvasState {
   toggleGuides: () => void
   /** Enable/disable snapping objects to guides (UX-004). */
   toggleSnapGuides: () => void
+  /** Set the guides currently being snapped to (highlight; not persisted). */
+  setActiveGuides: (g: Guides) => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -227,6 +231,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   guides: { horizontal: [], vertical: [] },
   showGuides: true,
   snapGuides: true,
+  activeGuides: { horizontal: [], vertical: [] },
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -571,6 +576,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
 
   toggleSnapGuides: () => set((s) => ({ snapGuides: !s.snapGuides })),
+
+  setActiveGuides: (activeGuides) => set({ activeGuides }),
 
   addObject: (obj) => {
     const { canvas } = get()

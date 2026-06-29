@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
 
@@ -15,6 +15,7 @@ const TICK = '#6b6b6b'
 const TICK_MAJOR = '#9a9a9a'
 const LABEL = '#9a9a9a'
 const GUIDE = '#3b82f6'
+const GUIDE_ACTIVE = '#ec4899'
 
 type Orientation = 'horizontal' | 'vertical'
 /** An in-progress ruler drag: creating a new guide or moving an existing one. */
@@ -117,6 +118,7 @@ export function CanvasRulers() {
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
   const guides = useCanvasStore((s) => s.guides)
+  const activeGuides = useCanvasStore((s) => s.activeGuides)
   const addGuide = useCanvasStore((s) => s.addGuide)
   const updateGuide = useCanvasStore((s) => s.updateGuide)
   const removeGuide = useCanvasStore((s) => s.removeGuide)
@@ -208,6 +210,26 @@ export function CanvasRulers() {
 
   const renderGuides = showGuides || !!drag
 
+  // Live position readout (in the selected unit) that follows the dragged guide.
+  let readout: ReactNode = null
+  if (drag) {
+    const max = drag.orientation === 'horizontal' ? height : width
+    const clamped = Math.min(Math.max(drag.pos, 0), max)
+    const label = `${fmtLabel(clamped / pxPerUnit(rulerUnit), rulerUnit)} ${rulerUnit}`
+    const style: CSSProperties =
+      drag.orientation === 'horizontal'
+        ? { left: RULER + 4, top: originY + drag.pos * zoom + 4 }
+        : { left: originX + drag.pos * zoom + 4, top: RULER + 4 }
+    readout = (
+      <div
+        className="pointer-events-none absolute rounded bg-neutral-900/90 px-1.5 py-0.5 text-[10px] font-medium text-pink-400"
+        style={style}
+      >
+        {label}
+      </div>
+    )
+  }
+
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10">
       <canvas
@@ -228,6 +250,8 @@ export function CanvasRulers() {
       {renderGuides &&
         guides.horizontal.map((y, i) => {
           const sy = originY + guidePos('horizontal', i, y) * zoom
+          const dragging = drag?.kind === 'move' && drag.orientation === 'horizontal' && drag.index === i
+          const active = dragging || activeGuides.horizontal.includes(y)
           return (
             <div
               key={`h${i}`}
@@ -235,7 +259,16 @@ export function CanvasRulers() {
               className="pointer-events-auto absolute cursor-ns-resize"
               style={{ left: RULER, right: 0, top: sy - GUIDE_GRAB, height: GUIDE_GRAB * 2 }}
             >
-              <div style={{ position: 'absolute', top: GUIDE_GRAB, left: 0, right: 0, height: 1, background: GUIDE }} />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: GUIDE_GRAB,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  background: active ? GUIDE_ACTIVE : GUIDE,
+                }}
+              />
             </div>
           )
         })}
@@ -243,6 +276,8 @@ export function CanvasRulers() {
       {renderGuides &&
         guides.vertical.map((x, i) => {
           const sx = originX + guidePos('vertical', i, x) * zoom
+          const dragging = drag?.kind === 'move' && drag.orientation === 'vertical' && drag.index === i
+          const active = dragging || activeGuides.vertical.includes(x)
           return (
             <div
               key={`v${i}`}
@@ -250,7 +285,16 @@ export function CanvasRulers() {
               className="pointer-events-auto absolute cursor-ew-resize"
               style={{ top: RULER, bottom: 0, left: sx - GUIDE_GRAB, width: GUIDE_GRAB * 2 }}
             >
-              <div style={{ position: 'absolute', left: GUIDE_GRAB, top: 0, bottom: 0, width: 1, background: GUIDE }} />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: GUIDE_GRAB,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  background: active ? GUIDE_ACTIVE : GUIDE,
+                }}
+              />
             </div>
           )
         })}
@@ -260,14 +304,16 @@ export function CanvasRulers() {
         (drag.orientation === 'horizontal' ? (
           <div
             className="pointer-events-none absolute"
-            style={{ left: RULER, right: 0, top: originY + drag.pos * zoom, height: 1, background: GUIDE }}
+            style={{ left: RULER, right: 0, top: originY + drag.pos * zoom, height: 1, background: GUIDE_ACTIVE }}
           />
         ) : (
           <div
             className="pointer-events-none absolute"
-            style={{ top: RULER, bottom: 0, left: originX + drag.pos * zoom, width: 1, background: GUIDE }}
+            style={{ top: RULER, bottom: 0, left: originX + drag.pos * zoom, width: 1, background: GUIDE_ACTIVE }}
           />
         ))}
+
+      {readout}
     </div>
   )
 }
