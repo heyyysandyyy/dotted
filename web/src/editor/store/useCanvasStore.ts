@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as fabric from 'fabric'
-import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
+import { DEFAULT_WIDTH, DEFAULT_HEIGHT, type UnitId } from '../constants'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import {
   saveProject,
@@ -12,7 +12,9 @@ import {
   saveTemplate,
   loadTemplate,
   EXTRA_PROPS,
+  EMPTY_GUIDES,
   type PageData,
+  type Guides,
 } from '../storage'
 import type { StarterTemplate } from '../templates'
 import { kindName } from '../utils'
@@ -98,6 +100,16 @@ interface CanvasState {
   backgroundColor: string
   /** Drag-time snapping mode: off, alignment guides, or grid (CLR-004). */
   snapMode: SnapMode
+  /** Whether the measurement rulers are shown around the canvas (UX-004). */
+  showRulers: boolean
+  /** Unit the rulers display in (UX-004). */
+  rulerUnit: UnitId
+  /** Manual ruler guides, in canvas px (UX-004). */
+  guides: Guides
+  /** Whether guides are visible/active (UX-004). */
+  showGuides: boolean
+  /** Whether objects snap to guides while dragging (UX-004). */
+  snapGuides: boolean
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -149,6 +161,22 @@ interface CanvasState {
   syncBackgroundFromCanvas: () => void
   /** Set the drag-time snapping mode. */
   setSnapMode: (mode: SnapMode) => void
+  /** Show/hide the measurement rulers (UX-004). */
+  toggleRulers: () => void
+  /** Change the ruler display unit (UX-004). */
+  setRulerUnit: (unit: UnitId) => void
+  /** Add a guide; orientation 'horizontal' (y) or 'vertical' (x), in canvas px. */
+  addGuide: (orientation: 'horizontal' | 'vertical', pos: number) => void
+  /** Move guide at `index` to a new position (persisted; call on drag end). */
+  updateGuide: (orientation: 'horizontal' | 'vertical', index: number, pos: number) => void
+  /** Remove guide at `index` (e.g. dragged back onto the ruler). */
+  removeGuide: (orientation: 'horizontal' | 'vertical', index: number) => void
+  /** Remove every guide. */
+  clearGuides: () => void
+  /** Show/hide all guides (UX-004). */
+  toggleGuides: () => void
+  /** Enable/disable snapping objects to guides (UX-004). */
+  toggleSnapGuides: () => void
 
   /** Canonical way to add an object: every tool routes through here. */
   addObject: (obj: fabric.FabricObject) => void
@@ -194,6 +222,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   viewMode: 'single',
   backgroundColor: '#ffffff',
   snapMode: 'guides',
+  showRulers: true,
+  rulerUnit: 'px',
+  guides: { horizontal: [], vertical: [] },
+  showGuides: true,
+  snapGuides: true,
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -230,10 +263,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       pages,
       activePageId: pageId,
       backgroundColor: '#ffffff',
+      guides: { horizontal: [], vertical: [] },
     })
     setCurrentProjectId(id)
     // Persist the fresh blank project immediately so it appears in the list.
-    saveProject({ id, name: DEFAULT_NAME, width, height, pages, activePageId: pageId })
+    saveProject({ id, name: DEFAULT_NAME, width, height, pages, activePageId: pageId, guides: EMPTY_GUIDES })
     useHistoryStore.getState().reset()
   },
 
@@ -313,6 +347,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       currentProjectId: id,
       pages: proj.pages,
       activePageId: active.id,
+      guides: proj.guides ?? { horizontal: [], vertical: [] },
     })
     canvas.setDimensions({ width: proj.width, height: proj.height })
     setCurrentProjectId(id)
@@ -349,14 +384,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCurrentProject: () => {
-    const { canvas, currentProjectId, designName, width, height, pages, activePageId } = get()
+    const { canvas, currentProjectId, designName, width, height, pages, activePageId, guides } = get()
     if (!canvas || !currentProjectId) return
     // Sync the active page from the live canvas, then persist all pages.
     const synced = pages.map((p) =>
       p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
     )
     set({ pages: synced })
-    saveProject({ id: currentProjectId, name: designName, width, height, pages: synced, activePageId })
+    saveProject({ id: currentProjectId, name: designName, width, height, pages: synced, activePageId, guides })
   },
 
   addPage: () => {
@@ -501,6 +536,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   setSnapMode: (snapMode) => set({ snapMode }),
+
+  toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
+
+  setRulerUnit: (rulerUnit) => set({ rulerUnit }),
+
+  addGuide: (orientation, pos) => {
+    set((s) => ({ guides: { ...s.guides, [orientation]: [...s.guides[orientation], pos] } }))
+    get().saveCurrentProject()
+  },
+
+  updateGuide: (orientation, index, pos) => {
+    set((s) => {
+      const next = s.guides[orientation].slice()
+      if (index < 0 || index >= next.length) return s
+      next[index] = pos
+      return { guides: { ...s.guides, [orientation]: next } }
+    })
+    get().saveCurrentProject()
+  },
+
+  removeGuide: (orientation, index) => {
+    set((s) => ({
+      guides: { ...s.guides, [orientation]: s.guides[orientation].filter((_, i) => i !== index) },
+    }))
+    get().saveCurrentProject()
+  },
+
+  clearGuides: () => {
+    set({ guides: { horizontal: [], vertical: [] } })
+    get().saveCurrentProject()
+  },
+
+  toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
+
+  toggleSnapGuides: () => set((s) => ({ snapGuides: !s.snapGuides })),
 
   addObject: (obj) => {
     const { canvas } = get()

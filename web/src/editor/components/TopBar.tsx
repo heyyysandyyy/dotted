@@ -1,4 +1,16 @@
-import { Undo2, Redo2, Download, FolderOpen, Magnet, Grid3x3, LayoutTemplate } from 'lucide-react'
+import {
+  Undo2,
+  Redo2,
+  Download,
+  FolderOpen,
+  Magnet,
+  Grid3x3,
+  LayoutTemplate,
+  Ruler,
+  Crosshair,
+  Trash2,
+} from 'lucide-react'
+import { SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 
@@ -18,6 +30,14 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
   const renameProject = useCanvasStore((s) => s.renameProject)
   const snapMode = useCanvasStore((s) => s.snapMode)
   const setSnapMode = useCanvasStore((s) => s.setSnapMode)
+  const showRulers = useCanvasStore((s) => s.showRulers)
+  const toggleRulers = useCanvasStore((s) => s.toggleRulers)
+  const rulerUnit = useCanvasStore((s) => s.rulerUnit)
+  const setRulerUnit = useCanvasStore((s) => s.setRulerUnit)
+  const snapGuides = useCanvasStore((s) => s.snapGuides)
+  const toggleSnapGuides = useCanvasStore((s) => s.toggleSnapGuides)
+  const clearGuides = useCanvasStore((s) => s.clearGuides)
+  const hasGuides = useCanvasStore((s) => s.guides.horizontal.length + s.guides.vertical.length > 0)
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -106,6 +126,47 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
           }`}
         >
           <Grid3x3 size={16} />
+        </button>
+        <button
+          onClick={toggleRulers}
+          title="Rulers (Cmd/Ctrl+R)"
+          aria-pressed={showRulers}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            showRulers ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Ruler size={16} />
+        </button>
+        <select
+          value={rulerUnit}
+          onChange={(e) => setRulerUnit(e.target.value as UnitId)}
+          title="Ruler units"
+          aria-label="Ruler units"
+          className="rounded-md bg-neutral-800 px-1.5 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+        >
+          {SIZE_UNITS.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={toggleSnapGuides}
+          title="Snap to guides"
+          aria-pressed={snapGuides}
+          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
+            snapGuides ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+          }`}
+        >
+          <Crosshair size={16} />
+        </button>
+        <button
+          onClick={clearGuides}
+          disabled={!hasGuides}
+          title="Clear all guides"
+          className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <Trash2 size={16} />
         </button>
       </div>
 

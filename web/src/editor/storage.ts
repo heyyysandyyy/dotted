@@ -23,6 +23,23 @@ export interface PageData {
   canvas: object
 }
 
+/** Manual ruler guides (UX-004), in canvas px. Horizontal guides are stored by
+ *  their Y position, vertical guides by their X position. */
+export interface Guides {
+  horizontal: number[]
+  vertical: number[]
+}
+
+export const EMPTY_GUIDES: Guides = { horizontal: [], vertical: [] }
+
+function parseGuides(raw: unknown): Guides {
+  if (!raw || typeof raw !== 'object') return { horizontal: [], vertical: [] }
+  const o = raw as Record<string, unknown>
+  const nums = (v: unknown) =>
+    Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : []
+  return { horizontal: nums(o.horizontal), vertical: nums(o.vertical) }
+}
+
 /** Lightweight project descriptor kept in the index for the project list. */
 export interface ProjectMeta {
   id: string
@@ -42,6 +59,8 @@ export interface StoredProject {
   updatedAt: number
   pages: PageData[]
   activePageId: string
+  /** Manual ruler guides (UX-004); absent in projects saved before the feature. */
+  guides?: Guides
 }
 
 /** What callers hand to saveProject (updatedAt is stamped on write). */
@@ -111,6 +130,7 @@ function normalizeProject(raw: unknown): StoredProject | null {
     updatedAt: typeof o.updatedAt === 'number' ? o.updatedAt : Date.now(),
     pages,
     activePageId,
+    guides: parseGuides(o.guides),
   }
 }
 

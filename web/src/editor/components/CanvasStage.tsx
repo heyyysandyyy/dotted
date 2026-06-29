@@ -11,6 +11,7 @@ import {
 } from '../storage'
 import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
 import { kindName } from '../utils'
+import { CanvasRulers } from './CanvasRulers'
 
 const PADDING = 56
 
@@ -153,6 +154,36 @@ export function CanvasStage() {
     return () => canvas.off('object:moving', onMoving)
   }, [canvas, snapMode])
 
+  // UX-004: snap an object's edges/centre to manual ruler guides while dragging.
+  useEffect(() => {
+    if (!canvas) return
+    const T = 5
+    const onMoving = (e: { target?: fabric.FabricObject }) => {
+      const { guides, snapGuides, showGuides } = useCanvasStore.getState()
+      if (!snapGuides || !showGuides) return
+      const obj = e.target
+      if (!obj) return
+      const bb = obj.getBoundingRect()
+      const nearest = (targets: number[], lines: number[]): number | null => {
+        let best: number | null = null
+        for (const line of lines) {
+          for (const t of targets) {
+            const d = line - t
+            if (Math.abs(d) <= T && (best === null || Math.abs(d) < Math.abs(best))) best = d
+          }
+        }
+        return best
+      }
+      const dx = nearest([bb.left, bb.left + bb.width / 2, bb.left + bb.width], guides.vertical)
+      const dy = nearest([bb.top, bb.top + bb.height / 2, bb.top + bb.height], guides.horizontal)
+      if (dx !== null) obj.set('left', (obj.left ?? 0) + dx)
+      if (dy !== null) obj.set('top', (obj.top ?? 0) + dy)
+      if (dx !== null || dy !== null) obj.setCoords()
+    }
+    canvas.on('object:moving', onMoving)
+    return () => canvas.off('object:moving', onMoving)
+  }, [canvas])
+
   return (
     <div
       ref={measureRef}
@@ -170,6 +201,7 @@ export function CanvasStage() {
       >
         <canvas ref={canvasElRef} />
       </div>
+      <CanvasRulers />
     </div>
   )
 }
