@@ -31,7 +31,7 @@ checklist of the *active* batch only.
 - [x] UX-001 New design modal overhaul (book engine split to UX-015)
 - [x] UX-002 Draggable layers panel (lock/rename/collapse; grouping split to UX-016)
 - [x] UX-003 Undo/redo history panel
-- [ ] UX-004 Rulers and guides
+- [x] UX-004 Rulers and guides (exact-position input split to UX-017)
 - [ ] UX-005 Grid overlay
 - [ ] UX-006 Object alignment tools
 - [ ] UX-007 Copy and paste styles
@@ -44,3 +44,4 @@ checklist of the *active* batch only.
 - [ ] UX-014 Resize canvas
 - [ ] UX-015 Book format engine (setup panel, bleed/spine guides, spread canvas, book PDF)
 - [ ] UX-016 Object grouping + nested layers
+- [ ] UX-017 Guide exact-position input (double-click a guide) — nice to have
