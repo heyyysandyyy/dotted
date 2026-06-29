@@ -143,7 +143,7 @@ export function NewDesignModal({ open, onClose }: Props) {
                 </div>
                 <div className="text-xs font-medium leading-tight text-neutral-800">{p.label}</div>
                 <div className="text-[11px] text-neutral-500">
-                  {p.width} × {p.height}
+                  {pxToUnit(p.width, unit)} × {pxToUnit(p.height, unit)} {unit}
                 </div>
               </button>
             )
