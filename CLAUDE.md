@@ -29,7 +29,7 @@ checklist of the *active* batch only.
 <!-- Build order (deps): UX-013 → UX-003 → UX-004 → UX-005 → UX-008 → UX-012 →
      UX-002 → UX-006 → UX-007 → UX-009 → UX-010 → UX-011 → UX-001 → UX-014 -->
 - [x] UX-001 New design modal overhaul (book engine split to UX-015)
-- [ ] UX-002 Draggable layers panel
+- [x] UX-002 Draggable layers panel (lock/rename/collapse; grouping split to UX-016)
 - [ ] UX-003 Undo/redo history panel
 - [ ] UX-004 Rulers and guides
 - [ ] UX-005 Grid overlay
@@ -43,3 +43,4 @@ checklist of the *active* batch only.
 - [ ] UX-013 Canvas zoom
 - [ ] UX-014 Resize canvas
 - [ ] UX-015 Book format engine (setup panel, bleed/spine guides, spread canvas, book PDF)
+- [ ] UX-016 Object grouping + nested layers
