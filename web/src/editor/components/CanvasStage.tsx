@@ -10,7 +10,7 @@ import {
   migrateLegacyDesign,
 } from '../storage'
 import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
-import { kindName } from '../utils'
+import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
 
 const PADDING = 56
@@ -89,13 +89,32 @@ export function CanvasStage() {
     canvas.on('object:added', (e) => rec(`Added ${kindName(e.target)}`))
     canvas.on('object:removed', (e) => rec(`Deleted ${kindName(e.target)}`))
     canvas.on('object:modified', (e) => rec(modifiedLabel(e)))
+    // Editing text fires text:changed (per keystroke), not a reliable
+    // object:modified — record it so text content edits autosave (debounced).
+    canvas.on('text:changed', (e) => rec(`Edited ${kindName(e.target)}`))
     // Keep the layers panel in sync when objects are added/removed.
     canvas.on('object:added', bump)
     canvas.on('object:removed', bump)
-    // Guarantee every object (incl. those restored from history) has an id.
+    // Guarantee every object (incl. those restored from history) has an id, and
+    // keep IText's editing textarea inside the (overflow-hidden) canvas wrapper
+    // instead of document.body — fabric appends it at absolute page coordinates
+    // with padding-top: fontSize, which otherwise extends the page (BUG-002).
     canvas.on('object:added', (e) => {
       const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
-      if (o && !o.id) o.id = crypto.randomUUID()
+      if (!o) return
+      if (!o.id) o.id = crypto.randomUUID()
+      // Self-heal stale data: selectable/evented are only ever turned off by the
+      // lock toggle (which also sets locked). An un-locked object that loaded as
+      // non-selectable is corrupt state — force it interactive again.
+      const locked = (o as unknown as { locked?: boolean }).locked === true
+      if (!locked && (o.selectable === false || o.evented === false)) {
+        o.selectable = true
+        o.evented = true
+      }
+      if (isText(o)) {
+        ;(o as unknown as { hiddenTextareaContainer: HTMLElement | null }).hiddenTextareaContainer =
+          canvas.wrapperEl
+      }
     })
 
     setCanvas(canvas)
