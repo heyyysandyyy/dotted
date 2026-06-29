@@ -11,6 +11,7 @@ import {
 } from '../storage'
 import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
 import { kindName } from '../utils'
+import { CanvasRulers } from './CanvasRulers'
 
 const PADDING = 56
 
@@ -153,6 +154,46 @@ export function CanvasStage() {
     return () => canvas.off('object:moving', onMoving)
   }, [canvas, snapMode])
 
+  // UX-004: snap an object's edges/centre to manual ruler guides while dragging,
+  // and highlight whichever guides it's snapped to.
+  useEffect(() => {
+    if (!canvas) return
+    const T = 5
+    const clear = () => useCanvasStore.getState().setActiveGuides({ horizontal: [], vertical: [] })
+    const onMoving = (e: { target?: fabric.FabricObject }) => {
+      const { guides, snapGuides, showGuides, setActiveGuides } = useCanvasStore.getState()
+      if (!snapGuides || !showGuides) return
+      const obj = e.target
+      if (!obj) return
+      const bb = obj.getBoundingRect()
+      // Nearest guide line to any of the object's edges/centre, with its value.
+      const nearest = (targets: number[], lines: number[]): { d: number; line: number } | null => {
+        let best: { d: number; line: number } | null = null
+        for (const line of lines) {
+          for (const t of targets) {
+            const d = line - t
+            if (Math.abs(d) <= T && (best === null || Math.abs(d) < Math.abs(best.d))) best = { d, line }
+          }
+        }
+        return best
+      }
+      const vx = nearest([bb.left, bb.left + bb.width / 2, bb.left + bb.width], guides.vertical)
+      const hy = nearest([bb.top, bb.top + bb.height / 2, bb.top + bb.height], guides.horizontal)
+      if (vx) obj.set('left', (obj.left ?? 0) + vx.d)
+      if (hy) obj.set('top', (obj.top ?? 0) + hy.d)
+      if (vx || hy) obj.setCoords()
+      setActiveGuides({ horizontal: hy ? [hy.line] : [], vertical: vx ? [vx.line] : [] })
+    }
+    canvas.on('object:moving', onMoving)
+    canvas.on('object:modified', clear)
+    canvas.on('mouse:up', clear)
+    return () => {
+      canvas.off('object:moving', onMoving)
+      canvas.off('object:modified', clear)
+      canvas.off('mouse:up', clear)
+    }
+  }, [canvas])
+
   return (
     <div
       ref={measureRef}
@@ -170,6 +211,7 @@ export function CanvasStage() {
       >
         <canvas ref={canvasElRef} />
       </div>
+      <CanvasRulers />
     </div>
   )
 }

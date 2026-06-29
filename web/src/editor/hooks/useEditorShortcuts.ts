@@ -33,6 +33,20 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Toggle rulers (Cmd/Ctrl+R) — intercept so the browser doesn't reload.
+      if (mod && !editing && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        useCanvasStore.getState().toggleRulers()
+        return
+      }
+
+      // Toggle guides visibility (Cmd/Ctrl+;).
+      if (mod && !editing && e.key === ';') {
+        e.preventDefault()
+        useCanvasStore.getState().toggleGuides()
+        return
+      }
+
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
 
