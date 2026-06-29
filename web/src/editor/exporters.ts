@@ -12,12 +12,39 @@ export function slugify(name: string): string {
 }
 
 /**
+ * Run an export render with the canvas's before:/after:render hooks suspended.
+ *
+ * Fabric nulls the upper-canvas context while building the export image
+ * (toCanvasElement), and the CLR-004 alignment-guides extension's
+ * before:render handler clears that now-undefined context — which throws and
+ * aborts every export. Guides never belong in an export, so we detach the
+ * render hooks for the duration and restore them afterwards.
+ */
+function withoutRenderHooks<T>(canvas: fabric.Canvas, fn: () => T): T {
+  const listeners = (canvas as unknown as { __eventListeners?: Record<string, unknown[]> })
+    .__eventListeners
+  if (!listeners) return fn()
+  const before = listeners['before:render']
+  const after = listeners['after:render']
+  listeners['before:render'] = []
+  listeners['after:render'] = []
+  try {
+    return fn()
+  } finally {
+    if (before) listeners['before:render'] = before
+    if (after) listeners['after:render'] = after
+  }
+}
+
+/**
  * Export the canvas as a PNG at native pixel dimensions. PNG preserves alpha,
  * so the artboard is exported exactly as set — the result is transparent only
  * when the user's canvas background is transparent (CLR-001).
  */
 export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
-  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
+  const dataUrl = withoutRenderHooks(canvas, () =>
+    canvas.toDataURL({ format: 'png', multiplier: scale }),
+  )
   downloadUrl(dataUrl, `${slugify(name)}.png`)
 }
 
@@ -44,7 +71,9 @@ export function exportJPEG(
 
   let dataUrl: string
   try {
-    dataUrl = canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale })
+    dataUrl = withoutRenderHooks(canvas, () =>
+      canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale }),
+    )
   } finally {
     canvas.backgroundColor = prevBg
     canvas.renderAll()
@@ -67,7 +96,9 @@ export function exportJPEG(
 export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) {
   const pageW = canvas.getWidth()
   const pageH = canvas.getHeight()
-  const dataUrl = canvas.toDataURL({ format: 'png', multiplier: scale })
+  const dataUrl = withoutRenderHooks(canvas, () =>
+    canvas.toDataURL({ format: 'png', multiplier: scale }),
+  )
 
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({
@@ -89,7 +120,7 @@ export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) 
  * is needed here.
  */
 export function exportSVG(canvas: fabric.Canvas, name: string) {
-  const svg = canvas.toSVG()
+  const svg = withoutRenderHooks(canvas, () => canvas.toSVG())
   const blob = new Blob([svg], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   downloadUrl(url, `${slugify(name)}.svg`)
