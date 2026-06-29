@@ -135,6 +135,11 @@ interface CanvasState {
   selectObject: (obj: fabric.FabricObject) => void
   /** Show or hide an object. */
   setObjectVisible: (obj: fabric.FabricObject, visible: boolean) => void
+  /** Lock/unlock an object: locked objects can't be selected or edited on the
+   *  canvas, but stay visible and exportable. */
+  setObjectLocked: (obj: fabric.FabricObject, locked: boolean) => void
+  /** Rename an object (layers panel); empty name clears back to the default. */
+  setObjectName: (obj: fabric.FabricObject, name: string) => void
   /** Restack objects given the desired bottom-to-top order. */
   applyStackingOrder: (bottomFirst: fabric.FabricObject[]) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
@@ -617,6 +622,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!canvas) return
     obj.visible = visible
     canvas.requestRenderAll()
+    set((s) => ({ tick: s.tick + 1 }))
+  },
+
+  setObjectLocked: (obj, locked) => {
+    const { canvas } = get()
+    if (!canvas) return
+    obj.set({ selectable: !locked, evented: !locked, locked })
+    // Drop the selection if we just locked the active object.
+    if (locked && canvas.getActiveObject() === obj) {
+      canvas.discardActiveObject()
+      set({ selection: [] })
+    }
+    canvas.requestRenderAll()
+    // Route through object:modified so the change is recorded + autosaved.
+    canvas.fire('object:modified', { target: obj })
+    set((s) => ({ tick: s.tick + 1 }))
+  },
+
+  setObjectName: (obj, name) => {
+    const { canvas } = get()
+    if (!canvas) return
+    obj.set('name', name.trim())
+    canvas.fire('object:modified', { target: obj })
     set((s) => ({ tick: s.tick + 1 }))
   },
 
