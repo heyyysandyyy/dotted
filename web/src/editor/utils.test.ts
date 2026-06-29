@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type * as fabric from 'fabric'
-import { isText, isShape, layerName, toColorString } from './utils'
+import { isText, isShape, layerName, kindName, toColorString } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
@@ -41,6 +41,20 @@ describe('layerName', () => {
     expect(layerName(obj('textbox', { text: '  Hello  ' }))).toBe('Hello')
     expect(layerName(obj('textbox', { text: 'x'.repeat(40) }))).toBe('x'.repeat(20) + '…')
     expect(layerName(obj('textbox', { text: '   ' }))).toBe('Text')
+  })
+})
+
+describe('kindName', () => {
+  it('gives lower-case kinds for history labels', () => {
+    expect(kindName(obj('textbox'))).toBe('text')
+    expect(kindName(obj('image'))).toBe('image')
+    expect(kindName(obj('rect'))).toBe('rectangle')
+    expect(kindName(obj('path'))).toBe('arrow')
+    expect(kindName(obj('group'))).toBe('group')
+  })
+  it('falls back to the type or "object"', () => {
+    expect(kindName(obj('polygon'))).toBe('polygon')
+    expect(kindName(null)).toBe('object')
   })
 })
 

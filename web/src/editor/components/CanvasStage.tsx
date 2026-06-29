@@ -10,8 +10,28 @@ import {
   migrateLegacyDesign,
 } from '../storage'
 import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
+import { kindName } from '../utils'
 
 const PADDING = 56
+
+/**
+ * History label for an `object:modified` event: a label set by the firing store
+ * action (`historyLabel`) wins; otherwise it's inferred from the drag/scale/
+ * rotate transform that produced it.
+ */
+function modifiedLabel(e: {
+  target?: fabric.FabricObject
+  transform?: { action?: string }
+  historyLabel?: string
+}): string {
+  if (e.historyLabel) return e.historyLabel
+  const k = kindName(e.target)
+  const action = e.transform?.action ?? ''
+  if (action === 'drag') return `Moved ${k}`
+  if (action.startsWith('scale') || action === 'resizing') return `Resized ${k}`
+  if (action === 'rotate') return `Rotated ${k}`
+  return `Edited ${k}`
+}
 
 /** Checkerboard shown behind a transparent artboard, like most design tools. */
 const CHECKERBOARD: React.CSSProperties = {
@@ -62,11 +82,12 @@ export function CanvasStage() {
     canvas.on('object:rotating', bump)
     canvas.on('object:modified', bump)
 
-    // Push a debounced history snapshot on any structural/transform change.
-    const schedule = () => useHistoryStore.getState().scheduleRecord()
-    canvas.on('object:added', schedule)
-    canvas.on('object:removed', schedule)
-    canvas.on('object:modified', schedule)
+    // Push a debounced history snapshot on any structural/transform change,
+    // tagged with a human-readable label for the history panel (UX-003).
+    const rec = (label: string) => useHistoryStore.getState().scheduleRecord(label)
+    canvas.on('object:added', (e) => rec(`Added ${kindName(e.target)}`))
+    canvas.on('object:removed', (e) => rec(`Deleted ${kindName(e.target)}`))
+    canvas.on('object:modified', (e) => rec(modifiedLabel(e)))
     // Keep the layers panel in sync when objects are added/removed.
     canvas.on('object:added', bump)
     canvas.on('object:removed', bump)

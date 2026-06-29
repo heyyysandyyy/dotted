@@ -15,11 +15,43 @@ import {
   type PageData,
 } from '../storage'
 import type { StarterTemplate } from '../templates'
+import { kindName } from '../utils'
 
 /** Serialize the live canvas into a page payload. */
 function serializeCanvas(canvas: fabric.Canvas): object {
   return canvas.toObject(EXTRA_PROPS)
 }
+
+const TEXT_PROP_KEYS = [
+  'text',
+  'fontSize',
+  'fontFamily',
+  'fontWeight',
+  'fontStyle',
+  'textAlign',
+  'lineHeight',
+  'underline',
+]
+
+/**
+ * Fire `object:modified` carrying a history label. Fabric's typed event map
+ * doesn't allow extra fields, so the label is attached via a cast; it rides
+ * along at runtime for the history-panel handler in CanvasStage.
+ */
+function fireModified(canvas: fabric.Canvas, target: fabric.FabricObject, historyLabel: string) {
+  canvas.fire('object:modified', { target, historyLabel } as unknown as never)
+}
+
+/** History label for an `updateActive` change, inferred from which props moved. */
+function labelForProps(props: object): string {
+  const keys = Object.keys(props)
+  if (keys.includes('fill')) return 'Changed fill color'
+  if (keys.includes('stroke') || keys.includes('strokeWidth')) return 'Changed stroke'
+  if (keys.includes('opacity')) return 'Changed opacity'
+  if (keys.some((k) => TEXT_PROP_KEYS.includes(k))) return 'Edited text'
+  return 'Changed style'
+}
+
 import { useHistoryStore } from './useHistoryStore'
 
 const DEFAULT_NAME = 'Untitled design'
@@ -346,7 +378,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     ]
     set({ pages: next, activePageId: newPageId, selection: [], backgroundColor: '#ffffff' })
     // Record so adding a page is undoable (record() also auto-saves).
-    useHistoryStore.getState().record()
+    useHistoryStore.getState().record('Added page')
   },
 
   selectPage: (pageId) => {
@@ -361,7 +393,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.loadFromJSON(target.canvas).then(() => {
       canvas.requestRenderAll()
       get().syncBackgroundFromCanvas()
-      useHistoryStore.getState().record()
+      useHistoryStore.getState().record('Switched page')
     })
   },
 
@@ -378,7 +410,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const next = [...synced.slice(0, idx + 1), copy, ...synced.slice(idx + 1)]
     set({ pages: next })
     // Record so duplicating a page is undoable (record() also auto-saves).
-    useHistoryStore.getState().record()
+    useHistoryStore.getState().record('Duplicated page')
   },
 
   setViewMode: (mode) => {
@@ -408,7 +440,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (pageId !== activePageId) {
       set({ pages: remaining })
       // Record so deleting a page is undoable (record() also auto-saves).
-      useHistoryStore.getState().record()
+      useHistoryStore.getState().record('Deleted page')
       return
     }
     // Deleting the active page → switch to a neighbour.
@@ -417,7 +449,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.loadFromJSON(neighbour.canvas).then(() => {
       canvas.requestRenderAll()
       get().syncBackgroundFromCanvas()
-      useHistoryStore.getState().record()
+      useHistoryStore.getState().record('Deleted page')
     })
   },
 
@@ -428,7 +460,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.requestRenderAll()
     set({ backgroundColor: color })
     // Background isn't an object, so trigger a history snapshot + auto-save.
-    useHistoryStore.getState().scheduleRecord()
+    useHistoryStore.getState().scheduleRecord('Changed background')
   },
 
   setBackgroundImageFromFile: (file) => {
@@ -446,7 +478,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         img.set({ originX: 'center', originY: 'center', left: width / 2, top: height / 2, scaleX: scale, scaleY: scale })
         canvas.backgroundImage = img
         canvas.requestRenderAll()
-        useHistoryStore.getState().scheduleRecord()
+        useHistoryStore.getState().scheduleRecord('Set background image')
       })
     }
     reader.readAsDataURL(file)
@@ -459,7 +491,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.backgroundImage = undefined
     canvas.requestRenderAll()
     set({ backgroundColor: '' })
-    useHistoryStore.getState().scheduleRecord()
+    useHistoryStore.getState().scheduleRecord('Cleared background')
   },
 
   syncBackgroundFromCanvas: () => {
@@ -606,7 +638,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.set(props)
     obj.setCoords()
     canvas.requestRenderAll()
-    canvas.fire('object:modified', { target: obj })
+    fireModified(canvas, obj, labelForProps(props))
   },
 
   selectObject: (obj) => {
@@ -636,7 +668,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
     canvas.requestRenderAll()
     // Route through object:modified so the change is recorded + autosaved.
-    canvas.fire('object:modified', { target: obj })
+    fireModified(canvas, obj, locked ? 'Locked layer' : 'Unlocked layer')
     set((s) => ({ tick: s.tick + 1 }))
   },
 
@@ -644,7 +676,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { canvas } = get()
     if (!canvas) return
     obj.set('name', name.trim())
-    canvas.fire('object:modified', { target: obj })
+    fireModified(canvas, obj, 'Renamed layer')
     set((s) => ({ tick: s.tick + 1 }))
   },
 
@@ -653,7 +685,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (!canvas) return
     bottomFirst.forEach((o, i) => canvas.moveObjectTo(o, i))
     canvas.requestRenderAll()
-    canvas.fire('object:modified', { target: bottomFirst[0] })
+    fireModified(canvas, bottomFirst[0], 'Reordered layers')
     set((s) => ({ tick: s.tick + 1 }))
   },
 
@@ -665,7 +697,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.set({ left: (obj.left ?? 0) + dx, top: (obj.top ?? 0) + dy })
     obj.setCoords()
     canvas.requestRenderAll()
-    canvas.fire('object:modified', { target: obj })
+    fireModified(canvas, obj, `Moved ${kindName(obj)}`)
   },
 
   deleteActive: () => {

@@ -16,19 +16,27 @@ interface ProjectSnapshot {
 
 interface HistoryState {
   stack: string[]
+  /** Human-readable action label per entry, parallel to `stack` (UX-003). */
+  labels: string[]
   index: number
   isRestoring: boolean
   canUndo: boolean
   canRedo: boolean
+  /** Label for the next recorded snapshot, set by the action that triggers it. */
+  pendingLabel: string
 
   /** Reset history with the current canvas as the baseline snapshot. */
   reset: () => void
-  /** Capture the current canvas state immediately. */
-  record: () => void
-  /** Capture after 300ms of quiescence (per the debounce rule). */
-  scheduleRecord: () => void
+  /** Capture the current canvas state immediately, tagged with `label`. */
+  record: (label?: string) => void
+  /** Capture after 300ms of quiescence (per the debounce rule), tagged `label`. */
+  scheduleRecord: (label?: string) => void
   undo: () => void
   redo: () => void
+  /** Jump directly to a state by its index in `stack` (history panel). */
+  jumpTo: (index: number) => void
+  /** Drop all history, keeping the current state as the new baseline. */
+  clearHistory: () => void
 }
 
 function snapshot(): string | null {
@@ -48,47 +56,60 @@ function persist(): void {
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
   stack: [],
+  labels: [],
   index: -1,
   isRestoring: false,
   canUndo: false,
   canRedo: false,
+  pendingLabel: '',
 
   reset: () => {
     if (debounceTimer) clearTimeout(debounceTimer)
     const snap = snapshot()
     set({
       stack: snap ? [snap] : [],
+      labels: snap ? ['Initial state'] : [],
       index: snap ? 0 : -1,
       canUndo: false,
       canRedo: false,
+      pendingLabel: '',
     })
   },
 
-  record: () => {
-    const { isRestoring, stack, index } = get()
+  record: (label) => {
+    const { isRestoring, stack, labels, index, pendingLabel } = get()
     if (isRestoring) return
     const snap = snapshot()
     if (snap == null) return
     if (stack[index] === snap) return // no real change
 
-    // Drop any redo branch, then append.
-    let next = stack.slice(0, index + 1)
-    next.push(snap)
+    const entryLabel = label || pendingLabel || 'Edit'
+    // Drop any redo branch, then append (stack + labels stay in lockstep).
+    let nextStack = stack.slice(0, index + 1)
+    let nextLabels = labels.slice(0, index + 1)
+    nextStack.push(snap)
+    nextLabels.push(entryLabel)
     // Cap at MAX_STATES, dropping the oldest.
-    if (next.length > MAX_STATES) next = next.slice(next.length - MAX_STATES)
-    const newIndex = next.length - 1
+    if (nextStack.length > MAX_STATES) {
+      nextStack = nextStack.slice(nextStack.length - MAX_STATES)
+      nextLabels = nextLabels.slice(nextLabels.length - MAX_STATES)
+    }
+    const newIndex = nextStack.length - 1
     set({
-      stack: next,
+      stack: nextStack,
+      labels: nextLabels,
       index: newIndex,
       canUndo: newIndex > 0,
       canRedo: false,
+      pendingLabel: '',
     })
     // Every committed change is auto-saved (debounced via scheduleRecord).
     persist()
   },
 
-  scheduleRecord: () => {
+  scheduleRecord: (label) => {
     if (get().isRestoring) return
+    if (label) set({ pendingLabel: label })
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => get().record(), DEBOUNCE_MS)
   },
@@ -103,6 +124,16 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     const { index, stack } = get()
     if (index >= stack.length - 1) return
     restore(stack[index + 1], index + 1, set)
+  },
+
+  jumpTo: (target) => {
+    const { index, stack } = get()
+    if (target === index || target < 0 || target >= stack.length) return
+    restore(stack[target], target, set)
+  },
+
+  clearHistory: () => {
+    get().reset()
   },
 }))
 

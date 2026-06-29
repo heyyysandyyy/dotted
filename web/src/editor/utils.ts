@@ -49,6 +49,32 @@ export function layerName(obj: fabric.FabricObject): string {
   }
 }
 
+/** Lower-case object kind for history labels (e.g. "Added rectangle"). */
+export function kindName(obj: fabric.FabricObject | undefined | null): string {
+  switch (obj?.type) {
+    case 'textbox':
+    case 'i-text':
+    case 'text':
+      return 'text'
+    case 'image':
+      return 'image'
+    case 'rect':
+      return 'rectangle'
+    case 'ellipse':
+      return 'ellipse'
+    case 'triangle':
+      return 'triangle'
+    case 'line':
+      return 'line'
+    case 'path':
+      return 'arrow'
+    case 'group':
+      return 'group'
+    default:
+      return obj?.type ?? 'object'
+  }
+}
+
 /** Trigger a browser download for a data/object URL. */
 export function downloadUrl(url: string, filename: string) {
   const a = document.createElement('a')
