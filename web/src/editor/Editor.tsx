@@ -10,6 +10,7 @@ import { ExportModal } from './components/ExportModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
+import { HistoryPanel } from './components/HistoryPanel'
 import { ContextToolbar } from './components/ContextToolbar'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 import { useCanvasStore } from './store/useCanvasStore'
@@ -50,8 +51,11 @@ export function Editor() {
           <div className="shrink-0 border-b border-neutral-800">
             <PropertiesPanel />
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 border-b border-neutral-800">
             <LayersPanel />
+          </div>
+          <div className="min-h-0 flex-1">
+            <HistoryPanel />
           </div>
         </aside>
       </div>

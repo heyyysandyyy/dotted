@@ -30,7 +30,7 @@ checklist of the *active* batch only.
      UX-002 → UX-006 → UX-007 → UX-009 → UX-010 → UX-011 → UX-001 → UX-014 -->
 - [x] UX-001 New design modal overhaul (book engine split to UX-015)
 - [x] UX-002 Draggable layers panel (lock/rename/collapse; grouping split to UX-016)
-- [ ] UX-003 Undo/redo history panel
+- [x] UX-003 Undo/redo history panel
 - [ ] UX-004 Rulers and guides
 - [ ] UX-005 Grid overlay
 - [ ] UX-006 Object alignment tools
