@@ -89,6 +89,27 @@ export function applyStyle(obj: fabric.FabricObject, style: Record<string, unkno
   obj.setCoords()
 }
 
+/**
+ * Equal-gap distribution: given items (start position + size) sorted by start,
+ * return each item's new start so the outer edges stay fixed and the gaps
+ * between items are equal (UX-006). Pure — exported for testing.
+ */
+export function distributeStarts(items: { start: number; size: number }[]): number[] {
+  if (items.length < 2) return items.map((i) => i.start)
+  const spanStart = items[0].start
+  const last = items[items.length - 1]
+  const spanEnd = last.start + last.size
+  const totalSize = items.reduce((sum, i) => sum + i.size, 0)
+  const gap = (spanEnd - spanStart - totalSize) / (items.length - 1)
+  const out: number[] = []
+  let cursor = spanStart
+  for (const it of items) {
+    out.push(cursor)
+    cursor += it.size + gap
+  }
+  return out
+}
+
 /** Re-group objects into an active selection (multi) or select the single one. */
 export function reselect(canvas: fabric.Canvas, objs: fabric.FabricObject[]): void {
   if (objs.length > 1) {
