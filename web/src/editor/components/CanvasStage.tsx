@@ -161,25 +161,57 @@ export function CanvasStage() {
     return () => guidelines.dispose()
   }, [canvas, snapMode])
 
-  // UX-005: snap a dragged object's top-left corner to the nearest grid
-  // intersection (origin-agnostic via getBoundingRect, so it lands on the
-  // visible grid regardless of the object's origin). Independent of guides.
+  // Drag snapping in one handler with explicit precedence: grid snap (UX-005)
+  // takes priority; otherwise manual ruler guides (UX-004). Alignment guides
+  // (CLR-004) are a separate extension, mutually exclusive with grid via the store.
   useEffect(() => {
     if (!canvas) return
+    const T = 5
+    const clearActive = () =>
+      useCanvasStore.getState().setActiveGuides({ horizontal: [], vertical: [] })
     const onMoving = (e: { target?: fabric.FabricObject }) => {
-      const { grid } = useCanvasStore.getState()
-      if (!grid.snap) return
+      const { grid, guides, snapGuides, showGuides, setActiveGuides } = useCanvasStore.getState()
       const obj = e.target
       if (!obj) return
-      // Snap the live top-left point (origin-agnostic, no cached-coord lag that
-      // would make the correction jitter during the drag).
-      const tl = obj.getPointByOrigin('left', 'top')
-      const x = Math.round(tl.x / grid.size) * grid.size
-      const y = Math.round(tl.y / grid.size) * grid.size
-      obj.setPositionByOrigin(new fabric.Point(x, y), 'left', 'top')
+
+      // 1) Grid snap — snap the live top-left point to the nearest intersection
+      //    (origin-agnostic, no cached-coord lag that would jitter the drag).
+      if (grid.snap) {
+        const tl = obj.getPointByOrigin('left', 'top')
+        const x = Math.round(tl.x / grid.size) * grid.size
+        const y = Math.round(tl.y / grid.size) * grid.size
+        obj.setPositionByOrigin(new fabric.Point(x, y), 'left', 'top')
+        return
+      }
+
+      // 2) Manual guides — snap edges/centre within T px and highlight the lines.
+      if (!snapGuides || !showGuides) return
+      const bb = obj.getBoundingRect()
+      const nearest = (targets: number[], lines: number[]): { d: number; line: number } | null => {
+        let best: { d: number; line: number } | null = null
+        for (const line of lines) {
+          for (const t of targets) {
+            const d = line - t
+            if (Math.abs(d) <= T && (best === null || Math.abs(d) < Math.abs(best.d))) best = { d, line }
+          }
+        }
+        return best
+      }
+      const vx = nearest([bb.left, bb.left + bb.width / 2, bb.left + bb.width], guides.vertical)
+      const hy = nearest([bb.top, bb.top + bb.height / 2, bb.top + bb.height], guides.horizontal)
+      if (vx) obj.set('left', (obj.left ?? 0) + vx.d)
+      if (hy) obj.set('top', (obj.top ?? 0) + hy.d)
+      if (vx || hy) obj.setCoords()
+      setActiveGuides({ horizontal: hy ? [hy.line] : [], vertical: vx ? [vx.line] : [] })
     }
     canvas.on('object:moving', onMoving)
-    return () => canvas.off('object:moving', onMoving)
+    canvas.on('object:modified', clearActive)
+    canvas.on('mouse:up', clearActive)
+    return () => {
+      canvas.off('object:moving', onMoving)
+      canvas.off('object:modified', clearActive)
+      canvas.off('mouse:up', clearActive)
+    }
   }, [canvas])
 
   // UX-007: format-painter clicks paste the copied style onto the clicked
@@ -199,46 +231,6 @@ export function CanvasStage() {
     // fabric's mouse:down callback type is stricter than what we read; cast it.
     canvas.on('mouse:down', onDown as never)
     return () => canvas.off('mouse:down', onDown as never)
-  }, [canvas])
-
-  // UX-004: snap an object's edges/centre to manual ruler guides while dragging,
-  // and highlight whichever guides it's snapped to.
-  useEffect(() => {
-    if (!canvas) return
-    const T = 5
-    const clear = () => useCanvasStore.getState().setActiveGuides({ horizontal: [], vertical: [] })
-    const onMoving = (e: { target?: fabric.FabricObject }) => {
-      const { guides, snapGuides, showGuides, setActiveGuides } = useCanvasStore.getState()
-      if (!snapGuides || !showGuides) return
-      const obj = e.target
-      if (!obj) return
-      const bb = obj.getBoundingRect()
-      // Nearest guide line to any of the object's edges/centre, with its value.
-      const nearest = (targets: number[], lines: number[]): { d: number; line: number } | null => {
-        let best: { d: number; line: number } | null = null
-        for (const line of lines) {
-          for (const t of targets) {
-            const d = line - t
-            if (Math.abs(d) <= T && (best === null || Math.abs(d) < Math.abs(best.d))) best = { d, line }
-          }
-        }
-        return best
-      }
-      const vx = nearest([bb.left, bb.left + bb.width / 2, bb.left + bb.width], guides.vertical)
-      const hy = nearest([bb.top, bb.top + bb.height / 2, bb.top + bb.height], guides.horizontal)
-      if (vx) obj.set('left', (obj.left ?? 0) + vx.d)
-      if (hy) obj.set('top', (obj.top ?? 0) + hy.d)
-      if (vx || hy) obj.setCoords()
-      setActiveGuides({ horizontal: hy ? [hy.line] : [], vertical: vx ? [vx.line] : [] })
-    }
-    canvas.on('object:moving', onMoving)
-    canvas.on('object:modified', clear)
-    canvas.on('mouse:up', clear)
-    return () => {
-      canvas.off('object:moving', onMoving)
-      canvas.off('object:modified', clear)
-      canvas.off('mouse:up', clear)
-    }
   }, [canvas])
 
   return (
