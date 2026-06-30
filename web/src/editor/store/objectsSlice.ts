@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta } from '../utils'
+import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -19,6 +20,7 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
   tick: 0,
   clipboardStyle: null,
   painterMode: 'off',
+  bgRemoving: false,
 
   setCanvas: (canvas) => set({ canvas }),
   setSelection: (selection) => set({ selection }),
@@ -331,5 +333,39 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.requestRenderAll()
     fireModified(canvas, obj, 'Pasted style')
     if (painterMode === 'once') get().exitPainter()
+  },
+
+  removeImageBackground: (tolerance = DEFAULT_TOLERANCE) => {
+    const { canvas } = get()
+    if (!canvas) return
+    const obj = canvas.getActiveObject()
+    if (!obj || obj.type !== 'image') return
+    const img = obj as fabric.FabricImage
+    // Remember the pristine source on first run so re-runs (at other tolerances)
+    // always start from the original, not the already-cut result.
+    const withOrig = img as unknown as { originalSrc?: string }
+    const source = withOrig.originalSrc ?? img.getSrc()
+    if (!withOrig.originalSrc) withOrig.originalSrc = source
+    set({ bgRemoving: true })
+    const done = () => set({ bgRemoving: false })
+    const el = new Image()
+    el.onload = () => {
+      try {
+        const url = removeSolidBackground(el, el.naturalWidth, el.naturalHeight, tolerance)
+        // History keeps the previous state for undo (fireModified records it).
+        img
+          .setSrc(url)
+          .then(() => {
+            canvas.requestRenderAll()
+            fireModified(canvas, img, 'Removed background')
+            done()
+          })
+          .catch(done)
+      } catch {
+        done()
+      }
+    }
+    el.onerror = () => done()
+    el.src = source
   },
 })
