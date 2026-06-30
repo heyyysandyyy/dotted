@@ -9,9 +9,10 @@ import {
   listProjects,
   migrateLegacyDesign,
 } from '../storage'
-import { DARK_SURROUND, GRID_SIZE, SNAP_MARGIN } from '../constants'
+import { DARK_SURROUND, SNAP_MARGIN } from '../constants'
 import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
+import { GridOverlay } from './GridOverlay'
 
 const PADDING = 56
 
@@ -152,26 +153,33 @@ export function CanvasStage() {
   }, [width, height, setZoom])
 
   // CLR-004: smart alignment guides while dragging (snap mode 'guides').
+  // Mutually exclusive with grid snap (UX-005), enforced in the store.
   useEffect(() => {
     if (!canvas || snapMode !== 'guides') return
     const guidelines = new AligningGuidelines(canvas, { margin: SNAP_MARGIN, color: '#ec4899' })
     return () => guidelines.dispose()
   }, [canvas, snapMode])
 
-  // CLR-004: snap object positions to a fixed grid while dragging (mode 'grid').
+  // UX-005: snap a dragged object's top-left corner to the nearest grid
+  // intersection (origin-agnostic via getBoundingRect, so it lands on the
+  // visible grid regardless of the object's origin). Independent of guides.
   useEffect(() => {
-    if (!canvas || snapMode !== 'grid') return
+    if (!canvas) return
     const onMoving = (e: { target?: fabric.FabricObject }) => {
+      const { grid } = useCanvasStore.getState()
+      if (!grid.snap) return
       const obj = e.target
       if (!obj) return
-      obj.set({
-        left: Math.round((obj.left ?? 0) / GRID_SIZE) * GRID_SIZE,
-        top: Math.round((obj.top ?? 0) / GRID_SIZE) * GRID_SIZE,
-      })
+      // Snap the live top-left point (origin-agnostic, no cached-coord lag that
+      // would make the correction jitter during the drag).
+      const tl = obj.getPointByOrigin('left', 'top')
+      const x = Math.round(tl.x / grid.size) * grid.size
+      const y = Math.round(tl.y / grid.size) * grid.size
+      obj.setPositionByOrigin(new fabric.Point(x, y), 'left', 'top')
     }
     canvas.on('object:moving', onMoving)
     return () => canvas.off('object:moving', onMoving)
-  }, [canvas, snapMode])
+  }, [canvas])
 
   // UX-004: snap an object's edges/centre to manual ruler guides while dragging,
   // and highlight whichever guides it's snapped to.
@@ -230,6 +238,7 @@ export function CanvasStage() {
       >
         <canvas ref={canvasElRef} />
       </div>
+      <GridOverlay />
       <CanvasRulers />
     </div>
   )

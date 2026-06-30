@@ -4,7 +4,6 @@ import {
   Download,
   FolderOpen,
   Magnet,
-  Grid3x3,
   LayoutTemplate,
   Ruler,
   Crosshair,
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react'
 import { SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { GridControls } from './GridControls'
 import { useHistoryStore } from '../store/useHistoryStore'
 
 interface Props {
@@ -104,8 +104,8 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
         </button>
       </div>
 
-      {/* Snapping (CLR-004) — guides and grid are mutually exclusive; clicking
-          the active one again turns snapping off. */}
+      {/* Snapping: alignment guides (CLR-004) and the grid overlay/snap (UX-005)
+          are independent. */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => setSnapMode(snapMode === 'guides' ? 'none' : 'guides')}
@@ -117,16 +117,7 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
         >
           <Magnet size={16} />
         </button>
-        <button
-          onClick={() => setSnapMode(snapMode === 'grid' ? 'none' : 'grid')}
-          title="Snap to grid"
-          aria-pressed={snapMode === 'grid'}
-          className={`rounded-md p-1.5 hover:bg-neutral-800 ${
-            snapMode === 'grid' ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
-          }`}
-        >
-          <Grid3x3 size={16} />
-        </button>
+        <GridControls />
         <button
           onClick={toggleRulers}
           title="Rulers (Cmd/Ctrl+R)"
