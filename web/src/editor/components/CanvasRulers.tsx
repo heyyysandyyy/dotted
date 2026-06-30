@@ -114,6 +114,25 @@ export function CanvasRulers() {
   const topRef = useRef<HTMLCanvasElement>(null)
   const leftRef = useRef<HTMLCanvasElement>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
+  // UX-017: inline editor for typing a guide's exact position.
+  const [editing, setEditing] = useState<{
+    orientation: Orientation
+    index: number
+    value: string
+  } | null>(null)
+
+  const openEdit = (orientation: Orientation, index: number, posPx: number) =>
+    setEditing({ orientation, index, value: fmtLabel(posPx / pxPerUnit(rulerUnit), rulerUnit) })
+
+  const commitEdit = () => {
+    if (!editing) return
+    const max = editing.orientation === 'horizontal' ? height : width
+    const px = Math.round(
+      Math.min(Math.max((Number(editing.value) || 0) * pxPerUnit(rulerUnit), 0), max),
+    )
+    updateGuide(editing.orientation, editing.index, px)
+    setEditing(null)
+  }
 
   useEffect(() => {
     if (!showRulers || box.w === 0 || box.h === 0) return
@@ -229,6 +248,7 @@ export function CanvasRulers() {
             <div
               key={`h${i}`}
               onPointerDown={() => setDrag({ kind: 'move', orientation: 'horizontal', index: i, pos: y })}
+              onDoubleClick={() => openEdit('horizontal', i, y)}
               className="pointer-events-auto absolute cursor-ns-resize"
               style={{ left: RULER, right: 0, top: sy - GUIDE_GRAB, height: GUIDE_GRAB * 2 }}
             >
@@ -255,6 +275,7 @@ export function CanvasRulers() {
             <div
               key={`v${i}`}
               onPointerDown={() => setDrag({ kind: 'move', orientation: 'vertical', index: i, pos: x })}
+              onDoubleClick={() => openEdit('vertical', i, x)}
               className="pointer-events-auto absolute cursor-ew-resize"
               style={{ top: RULER, bottom: 0, left: sx - GUIDE_GRAB, width: GUIDE_GRAB * 2 }}
             >
@@ -287,6 +308,31 @@ export function CanvasRulers() {
         ))}
 
       {readout}
+
+      {editing &&
+        (() => {
+          const pos = guides[editing.orientation][editing.index]
+          if (pos === undefined) return null
+          const style: CSSProperties =
+            editing.orientation === 'horizontal'
+              ? { left: RULER + 4, top: originY + pos * zoom - 9 }
+              : { left: originX + pos * zoom + 4, top: RULER + 4 }
+          return (
+            <input
+              autoFocus
+              value={editing.value}
+              onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEdit()
+                else if (e.key === 'Escape') setEditing(null)
+              }}
+              title={`Position in ${rulerUnit}`}
+              className="pointer-events-auto absolute w-16 rounded border border-neutral-600 bg-neutral-900 px-1 text-xs text-white outline-none"
+              style={style}
+            />
+          )
+        })()}
     </div>
   )
 }
