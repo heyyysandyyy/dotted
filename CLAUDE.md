@@ -32,7 +32,7 @@ checklist of the *active* batch only.
 - [x] UX-002 Draggable layers panel (lock/rename/collapse; grouping split to UX-016)
 - [x] UX-003 Undo/redo history panel
 - [x] UX-004 Rulers and guides (exact-position input split to UX-017)
-- [ ] UX-005 Grid overlay
+- [x] UX-005 Grid overlay
 - [ ] UX-006 Object alignment tools
 - [ ] UX-007 Copy and paste styles
 - [ ] UX-008 Eyedropper

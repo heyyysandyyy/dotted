@@ -47,6 +47,13 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Toggle the grid overlay (Cmd/Ctrl+').
+      if (mod && !editing && e.key === "'") {
+        e.preventDefault()
+        useCanvasStore.getState().toggleGrid()
+        return
+      }
+
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
 

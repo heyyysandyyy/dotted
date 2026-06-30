@@ -59,7 +59,9 @@ export const DEFAULT_HEIGHT = 1080
 
 export const DARK_SURROUND = '#1e1e1e'
 
-/** Grid step (px) used by snap-to-grid (CLR-004). */
+/** Grid step (px) used by snap-to-grid (CLR-004); default for the grid overlay. */
 export const GRID_SIZE = 10
+/** Preset grid sizes (px) offered in the grid settings (UX-005). */
+export const GRID_PRESETS = [5, 10, 20, 50]
 /** Distance (px) at which alignment guides engage. */
 export const SNAP_MARGIN = 6

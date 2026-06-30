@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as fabric from 'fabric'
-import { DEFAULT_WIDTH, DEFAULT_HEIGHT, type UnitId } from '../constants'
+import { DEFAULT_WIDTH, DEFAULT_HEIGHT, GRID_SIZE, type UnitId } from '../constants'
 import { getLastFont, loadGoogleFont, GOOGLE_FONTS } from '../fonts'
 import {
   saveProject,
@@ -80,8 +80,19 @@ export type ShapeKind =
   | 'line'
   | 'arrow'
 
-/** Drag-time snapping mode (CLR-004): off, alignment guides, or grid. */
-export type SnapMode = 'none' | 'guides' | 'grid'
+/** Drag-time alignment-guide snapping (CLR-004): off, or smart guides. */
+export type SnapMode = 'none' | 'guides'
+
+/** Grid overlay rendering style (UX-005). */
+export type GridStyle = 'lines' | 'dots'
+
+/** Grid overlay + snap settings (UX-005). */
+export interface GridSettings {
+  visible: boolean
+  size: number
+  style: GridStyle
+  snap: boolean
+}
 
 /** Canvas view: edit one page, or see all pages stacked (TPL-001). */
 export type ViewMode = 'single' | 'stack'
@@ -112,8 +123,10 @@ interface CanvasState {
   viewMode: ViewMode
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
-  /** Drag-time snapping mode: off, alignment guides, or grid (CLR-004). */
+  /** Drag-time alignment-guide snapping (CLR-004). */
   snapMode: SnapMode
+  /** Grid overlay + snap settings (UX-005). */
+  grid: GridSettings
   /** Whether the measurement rulers are shown around the canvas (UX-004). */
   showRulers: boolean
   /** Unit the rulers display in (UX-004). */
@@ -175,8 +188,16 @@ interface CanvasState {
   clearBackground: () => void
   /** Refresh the backgroundColor mirror from the live canvas (after load/undo). */
   syncBackgroundFromCanvas: () => void
-  /** Set the drag-time snapping mode. */
+  /** Set the drag-time alignment-guide snapping mode. */
   setSnapMode: (mode: SnapMode) => void
+  /** Show/hide the grid overlay (UX-005). */
+  toggleGrid: () => void
+  /** Set the grid size in px (UX-005). */
+  setGridSize: (size: number) => void
+  /** Set the grid rendering style (UX-005). */
+  setGridStyle: (style: GridStyle) => void
+  /** Enable/disable snapping objects to the grid (UX-005). */
+  toggleGridSnap: () => void
   /** Show/hide the measurement rulers (UX-004). */
   toggleRulers: () => void
   /** Change the ruler display unit (UX-004). */
@@ -240,6 +261,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   viewMode: 'single',
   backgroundColor: '#ffffff',
   snapMode: 'guides',
+  grid: { visible: false, size: GRID_SIZE, style: 'lines', snap: false },
   showRulers: true,
   rulerUnit: 'px',
   guides: { horizontal: [], vertical: [] },
@@ -560,7 +582,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ backgroundColor: typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '' })
   },
 
-  setSnapMode: (snapMode) => set({ snapMode }),
+  // Grid snap and alignment guides both control the drag, so they're mutually
+  // exclusive — enabling one disables the other (UX-005).
+  setSnapMode: (snapMode) =>
+    set((s) => ({ snapMode, grid: snapMode === 'guides' ? { ...s.grid, snap: false } : s.grid })),
+
+  toggleGrid: () => set((s) => ({ grid: { ...s.grid, visible: !s.grid.visible } })),
+  setGridSize: (size) => set((s) => ({ grid: { ...s.grid, size: Math.max(1, Math.round(size)) } })),
+  setGridStyle: (style) => set((s) => ({ grid: { ...s.grid, style } })),
+  toggleGridSnap: () =>
+    set((s) => {
+      const snap = !s.grid.snap
+      return { grid: { ...s.grid, snap }, snapMode: snap ? 'none' : s.snapMode }
+    }),
 
   toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
 
