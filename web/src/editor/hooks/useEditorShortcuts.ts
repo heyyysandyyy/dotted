@@ -34,6 +34,13 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Resize canvas (Cmd/Ctrl+Shift+R) — checked before the rulers shortcut.
+      if (mod && e.shiftKey && !editing && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        window.dispatchEvent(new Event('dotted:resize-canvas'))
+        return
+      }
+
       // Toggle rulers (Cmd/Ctrl+R) — intercept so the browser doesn't reload.
       if (mod && !editing && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault()

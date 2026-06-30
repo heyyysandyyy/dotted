@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TopBar } from './components/TopBar'
 import { CanvasStage } from './components/CanvasStage'
 import { PageBar } from './components/PageBar'
@@ -7,6 +7,7 @@ import { NewDesignModal } from './components/NewDesignModal'
 import { TemplatesModal } from './components/TemplatesModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
+import { ResizeModal } from './components/ResizeModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
@@ -21,8 +22,16 @@ export function Editor() {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [resizeOpen, setResizeOpen] = useState(false)
   const viewMode = useCanvasStore((s) => s.viewMode)
   useEditorShortcuts()
+
+  // Open the resize modal from the top bar's size display or Cmd/Ctrl+Shift+R.
+  useEffect(() => {
+    const onResize = () => setResizeOpen(true)
+    window.addEventListener('dotted:resize-canvas', onResize)
+    return () => window.removeEventListener('dotted:resize-canvas', onResize)
+  }, [])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950">
@@ -67,6 +76,7 @@ export function Editor() {
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      {resizeOpen && <ResizeModal onClose={() => setResizeOpen(false)} />}
       <ContextMenu />
     </div>
   )

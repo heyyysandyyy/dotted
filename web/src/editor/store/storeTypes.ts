@@ -74,8 +74,15 @@ export interface ProjectSlice {
   duplicatePage: (id: string) => void
   /** Switch between single-page editing and the all-pages stack view. */
   setViewMode: (mode: ViewMode) => void
-  /** Restore a project state (pages + active page) for undo/redo. */
-  applyHistorySnapshot: (pages: PageData[], activePageId: string) => Promise<void>
+  /** Resize the artboard; optionally scale all objects to fit. Undoable (UX-014). */
+  resizeCanvas: (width: number, height: number, scaleContent: boolean) => void
+  /** Restore a project state (pages + active page + dimensions) for undo/redo. */
+  applyHistorySnapshot: (
+    pages: PageData[],
+    activePageId: string,
+    width?: number,
+    height?: number,
+  ) => Promise<void>
   /** Set the artboard's solid background colour. */
   setBackgroundColor: (color: string) => void
   /** Set an image (covering the artboard) as the background. */
