@@ -54,6 +54,26 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Copy / paste style (Cmd/Ctrl+Alt+C / V) — use e.code since Alt changes
+      // e.key on some layouts (UX-007).
+      if (mod && e.altKey && !editing && e.code === 'KeyC') {
+        e.preventDefault()
+        useCanvasStore.getState().copyStyle()
+        return
+      }
+      if (mod && e.altKey && !editing && e.code === 'KeyV') {
+        e.preventDefault()
+        useCanvasStore.getState().pasteStyle()
+        return
+      }
+
+      // Escape leaves format-painter mode (UX-007).
+      if (e.key === 'Escape' && useCanvasStore.getState().painterMode !== 'off') {
+        e.preventDefault()
+        useCanvasStore.getState().exitPainter()
+        return
+      }
+
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
 

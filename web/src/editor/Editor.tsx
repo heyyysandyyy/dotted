@@ -12,6 +12,7 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { ContextToolbar } from './components/ContextToolbar'
+import { ContextMenu } from './components/ContextMenu'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 import { useCanvasStore } from './store/useCanvasStore'
 
@@ -66,6 +67,7 @@ export function Editor() {
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      <ContextMenu />
     </div>
   )
 }

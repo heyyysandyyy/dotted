@@ -4,6 +4,7 @@ import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
 import { AlignmentToolbar } from './AlignmentToolbar'
+import { StyleTools } from './StyleTools'
 
 function NumberField({
   label,
@@ -96,7 +97,8 @@ export function PropertiesPanel() {
     return (
       <div>
         <AlignmentToolbar />
-        <div className="px-4 pb-4 text-xs text-neutral-500">
+        <StyleTools />
+        <div className="px-4 pb-4 pt-2 text-xs text-neutral-500">
           {selection.length} objects selected
         </div>
       </div>
@@ -110,6 +112,7 @@ export function PropertiesPanel() {
   return (
     <div>
       <AlignmentToolbar />
+      <StyleTools />
       <div className="space-y-3 border-t border-neutral-800 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
         Position &amp; size

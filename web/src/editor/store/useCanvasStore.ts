@@ -58,6 +58,47 @@ function fireModified(canvas: fabric.Canvas, target: fabric.FabricObject, histor
   canvas.fire('object:modified', { target, historyLabel } as unknown as never)
 }
 
+/** Visual style props copied/pasted between objects (UX-007). */
+const STYLE_KEYS = [
+  'fill',
+  'stroke',
+  'strokeWidth',
+  'opacity',
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'textAlign',
+  'underline',
+  'lineHeight',
+  'shadow',
+  'rx',
+  'ry',
+]
+
+/** Read the copyable style off an object (only props it actually defines). */
+function readStyle(obj: fabric.FabricObject): Record<string, unknown> {
+  const style: Record<string, unknown> = {}
+  for (const k of STYLE_KEYS) {
+    // rx/ry are a border radius on a rect but a radius on an ellipse — keep them rect-only.
+    if ((k === 'rx' || k === 'ry') && obj.type !== 'rect') continue
+    const v = (obj as unknown as Record<string, unknown>)[k]
+    if (v !== undefined) style[k] = v
+  }
+  return style
+}
+
+/** Apply a copied style to a target, setting only compatible (present) props. */
+function applyStyle(obj: fabric.FabricObject, style: Record<string, unknown>): void {
+  const props: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(style)) {
+    if ((k === 'rx' || k === 'ry') && obj.type !== 'rect') continue
+    if ((obj as unknown as Record<string, unknown>)[k] !== undefined) props[k] = v
+  }
+  obj.set(props)
+  obj.setCoords()
+}
+
 /** Re-group objects into an active selection (multi) or select the single one. */
 function reselect(canvas: fabric.Canvas, objs: fabric.FabricObject[]): void {
   if (objs.length > 1) {
@@ -94,6 +135,9 @@ export type SnapMode = 'none' | 'guides'
 
 /** Grid overlay rendering style (UX-005). */
 export type GridStyle = 'lines' | 'dots'
+
+/** Format-painter state (UX-007): off, paste-once-then-exit, or sticky. */
+export type PainterMode = 'off' | 'once' | 'sticky'
 
 /** Grid overlay + snap settings (UX-005). */
 export interface GridSettings {
@@ -148,6 +192,10 @@ interface CanvasState {
   snapGuides: boolean
   /** Guides the dragging object is currently snapped to (transient highlight). */
   activeGuides: Guides
+  /** Style copied from an object, for paste-style / format painter (UX-007). */
+  clipboardStyle: Record<string, unknown> | null
+  /** Format-painter mode (UX-007). */
+  painterMode: PainterMode
 
   setCanvas: (c: fabric.Canvas | null) => void
   setZoom: (z: number) => void
@@ -258,6 +306,17 @@ interface CanvasState {
   distributeObjects: (axis: 'horizontal' | 'vertical') => void
   /** Delete the active selection. */
   deleteActive: () => void
+
+  /** Copy the visual style of the (single) selected object (UX-007). */
+  copyStyle: () => void
+  /** Paste the copied style onto the selected object(s); undoable (UX-007). */
+  pasteStyle: () => void
+  /** Enter format-painter mode (copies the current style); sticky stays on. */
+  startPainter: (sticky: boolean) => void
+  /** Leave format-painter mode and restore the cursor. */
+  exitPainter: () => void
+  /** Paste the copied style onto a specific object (a format-painter click). */
+  pasteStyleOnTarget: (obj: fabric.FabricObject) => void
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -281,6 +340,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   showGuides: true,
   snapGuides: true,
   activeGuides: { horizontal: [], vertical: [] },
+  clipboardStyle: null,
+  painterMode: 'off',
 
   setCanvas: (canvas) => set({ canvas }),
   setZoom: (zoom) => set({ zoom }),
@@ -911,5 +972,47 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     canvas.discardActiveObject()
     canvas.requestRenderAll()
     set({ selection: [] })
+  },
+
+  copyStyle: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const obj = canvas.getActiveObjects()[0]
+    if (!obj) return
+    set({ clipboardStyle: readStyle(obj) })
+  },
+
+  pasteStyle: () => {
+    const { canvas, clipboardStyle } = get()
+    if (!canvas || !clipboardStyle) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    objs.forEach((o) => applyStyle(o, clipboardStyle))
+    canvas.requestRenderAll()
+    fireModified(canvas, objs[0], 'Pasted style')
+  },
+
+  startPainter: (sticky) => {
+    const { canvas } = get()
+    if (!canvas) return
+    get().copyStyle()
+    if (!get().clipboardStyle) return
+    canvas.defaultCursor = 'crosshair'
+    set({ painterMode: sticky ? 'sticky' : 'once' })
+  },
+
+  exitPainter: () => {
+    const { canvas } = get()
+    if (canvas) canvas.defaultCursor = 'default'
+    set({ painterMode: 'off' })
+  },
+
+  pasteStyleOnTarget: (obj) => {
+    const { canvas, clipboardStyle, painterMode } = get()
+    if (!canvas || !clipboardStyle) return
+    applyStyle(obj, clipboardStyle)
+    canvas.requestRenderAll()
+    fireModified(canvas, obj, 'Pasted style')
+    if (painterMode === 'once') get().exitPainter()
   },
 }))

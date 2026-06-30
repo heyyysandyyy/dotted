@@ -181,6 +181,25 @@ export function CanvasStage() {
     return () => canvas.off('object:moving', onMoving)
   }, [canvas])
 
+  // UX-007: format-painter clicks paste the copied style onto the clicked
+  // object; right-click selects the object under the cursor (for the menu).
+  useEffect(() => {
+    if (!canvas) return
+    const onDown = (opt: { target?: fabric.FabricObject; e: { button?: number } }) => {
+      const store = useCanvasStore.getState()
+      if (opt.e.button === 2 && opt.target) {
+        canvas.setActiveObject(opt.target)
+        canvas.requestRenderAll()
+      }
+      if (store.painterMode !== 'off' && opt.target) {
+        store.pasteStyleOnTarget(opt.target)
+      }
+    }
+    // fabric's mouse:down callback type is stricter than what we read; cast it.
+    canvas.on('mouse:down', onDown as never)
+    return () => canvas.off('mouse:down', onDown as never)
+  }, [canvas])
+
   // UX-004: snap an object's edges/centre to manual ruler guides while dragging,
   // and highlight whichever guides it's snapped to.
   useEffect(() => {
