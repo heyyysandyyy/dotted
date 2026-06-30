@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
+import { pickColor } from '../eyedropper'
 
 function isTypingTarget(): boolean {
   const el = document.activeElement
@@ -76,6 +77,15 @@ export function useEditorShortcuts() {
 
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
+
+      // Eyedropper (I): sample a colour and apply it to the active object's fill.
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault()
+        pickColor().then((hex) => {
+          if (hex) useCanvasStore.getState().updateActive({ fill: hex })
+        })
+        return
+      }
 
       const step = e.shiftKey ? 10 : 1
       switch (e.key) {
