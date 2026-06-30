@@ -2,8 +2,18 @@ import { useState } from 'react'
 import { SIZE_PRESETS, SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
 
+/** Remembered across opens for the session (dimensions always reseed from the
+ *  current artboard, but the user's unit/lock/scale choices stick). */
+export interface ResizePrefs {
+  unit: UnitId
+  lock: boolean
+  scale: boolean
+}
+
 interface Props {
   onClose: () => void
+  prefs: ResizePrefs
+  onPrefsChange: (p: ResizePrefs) => void
 }
 
 const pxPer = (unit: UnitId) => SIZE_UNITS.find((u) => u.id === unit)!.pxPer
@@ -12,21 +22,22 @@ const fmt = (px: number, unit: UnitId) =>
 
 /**
  * UX-014: resize the current artboard, optionally scaling content to fit.
- * Mounted only while open, so its state seeds from the current dimensions.
+ * Mounted only while open, so its dimensions seed from the current size.
  */
-export function ResizeModal({ onClose }: Props) {
+export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
   const canvas = useCanvasStore((s) => s.canvas)
   const resizeCanvas = useCanvasStore((s) => s.resizeCanvas)
 
-  const [unit, setUnit] = useState<UnitId>('px')
-  const [wStr, setWStr] = useState(() => String(width))
-  const [hStr, setHStr] = useState(() => String(height))
-  const [lock, setLock] = useState(false)
-  const [scaleContent, setScaleContent] = useState(false)
+  const { unit, lock, scale: scaleContent } = prefs
+  const [wStr, setWStr] = useState(() => fmt(width, unit))
+  const [hStr, setHStr] = useState(() => fmt(height, unit))
   // Aspect ratio captured when the modal opened, for the lock.
   const [ratio] = useState(() => (height > 0 ? width / height : 1))
+
+  const setLock = (v: boolean) => onPrefsChange({ ...prefs, lock: v })
+  const setScaleContent = (v: boolean) => onPrefsChange({ ...prefs, scale: v })
 
   const toPx = (s: string) => Math.max(1, Math.round((Number(s) || 0) * pxPer(unit)))
   const pxW = toPx(wStr)
@@ -35,7 +46,7 @@ export function ResizeModal({ onClose }: Props) {
   const changeUnit = (next: UnitId) => {
     setWStr(fmt(pxW, next))
     setHStr(fmt(pxH, next))
-    setUnit(next)
+    onPrefsChange({ ...prefs, unit: next })
   }
 
   const onWidth = (s: string) => {
@@ -48,7 +59,7 @@ export function ResizeModal({ onClose }: Props) {
   }
 
   const pickPreset = (pw: number, ph: number) => {
-    setUnit('px')
+    if (unit !== 'px') onPrefsChange({ ...prefs, unit: 'px' })
     setWStr(String(pw))
     setHStr(String(ph))
   }

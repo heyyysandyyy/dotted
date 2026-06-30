@@ -7,7 +7,7 @@ import { NewDesignModal } from './components/NewDesignModal'
 import { TemplatesModal } from './components/TemplatesModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
-import { ResizeModal } from './components/ResizeModal'
+import { ResizeModal, type ResizePrefs } from './components/ResizeModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { LayersPanel } from './components/LayersPanel'
@@ -23,6 +23,7 @@ export function Editor() {
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [resizeOpen, setResizeOpen] = useState(false)
+  const [resizePrefs, setResizePrefs] = useState<ResizePrefs>({ unit: 'px', lock: false, scale: false })
   const viewMode = useCanvasStore((s) => s.viewMode)
   useEditorShortcuts()
 
@@ -76,7 +77,13 @@ export function Editor() {
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
-      {resizeOpen && <ResizeModal onClose={() => setResizeOpen(false)} />}
+      {resizeOpen && (
+        <ResizeModal
+          prefs={resizePrefs}
+          onPrefsChange={setResizePrefs}
+          onClose={() => setResizeOpen(false)}
+        />
+      )}
       <ContextMenu />
     </div>
   )
