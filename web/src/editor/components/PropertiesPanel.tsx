@@ -3,6 +3,7 @@ import { ImagePlus, Ban } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
+import { AlignmentToolbar } from './AlignmentToolbar'
 
 function NumberField({
   label,
@@ -93,8 +94,11 @@ export function PropertiesPanel() {
 
   if (selection.length > 1) {
     return (
-      <div className="p-4 text-xs text-neutral-500">
-        {selection.length} objects selected
+      <div>
+        <AlignmentToolbar />
+        <div className="px-4 pb-4 text-xs text-neutral-500">
+          {selection.length} objects selected
+        </div>
       </div>
     )
   }
@@ -104,7 +108,9 @@ export function PropertiesPanel() {
   const h = obj.getScaledHeight()
 
   return (
-    <div className="space-y-3 p-4">
+    <div>
+      <AlignmentToolbar />
+      <div className="space-y-3 border-t border-neutral-800 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
         Position &amp; size
       </div>
@@ -175,6 +181,7 @@ export function PropertiesPanel() {
           </label>
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -17,7 +17,7 @@ import {
   type Guides,
 } from '../storage'
 import type { StarterTemplate } from '../templates'
-import { kindName } from '../utils'
+import { kindName, alignDelta, type AlignMode } from '../utils'
 
 /**
  * Lazy-load every Google font used by the canvas's text and repaint once each
@@ -56,6 +56,15 @@ const TEXT_PROP_KEYS = [
  */
 function fireModified(canvas: fabric.Canvas, target: fabric.FabricObject, historyLabel: string) {
   canvas.fire('object:modified', { target, historyLabel } as unknown as never)
+}
+
+/** Re-group objects into an active selection (multi) or select the single one. */
+function reselect(canvas: fabric.Canvas, objs: fabric.FabricObject[]): void {
+  if (objs.length > 1) {
+    canvas.setActiveObject(new fabric.ActiveSelection(objs, { canvas }))
+  } else if (objs[0]) {
+    canvas.setActiveObject(objs[0])
+  }
 }
 
 /** History label for an `updateActive` change, inferred from which props moved. */
@@ -243,6 +252,10 @@ interface CanvasState {
   applyStackingOrder: (bottomFirst: fabric.FabricObject[]) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
   nudge: (dx: number, dy: number) => void
+  /** Align selected objects — to the canvas (one) or the selection box (many). */
+  alignObjects: (mode: AlignMode) => void
+  /** Evenly distribute 3+ selected objects along an axis (equal gaps). */
+  distributeObjects: (axis: 'horizontal' | 'vertical') => void
   /** Delete the active selection. */
   deleteActive: () => void
 }
@@ -829,6 +842,65 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     obj.setCoords()
     canvas.requestRenderAll()
     fireModified(canvas, obj, `Moved ${kindName(obj)}`)
+  },
+
+  alignObjects: (mode) => {
+    const { canvas, width, height } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    // Work in absolute coords (objects in an active selection are group-relative).
+    canvas.discardActiveObject()
+    const rects = objs.map((o) => o.getBoundingRect())
+    // One object aligns to the canvas; multiple align to their shared bounding box.
+    let target: { left: number; top: number; width: number; height: number }
+    if (objs.length > 1) {
+      const left = Math.min(...rects.map((r) => r.left))
+      const top = Math.min(...rects.map((r) => r.top))
+      const right = Math.max(...rects.map((r) => r.left + r.width))
+      const bottom = Math.max(...rects.map((r) => r.top + r.height))
+      target = { left, top, width: right - left, height: bottom - top }
+    } else {
+      target = { left: 0, top: 0, width, height }
+    }
+    objs.forEach((o, i) => {
+      const { dx, dy } = alignDelta(rects[i], target, mode)
+      o.set({ left: (o.left ?? 0) + dx, top: (o.top ?? 0) + dy })
+      o.setCoords()
+    })
+    reselect(canvas, objs)
+    canvas.requestRenderAll()
+    fireModified(canvas, objs[0], 'Aligned objects')
+  },
+
+  distributeObjects: (axis) => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length < 3) return
+    canvas.discardActiveObject()
+    const horizontal = axis === 'horizontal'
+    const startKey = horizontal ? 'left' : 'top'
+    const sizeKey = horizontal ? 'width' : 'height'
+    const items = objs.map((o) => ({ o, r: o.getBoundingRect() }))
+    items.sort((a, b) => a.r[startKey] - b.r[startKey])
+    // Equal gaps: keep the outer edges fixed, space the rest evenly between them.
+    const spanStart = items[0].r[startKey]
+    const last = items[items.length - 1].r
+    const spanEnd = last[startKey] + last[sizeKey]
+    const totalSize = items.reduce((sum, it) => sum + it.r[sizeKey], 0)
+    const gap = (spanEnd - spanStart - totalSize) / (items.length - 1)
+    let cursor = spanStart
+    items.forEach((it) => {
+      const delta = cursor - it.r[startKey]
+      if (horizontal) it.o.set({ left: (it.o.left ?? 0) + delta })
+      else it.o.set({ top: (it.o.top ?? 0) + delta })
+      it.o.setCoords()
+      cursor += it.r[sizeKey] + gap
+    })
+    reselect(canvas, objs)
+    canvas.requestRenderAll()
+    fireModified(canvas, objs[0], `Distributed ${horizontal ? 'horizontally' : 'vertically'}`)
   },
 
   deleteActive: () => {

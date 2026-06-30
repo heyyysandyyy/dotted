@@ -75,6 +75,38 @@ export function kindName(obj: fabric.FabricObject | undefined | null): string {
   }
 }
 
+/** Which edge/centre to align to (UX-006). */
+export type AlignMode = 'left' | 'centerH' | 'right' | 'top' | 'middleV' | 'bottom'
+
+/** An axis-aligned bounding box. */
+export interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * The (dx, dy) to move box `r` so it aligns to `target` per `mode` (UX-006).
+ * Delta-based, so it works regardless of an object's origin.
+ */
+export function alignDelta(r: Box, target: Box, mode: AlignMode): { dx: number; dy: number } {
+  switch (mode) {
+    case 'left':
+      return { dx: target.left - r.left, dy: 0 }
+    case 'centerH':
+      return { dx: target.left + target.width / 2 - (r.left + r.width / 2), dy: 0 }
+    case 'right':
+      return { dx: target.left + target.width - (r.left + r.width), dy: 0 }
+    case 'top':
+      return { dx: 0, dy: target.top - r.top }
+    case 'middleV':
+      return { dx: 0, dy: target.top + target.height / 2 - (r.top + r.height / 2) }
+    case 'bottom':
+      return { dx: 0, dy: target.top + target.height - (r.top + r.height) }
+  }
+}
+
 /** Trigger a browser download for a data/object URL. */
 export function downloadUrl(url: string, filename: string) {
   const a = document.createElement('a')
