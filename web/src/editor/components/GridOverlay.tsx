@@ -1,21 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { setupHiDPI, useViewportGeometry } from '../viewportGeometry'
 
 const LINE_COLOR = 'rgba(150, 150, 150, 0.28)'
 const DOT_COLOR = 'rgba(150, 150, 150, 0.55)'
 /** Below this on-screen spacing the grid is too dense to be useful — skip it. */
 const MIN_SPACING = 4
-
-function setupHiDPI(canvas: HTMLCanvasElement, cssW: number, cssH: number) {
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.max(1, Math.round(cssW * dpr))
-  canvas.height = Math.max(1, Math.round(cssH * dpr))
-  canvas.style.width = `${cssW}px`
-  canvas.style.height = `${cssH}px`
-  const ctx = canvas.getContext('2d')!
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  return ctx
-}
 
 /**
  * UX-005: a non-exportable grid drawn over the artboard. It lives in the canvas
@@ -24,23 +14,8 @@ function setupHiDPI(canvas: HTMLCanvasElement, cssW: number, cssH: number) {
  */
 export function GridOverlay() {
   const grid = useCanvasStore((s) => s.grid)
-  const width = useCanvasStore((s) => s.width)
-  const height = useCanvasStore((s) => s.height)
-  const zoom = useCanvasStore((s) => s.zoom)
-
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { rootRef, box, width, height, zoom, originX, originY } = useViewportGeometry(grid.visible)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [box, setBox] = useState({ w: 0, h: 0 })
-
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el) return
-    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight })
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [grid.visible])
 
   useEffect(() => {
     const el = canvasRef.current
@@ -52,8 +27,8 @@ export function GridOverlay() {
     if (spacing < MIN_SPACING) return
 
     // Artboard rect on screen (the grid is clipped to the artboard).
-    const left = (box.w - width * zoom) / 2
-    const top = (box.h - height * zoom) / 2
+    const left = originX
+    const top = originY
     const right = left + width * zoom
     const bottom = top + height * zoom
 
@@ -86,7 +61,7 @@ export function GridOverlay() {
       }
     }
     ctx.restore()
-  }, [grid, width, height, zoom, box])
+  }, [grid, width, height, zoom, box, originX, originY])
 
   if (!grid.visible) return null
 
