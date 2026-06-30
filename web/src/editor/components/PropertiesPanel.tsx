@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { ImagePlus, Ban } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { ImagePlus, Ban, Eraser } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
@@ -88,6 +88,9 @@ export function PropertiesPanel() {
   useCanvasStore((s) => s.tick)
   const selection = useCanvasStore((s) => s.selection)
   const updateActive = useCanvasStore((s) => s.updateActive)
+  const removeImageBackground = useCanvasStore((s) => s.removeImageBackground)
+  const bgRemoving = useCanvasStore((s) => s.bgRemoving)
+  const [bgTolerance, setBgTolerance] = useState(60)
 
   if (selection.length === 0) {
     return <CanvasBackground />
@@ -182,6 +185,42 @@ export function PropertiesPanel() {
               className="w-full accent-indigo-500"
             />
           </label>
+        </div>
+      )}
+
+      {obj.type === 'image' && (
+        <div className="space-y-2 border-t border-neutral-800 pt-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Image
+          </div>
+          <button
+            onClick={() => removeImageBackground(bgTolerance)}
+            disabled={bgRemoving}
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Eraser size={14} />
+            {bgRemoving ? 'Removing…' : 'Remove background'}
+          </button>
+          <label className="block text-[11px] text-neutral-400">
+            <div className="mb-1 flex justify-between">
+              <span>Tolerance</span>
+              <span>{bgTolerance}</span>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={150}
+              step={5}
+              value={bgTolerance}
+              onChange={(e) => setBgTolerance(Number(e.target.value))}
+              className="w-full accent-indigo-500"
+            />
+          </label>
+          <p className="text-[11px] leading-snug text-neutral-600">
+            Removes a solid/near-solid background by colour — higher tolerance
+            erases more. Click again after changing it to re-tune from the
+            original. Best on flat backgrounds, not busy photos.
+          </p>
         </div>
       )}
       </div>

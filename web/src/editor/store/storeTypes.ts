@@ -159,6 +159,8 @@ export interface ObjectsSlice {
   clipboardStyle: Record<string, unknown> | null
   /** Format-painter mode (UX-007). */
   painterMode: PainterMode
+  /** True while a solid-background removal is processing (UX-010). */
+  bgRemoving: boolean
 
   setCanvas: (c: fabric.Canvas | null) => void
   setSelection: (objs: fabric.FabricObject[]) => void
@@ -206,6 +208,9 @@ export interface ObjectsSlice {
   exitPainter: () => void
   /** Paste the copied style onto a specific object (a format-painter click). */
   pasteStyleOnTarget: (obj: fabric.FabricObject) => void
+  /** Remove a solid background from the selected image at the given colour
+   *  tolerance; always re-processes from the original so it can be re-tuned. */
+  removeImageBackground: (tolerance?: number) => void
 }
 
 /** The full editor store: project + view + objects slices combined. */
