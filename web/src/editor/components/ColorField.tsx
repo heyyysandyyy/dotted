@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Pipette } from 'lucide-react'
 import tinycolor from 'tinycolor2'
 import { toColorString } from '../utils'
 import { getPalette, addPaletteColor, removePaletteColor } from '../storage'
+import { pickColor } from '../eyedropper'
 
 interface Props {
   label: string
@@ -41,6 +42,16 @@ export function ColorField({ label, value, onChange }: Props) {
     onChange(toColorString(nextHex, nextAlphaPct))
   }
 
+  // Eyedropper (UX-008): sample a colour from the canvas and apply it here,
+  // keeping the current opacity. Closes the popover so the native/loupe picker
+  // isn't covered.
+  const eyedrop = () => {
+    setOpen(false)
+    pickColor().then((hex) => {
+      if (hex) emit(hex, alphaPct)
+    })
+  }
+
   return (
     <div className="relative flex items-center justify-between text-xs text-neutral-400">
       <span>{label}</span>
@@ -59,12 +70,22 @@ export function ColorField({ label, value, onChange }: Props) {
           {/* Click-away backdrop. */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-7 z-20 w-44 rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-xl">
-            <input
-              type="color"
-              value={hex}
-              onChange={(e) => emit(e.target.value, alphaPct)}
-              className="h-8 w-full cursor-pointer rounded border border-neutral-700 bg-neutral-800"
-            />
+            <div className="flex gap-1">
+              <input
+                type="color"
+                value={hex}
+                onChange={(e) => emit(e.target.value, alphaPct)}
+                className="h-8 flex-1 cursor-pointer rounded border border-neutral-700 bg-neutral-800"
+              />
+              <button
+                type="button"
+                onClick={eyedrop}
+                title="Pick a colour from the canvas (I)"
+                className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
+              >
+                <Pipette size={14} />
+              </button>
+            </div>
             <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-400">
               <span>Opacity</span>
               <span>{alphaPct}%</span>

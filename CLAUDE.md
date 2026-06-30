@@ -35,7 +35,7 @@ checklist of the *active* batch only.
 - [x] UX-005 Grid overlay
 - [x] UX-006 Object alignment tools
 - [x] UX-007 Copy and paste styles
-- [ ] UX-008 Eyedropper
+- [x] UX-008 Eyedropper
 - [ ] UX-009 Image crop
 - [ ] UX-010 Background remover
 - [ ] UX-011 Shadow and glow effects

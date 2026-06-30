@@ -13,6 +13,7 @@ import { DARK_SURROUND, SNAP_MARGIN } from '../constants'
 import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
 import { GridOverlay } from './GridOverlay'
+import { EyedropperOverlay } from './EyedropperOverlay'
 
 const PADDING = 56
 
@@ -259,6 +260,7 @@ export function CanvasStage() {
       </div>
       <GridOverlay />
       <CanvasRulers />
+      <EyedropperOverlay />
     </div>
   )
 }
