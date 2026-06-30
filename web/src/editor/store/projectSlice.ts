@@ -278,6 +278,33 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     useHistoryStore.getState().record('Resized canvas')
   },
 
+  fitToContent: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getObjects()
+    if (objs.length === 0) return
+    // Union bounding box of all objects (absolute canvas coords).
+    let minL = Infinity
+    let minT = Infinity
+    let maxR = -Infinity
+    let maxB = -Infinity
+    objs.forEach((o) => {
+      const b = o.getBoundingRect()
+      minL = Math.min(minL, b.left)
+      minT = Math.min(minT, b.top)
+      maxR = Math.max(maxR, b.left + b.width)
+      maxB = Math.max(maxB, b.top + b.height)
+    })
+    // Shift content so its bounding box starts at the top-left, then resize.
+    objs.forEach((o) => {
+      o.set({ left: (o.left ?? 0) - minL, top: (o.top ?? 0) - minT })
+      o.setCoords()
+    })
+    // Round up so the canvas always fully contains the (possibly fractional) box.
+    get().setDimensions(Math.max(1, Math.ceil(maxR - minL)), Math.max(1, Math.ceil(maxB - minT)))
+    useHistoryStore.getState().record('Fit canvas to content')
+  },
+
   applyHistorySnapshot: (pages, activePageId, width, height) => {
     const { canvas } = get()
     if (!canvas) return Promise.resolve()

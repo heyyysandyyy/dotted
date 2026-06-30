@@ -29,19 +29,25 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
   const height = useCanvasStore((s) => s.height)
   const canvas = useCanvasStore((s) => s.canvas)
   const resizeCanvas = useCanvasStore((s) => s.resizeCanvas)
+  const fitToContent = useCanvasStore((s) => s.fitToContent)
+  const hasObjects = !!canvas && canvas.getObjects().length > 0
 
   const { unit, lock, scale: scaleContent } = prefs
   const [wStr, setWStr] = useState(() => fmt(width, unit))
   const [hStr, setHStr] = useState(() => fmt(height, unit))
-  // Aspect ratio captured when the modal opened, for the lock.
-  const [ratio] = useState(() => (height > 0 ? width / height : 1))
-
-  const setLock = (v: boolean) => onPrefsChange({ ...prefs, lock: v })
-  const setScaleContent = (v: boolean) => onPrefsChange({ ...prefs, scale: v })
+  // The locked aspect ratio — captured from the current fields when lock is
+  // turned on (defaults to the artboard's ratio if it opens already locked).
+  const [ratio, setRatio] = useState(() => (height > 0 ? width / height : 1))
 
   const toPx = (s: string) => Math.max(1, Math.round((Number(s) || 0) * pxPer(unit)))
   const pxW = toPx(wStr)
   const pxH = toPx(hStr)
+
+  const setLock = (v: boolean) => {
+    if (v && pxH > 0) setRatio(pxW / pxH) // lock to whatever's entered right now
+    onPrefsChange({ ...prefs, lock: v })
+  }
+  const setScaleContent = (v: boolean) => onPrefsChange({ ...prefs, scale: v })
 
   const changeUnit = (next: UnitId) => {
     setWStr(fmt(pxW, next))
@@ -65,12 +71,13 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
   }
 
   // Warn if objects would fall outside the new (smaller) bounds without scaling.
+  const EPS = 0.5 // ignore sub-pixel overflow (e.g. after fit-to-content rounding)
   const outOfBounds =
     !scaleContent &&
     !!canvas &&
     canvas.getObjects().some((o) => {
       const b = o.getBoundingRect()
-      return b.left < 0 || b.top < 0 || b.left + b.width > pxW || b.top + b.height > pxH
+      return b.left < -EPS || b.top < -EPS || b.left + b.width > pxW + EPS || b.top + b.height > pxH + EPS
     })
 
   const confirm = () => {
@@ -153,6 +160,18 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
             ))}
           </div>
         </div>
+
+        <button
+          onClick={() => {
+            fitToContent()
+            onClose()
+          }}
+          disabled={!hasObjects}
+          title="Resize the canvas to exactly wrap all objects"
+          className="mt-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Fit to content
+        </button>
 
         {outOfBounds && (
           <p className="mt-3 text-xs text-amber-600">

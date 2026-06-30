@@ -76,6 +76,8 @@ export interface ProjectSlice {
   setViewMode: (mode: ViewMode) => void
   /** Resize the artboard; optionally scale all objects to fit. Undoable (UX-014). */
   resizeCanvas: (width: number, height: number, scaleContent: boolean) => void
+  /** Resize the artboard to exactly wrap all objects (and shift them to 0,0). */
+  fitToContent: () => void
   /** Restore a project state (pages + active page + dimensions) for undo/redo. */
   applyHistorySnapshot: (
     pages: PageData[],
