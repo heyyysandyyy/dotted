@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { setupHiDPI, useViewportGeometry } from '../viewportGeometry'
 
 /** Ruler gutter thickness in CSS px. */
 const RULER = 20
@@ -41,17 +42,6 @@ function niceStep(target: number): number {
 function fmtLabel(unitValue: number, unit: UnitId): string {
   if (unit === 'px') return String(Math.round(unitValue))
   return parseFloat(unitValue.toFixed(2)).toString()
-}
-
-function setupHiDPI(canvas: HTMLCanvasElement, cssW: number, cssH: number) {
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.max(1, Math.round(cssW * dpr))
-  canvas.height = Math.max(1, Math.round(cssH * dpr))
-  canvas.style.width = `${cssW}px`
-  canvas.style.height = `${cssH}px`
-  const ctx = canvas.getContext('2d')!
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  return ctx
 }
 
 function drawRuler(
@@ -114,33 +104,16 @@ export function CanvasRulers() {
   const showRulers = useCanvasStore((s) => s.showRulers)
   const showGuides = useCanvasStore((s) => s.showGuides)
   const rulerUnit = useCanvasStore((s) => s.rulerUnit)
-  const width = useCanvasStore((s) => s.width)
-  const height = useCanvasStore((s) => s.height)
-  const zoom = useCanvasStore((s) => s.zoom)
   const guides = useCanvasStore((s) => s.guides)
   const activeGuides = useCanvasStore((s) => s.activeGuides)
   const addGuide = useCanvasStore((s) => s.addGuide)
   const updateGuide = useCanvasStore((s) => s.updateGuide)
   const removeGuide = useCanvasStore((s) => s.removeGuide)
 
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { rootRef, box, width, height, zoom, originX, originY } = useViewportGeometry(showRulers)
   const topRef = useRef<HTMLCanvasElement>(null)
   const leftRef = useRef<HTMLCanvasElement>(null)
-  const [box, setBox] = useState({ w: 0, h: 0 })
   const [drag, setDrag] = useState<Drag | null>(null)
-
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el) return
-    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight })
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [showRulers])
-
-  const originX = (box.w - width * zoom) / 2
-  const originY = (box.h - height * zoom) / 2
 
   useEffect(() => {
     if (!showRulers || box.w === 0 || box.h === 0) return
@@ -185,7 +158,7 @@ export function CanvasRulers() {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [drag, originX, originY, zoom, width, height, addGuide, updateGuide, removeGuide])
+  }, [drag, originX, originY, zoom, width, height, addGuide, updateGuide, removeGuide, rootRef])
 
   const startCreate = useCallback(
     (orientation: Orientation) => (e: React.PointerEvent) => {
@@ -197,7 +170,7 @@ export function CanvasRulers() {
           : (e.clientX - rect.left - originX) / zoom
       setDrag({ kind: 'create', orientation, index: -1, pos })
     },
-    [originX, originY, zoom],
+    [originX, originY, zoom, rootRef],
   )
 
   if (!showRulers) return null

@@ -11,6 +11,7 @@ import {
   readStyle,
   applyStyle,
   reselect,
+  distributeStarts,
 } from './storeHelpers'
 import type { CanvasState, ObjectsSlice } from './storeTypes'
 
@@ -265,18 +266,12 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     const items = objs.map((o) => ({ o, r: o.getBoundingRect() }))
     items.sort((a, b) => a.r[startKey] - b.r[startKey])
     // Equal gaps: keep the outer edges fixed, space the rest evenly between them.
-    const spanStart = items[0].r[startKey]
-    const last = items[items.length - 1].r
-    const spanEnd = last[startKey] + last[sizeKey]
-    const totalSize = items.reduce((sum, it) => sum + it.r[sizeKey], 0)
-    const gap = (spanEnd - spanStart - totalSize) / (items.length - 1)
-    let cursor = spanStart
-    items.forEach((it) => {
-      const delta = cursor - it.r[startKey]
+    const starts = distributeStarts(items.map((it) => ({ start: it.r[startKey], size: it.r[sizeKey] })))
+    items.forEach((it, i) => {
+      const delta = starts[i] - it.r[startKey]
       if (horizontal) it.o.set({ left: (it.o.left ?? 0) + delta })
       else it.o.set({ top: (it.o.top ?? 0) + delta })
       it.o.setCoords()
-      cursor += it.r[sizeKey] + gap
     })
     reselect(canvas, objs)
     canvas.requestRenderAll()
