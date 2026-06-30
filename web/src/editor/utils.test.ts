@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type * as fabric from 'fabric'
-import { isText, isShape, layerName, kindName, toColorString } from './utils'
+import { isText, isShape, layerName, kindName, toColorString, alignDelta } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
@@ -55,6 +55,23 @@ describe('kindName', () => {
   it('falls back to the type or "object"', () => {
     expect(kindName(obj('polygon'))).toBe('polygon')
     expect(kindName(null)).toBe('object')
+  })
+})
+
+describe('alignDelta', () => {
+  // Object 20×20 at (10,10) inside a 100×100 target.
+  const r = { left: 10, top: 10, width: 20, height: 20 }
+  const t = { left: 0, top: 0, width: 100, height: 100 }
+
+  it('aligns horizontal edges/centre', () => {
+    expect(alignDelta(r, t, 'left')).toEqual({ dx: -10, dy: 0 })
+    expect(alignDelta(r, t, 'centerH')).toEqual({ dx: 30, dy: 0 }) // centre 50 vs 20
+    expect(alignDelta(r, t, 'right')).toEqual({ dx: 70, dy: 0 }) // 100 vs 30
+  })
+  it('aligns vertical edges/centre', () => {
+    expect(alignDelta(r, t, 'top')).toEqual({ dx: 0, dy: -10 })
+    expect(alignDelta(r, t, 'middleV')).toEqual({ dx: 0, dy: 30 })
+    expect(alignDelta(r, t, 'bottom')).toEqual({ dx: 0, dy: 70 })
   })
 })
 
