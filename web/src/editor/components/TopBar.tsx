@@ -162,9 +162,13 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
       </div>
 
       <div className="ml-auto flex items-center gap-3 text-xs text-neutral-400">
-        <span>
+        <button
+          onClick={() => window.dispatchEvent(new Event('dotted:resize-canvas'))}
+          title="Resize canvas (Cmd/Ctrl+Shift+R)"
+          className="rounded px-1.5 py-0.5 hover:bg-neutral-800 hover:text-neutral-200"
+        >
           {width} × {height}
-        </span>
+        </button>
         <span>{Math.round(zoom * 100)}%</span>
         <button
           onClick={onExport}

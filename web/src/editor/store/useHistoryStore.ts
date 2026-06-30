@@ -8,10 +8,13 @@ const DEBOUNCE_MS = 300
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 /** A history entry: the whole multi-page project state, so page add/delete/
- *  duplicate are undoable alongside in-page edits (TPL-001). */
+ *  duplicate are undoable alongside in-page edits (TPL-001). Includes the
+ *  artboard dimensions so a canvas resize is undoable too (UX-014). */
 interface ProjectSnapshot {
   pages: PageData[]
   activePageId: string
+  width: number
+  height: number
 }
 
 interface HistoryState {
@@ -40,13 +43,13 @@ interface HistoryState {
 }
 
 function snapshot(): string | null {
-  const { canvas, pages, activePageId, currentProjectId } = useCanvasStore.getState()
+  const { canvas, pages, activePageId, currentProjectId, width, height } = useCanvasStore.getState()
   if (!canvas || !currentProjectId || pages.length === 0) return null
   // Sync the active page from the live canvas, then capture all pages.
   const synced = pages.map((p) =>
     p.id === activePageId ? { ...p, canvas: canvas.toObject(EXTRA_PROPS) } : p,
   )
-  return JSON.stringify({ pages: synced, activePageId } satisfies ProjectSnapshot)
+  return JSON.stringify({ pages: synced, activePageId, width, height } satisfies ProjectSnapshot)
 }
 
 /** Auto-save the current project to localStorage (SAV-001 / SAV-002 / TPL-001). */
@@ -146,11 +149,11 @@ function restore(
   if (!canvas) return
   if (debounceTimer) clearTimeout(debounceTimer)
   set({ isRestoring: true })
-  const { pages, activePageId } = JSON.parse(json) as ProjectSnapshot
-  // Restore the whole project state (pages + active page) onto the canvas.
+  const { pages, activePageId, width, height } = JSON.parse(json) as ProjectSnapshot
+  // Restore the whole project state (pages + active page + dimensions).
   useCanvasStore
     .getState()
-    .applyHistorySnapshot(pages, activePageId)
+    .applyHistorySnapshot(pages, activePageId, width, height)
     .then(() => {
       const stackLen = useHistoryStore.getState().stack.length
       set({

@@ -253,11 +253,70 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     set({ viewMode: mode })
   },
 
-  applyHistorySnapshot: (pages, activePageId) => {
+  resizeCanvas: (width, height, scaleContent) => {
+    const { canvas } = get()
+    if (!canvas) return
+    if (scaleContent) {
+      const oldW = get().width
+      const oldH = get().height
+      if (oldW > 0 && oldH > 0) {
+        // Smaller ratio so content fits the new bounds; reposition proportionally.
+        const r = Math.min(width / oldW, height / oldH)
+        canvas.getObjects().forEach((o) => {
+          o.set({
+            scaleX: (o.scaleX ?? 1) * r,
+            scaleY: (o.scaleY ?? 1) * r,
+            left: (o.left ?? 0) * r,
+            top: (o.top ?? 0) * r,
+          })
+          o.setCoords()
+        })
+      }
+    }
+    get().setDimensions(width, height)
+    // Record so the resize (dims + any scaling) is undoable and auto-saved.
+    useHistoryStore.getState().record('Resized canvas')
+  },
+
+  fitToContent: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getObjects()
+    if (objs.length === 0) return
+    // Union bounding box of all objects (absolute canvas coords).
+    let minL = Infinity
+    let minT = Infinity
+    let maxR = -Infinity
+    let maxB = -Infinity
+    objs.forEach((o) => {
+      const b = o.getBoundingRect()
+      minL = Math.min(minL, b.left)
+      minT = Math.min(minT, b.top)
+      maxR = Math.max(maxR, b.left + b.width)
+      maxB = Math.max(maxB, b.top + b.height)
+    })
+    // Shift content so its bounding box starts at the top-left, then resize.
+    objs.forEach((o) => {
+      o.set({ left: (o.left ?? 0) - minL, top: (o.top ?? 0) - minT })
+      o.setCoords()
+    })
+    // Round up so the canvas always fully contains the (possibly fractional) box.
+    get().setDimensions(Math.max(1, Math.ceil(maxR - minL)), Math.max(1, Math.ceil(maxB - minT)))
+    useHistoryStore.getState().record('Fit canvas to content')
+  },
+
+  applyHistorySnapshot: (pages, activePageId, width, height) => {
     const { canvas } = get()
     if (!canvas) return Promise.resolve()
     const active = pages.find((p) => p.id === activePageId) ?? pages[0]
     set({ pages, activePageId: active.id, selection: [] })
+    // Restore the artboard size too (a snapshot may predate a resize, UX-014).
+    if (typeof width === 'number' && typeof height === 'number') {
+      if (width !== get().width || height !== get().height) {
+        canvas.setDimensions({ width, height })
+        set({ width, height })
+      }
+    }
     return canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
