@@ -1,0 +1,203 @@
+import type * as fabric from 'fabric'
+import type { UnitId } from '../constants'
+import type { PageData, Guides } from '../storage'
+import type { StarterTemplate } from '../templates'
+import type { AlignMode } from '../utils'
+
+export type ShapeKind = 'rect' | 'roundedRect' | 'ellipse' | 'triangle' | 'line' | 'arrow'
+
+/** Drag-time alignment-guide snapping (CLR-004): off, or smart guides. */
+export type SnapMode = 'none' | 'guides'
+
+/** Grid overlay rendering style (UX-005). */
+export type GridStyle = 'lines' | 'dots'
+
+/** Format-painter state (UX-007): off, paste-once-then-exit, or sticky. */
+export type PainterMode = 'off' | 'once' | 'sticky'
+
+/** Grid overlay + snap settings (UX-005). */
+export interface GridSettings {
+  visible: boolean
+  size: number
+  style: GridStyle
+  snap: boolean
+}
+
+/** Canvas view: edit one page, or see all pages stacked (TPL-001). */
+export type ViewMode = 'single' | 'stack'
+
+/** Project, pages, background, and persistence. */
+export interface ProjectSlice {
+  width: number
+  height: number
+  /** Editable name of the open project (used for filenames and the project list). */
+  designName: string
+  /** Id of the project currently open in the editor (null before first load). */
+  currentProjectId: string | null
+  /** Pages of the open design; the active page's content lives in the canvas. */
+  pages: PageData[]
+  /** Id of the page currently shown on the canvas. */
+  activePageId: string
+  /** Whether the editor shows one page or all pages stacked. */
+  viewMode: ViewMode
+  /** Mirror of the artboard's solid background colour ('' when transparent). */
+  backgroundColor: string
+
+  setDesignName: (name: string) => void
+  /** Resize the artboard, preserving existing objects. */
+  setDimensions: (w: number, h: number) => void
+  /** Start a fresh blank project at the given size and switch to it. */
+  newProject: (w: number, h: number) => void
+  /** Start a new project pre-filled from a starter template (TPL-003). */
+  newProjectFromTemplate: (tpl: StarterTemplate) => void
+  /** Save the current design as a reusable template (TPL-004). */
+  saveAsTemplate: (name: string) => boolean
+  /** Start a new project from a user-saved template by id (TPL-004). */
+  newProjectFromSavedTemplate: (templateId: string) => void
+  /** Load a saved project by id, replacing the canvas contents. */
+  openProject: (id: string) => void
+  /** Persist the current project's name (after the user edits it). */
+  renameProject: () => void
+  /** Delete a project; if it's the current one, switch to another (or a new one). */
+  deleteProjectById: (id: string) => void
+  /** Duplicate a project; returns the copy's id (or null on failure). */
+  duplicateProjectById: (id: string) => string | null
+  /** Serialize the live canvas into the active page and persist the project. */
+  saveCurrentProject: () => void
+  /** Add a blank page after the active one and switch to it. */
+  addPage: () => void
+  /** Switch to a page by id, persisting the current page first. */
+  selectPage: (id: string) => void
+  /** Delete a page (no-op when it's the only page). */
+  deletePage: (id: string) => void
+  /** Duplicate a page, inserting the copy right after it. */
+  duplicatePage: (id: string) => void
+  /** Switch between single-page editing and the all-pages stack view. */
+  setViewMode: (mode: ViewMode) => void
+  /** Restore a project state (pages + active page) for undo/redo. */
+  applyHistorySnapshot: (pages: PageData[], activePageId: string) => Promise<void>
+  /** Set the artboard's solid background colour. */
+  setBackgroundColor: (color: string) => void
+  /** Set an image (covering the artboard) as the background. */
+  setBackgroundImageFromFile: (file: File) => void
+  /** Clear the background colour and image (transparent artboard). */
+  clearBackground: () => void
+  /** Refresh the backgroundColor mirror from the live canvas (after load/undo). */
+  syncBackgroundFromCanvas: () => void
+}
+
+/** View settings: zoom, rulers, grid, guides, and alignment-guide snapping. */
+export interface ViewSlice {
+  /** Display scale applied to the artboard so it fits the viewport. */
+  zoom: number
+  /** Drag-time alignment-guide snapping (CLR-004). */
+  snapMode: SnapMode
+  /** Grid overlay + snap settings (UX-005). */
+  grid: GridSettings
+  /** Whether the measurement rulers are shown around the canvas (UX-004). */
+  showRulers: boolean
+  /** Unit the rulers display in (UX-004). */
+  rulerUnit: UnitId
+  /** Manual ruler guides, in canvas px (UX-004). */
+  guides: Guides
+  /** Whether guides are visible/active (UX-004). */
+  showGuides: boolean
+  /** Whether objects snap to guides while dragging (UX-004). */
+  snapGuides: boolean
+  /** Guides the dragging object is currently snapped to (transient highlight). */
+  activeGuides: Guides
+
+  setZoom: (z: number) => void
+  /** Set the drag-time alignment-guide snapping mode. */
+  setSnapMode: (mode: SnapMode) => void
+  /** Show/hide the grid overlay (UX-005). */
+  toggleGrid: () => void
+  /** Set the grid size in px (UX-005). */
+  setGridSize: (size: number) => void
+  /** Set the grid rendering style (UX-005). */
+  setGridStyle: (style: GridStyle) => void
+  /** Enable/disable snapping objects to the grid (UX-005). */
+  toggleGridSnap: () => void
+  /** Show/hide the measurement rulers (UX-004). */
+  toggleRulers: () => void
+  /** Change the ruler display unit (UX-004). */
+  setRulerUnit: (unit: UnitId) => void
+  /** Add a guide; orientation 'horizontal' (y) or 'vertical' (x), in canvas px. */
+  addGuide: (orientation: 'horizontal' | 'vertical', pos: number) => void
+  /** Move guide at `index` to a new position (persisted; call on drag end). */
+  updateGuide: (orientation: 'horizontal' | 'vertical', index: number, pos: number) => void
+  /** Remove guide at `index` (e.g. dragged back onto the ruler). */
+  removeGuide: (orientation: 'horizontal' | 'vertical', index: number) => void
+  /** Remove every guide. */
+  clearGuides: () => void
+  /** Show/hide all guides (UX-004). */
+  toggleGuides: () => void
+  /** Enable/disable snapping objects to guides (UX-004). */
+  toggleSnapGuides: () => void
+  /** Set the guides currently being snapped to (highlight; not persisted). */
+  setActiveGuides: (g: Guides) => void
+}
+
+/** The live canvas, selection, object operations, and style/painter. */
+export interface ObjectsSlice {
+  /** The live Fabric.js canvas instance. Components must never mutate it directly. */
+  canvas: fabric.Canvas | null
+  /** Currently selected objects (mirror of fabric's active selection). */
+  selection: fabric.FabricObject[]
+  /** Bumped whenever a selected object is transformed, to refresh read-outs. */
+  tick: number
+  /** Style copied from an object, for paste-style / format painter (UX-007). */
+  clipboardStyle: Record<string, unknown> | null
+  /** Format-painter mode (UX-007). */
+  painterMode: PainterMode
+
+  setCanvas: (c: fabric.Canvas | null) => void
+  setSelection: (objs: fabric.FabricObject[]) => void
+  bump: () => void
+
+  /** Canonical way to add an object: every tool routes through here. */
+  addObject: (obj: fabric.FabricObject) => void
+  /** Quick-add a default rectangle (used to test selection/transform). */
+  addBox: () => void
+  /** Add a shape from the shape library. */
+  addShape: (kind: ShapeKind) => void
+  /** Add an editable, wrapping text box. */
+  addText: () => void
+  /** Read an image file, place it centred (base64), and persist it. */
+  addImageFromFile: (file: File) => void
+  /** Apply property changes to the single active object, live.
+   *  Typed against Textbox so text + shape props are both accepted. */
+  updateActive: (props: Partial<fabric.Textbox>) => void
+  /** Programmatically select a single object (e.g. from the layers panel). */
+  selectObject: (obj: fabric.FabricObject) => void
+  /** Show or hide an object. */
+  setObjectVisible: (obj: fabric.FabricObject, visible: boolean) => void
+  /** Lock/unlock an object: locked objects can't be selected or edited on the
+   *  canvas, but stay visible and exportable. */
+  setObjectLocked: (obj: fabric.FabricObject, locked: boolean) => void
+  /** Rename an object (layers panel); empty name clears back to the default. */
+  setObjectName: (obj: fabric.FabricObject, name: string) => void
+  /** Restack objects given the desired bottom-to-top order. */
+  applyStackingOrder: (bottomFirst: fabric.FabricObject[]) => void
+  /** Move the active selection by a pixel delta (arrow-key nudge). */
+  nudge: (dx: number, dy: number) => void
+  /** Align selected objects — to the canvas (one) or the selection box (many). */
+  alignObjects: (mode: AlignMode) => void
+  /** Evenly distribute 3+ selected objects along an axis (equal gaps). */
+  distributeObjects: (axis: 'horizontal' | 'vertical') => void
+  /** Delete the active selection. */
+  deleteActive: () => void
+  /** Copy the visual style of the (single) selected object (UX-007). */
+  copyStyle: () => void
+  /** Paste the copied style onto the selected object(s); undoable (UX-007). */
+  pasteStyle: () => void
+  /** Enter format-painter mode (copies the current style); sticky stays on. */
+  startPainter: (sticky: boolean) => void
+  /** Leave format-painter mode and restore the cursor. */
+  exitPainter: () => void
+  /** Paste the copied style onto a specific object (a format-painter click). */
+  pasteStyleOnTarget: (obj: fabric.FabricObject) => void
+}
+
+/** The full editor store: project + view + objects slices combined. */
+export type CanvasState = ProjectSlice & ViewSlice & ObjectsSlice
