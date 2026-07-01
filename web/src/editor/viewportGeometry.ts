@@ -27,6 +27,7 @@ export function useViewportGeometry(active: boolean) {
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
+  const pan = useCanvasStore((s) => s.pan)
   const [box, setBox] = useState({ w: 0, h: 0 })
 
   useEffect(() => {
@@ -39,13 +40,15 @@ export function useViewportGeometry(active: boolean) {
     return () => ro.disconnect()
   }, [active])
 
+  // Same origin the fabric viewport transform uses (UX-013): the artboard is
+  // centred in the viewport, then shifted by the pan offset.
   return {
     rootRef,
     box,
     width,
     height,
     zoom,
-    originX: (box.w - width * zoom) / 2,
-    originY: (box.h - height * zoom) / 2,
+    originX: (box.w - width * zoom) / 2 + pan.x,
+    originY: (box.h - height * zoom) / 2 + pan.y,
   }
 }

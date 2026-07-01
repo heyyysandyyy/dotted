@@ -97,8 +97,12 @@ export interface ProjectSlice {
 
 /** View settings: zoom, rulers, grid, guides, and alignment-guide snapping. */
 export interface ViewSlice {
-  /** Display scale applied to the artboard so it fits the viewport. */
+  /** Display scale applied to the artboard (UX-013). 1 = 100%. */
   zoom: number
+  /** Artboard pan offset from centred, in screen px (UX-013). */
+  pan: { x: number; y: number }
+  /** When true, zoom auto-fits the artboard to the viewport on resize (UX-013). */
+  fitMode: boolean
   /** Drag-time alignment-guide snapping (CLR-004). */
   snapMode: SnapMode
   /** Grid overlay + snap settings (UX-005). */
@@ -116,7 +120,14 @@ export interface ViewSlice {
   /** Guides the dragging object is currently snapped to (transient highlight). */
   activeGuides: Guides
 
+  /** Set zoom manually (clamped), leaving fit-mode (user-driven zoom). */
   setZoom: (z: number) => void
+  /** Set zoom without leaving fit-mode (used by the auto-fit computation). */
+  setZoomRaw: (z: number) => void
+  /** Re-enable auto-fit so the artboard refits the viewport. */
+  fitToView: () => void
+  /** Set the artboard pan offset (screen px from centred). */
+  setPan: (x: number, y: number) => void
   /** Set the drag-time alignment-guide snapping mode. */
   setSnapMode: (mode: SnapMode) => void
   /** Show/hide the grid overlay (UX-005). */

@@ -20,6 +20,34 @@ export function slugify(name: string): string {
  * aborts every export. Guides never belong in an export, so we detach the
  * render hooks for the duration and restore them afterwards.
  */
+/**
+ * The artboard's logical size. Since UX-013 the live canvas is viewport-sized
+ * (zoom/pan live in its viewportTransform), so CanvasStage stashes the artboard
+ * dimensions on the canvas; fall back to the canvas size for older setups/tests.
+ */
+export function artboardSize(canvas: fabric.Canvas): { width: number; height: number } {
+  const a = (canvas as unknown as { __artboardSize?: { width: number; height: number } }).__artboardSize
+  return {
+    width: a?.width ?? canvas.getWidth(),
+    height: a?.height ?? canvas.getHeight(),
+  }
+}
+
+/**
+ * Run an export render with the viewport transform reset to identity, so the
+ * artboard renders at its native position/scale regardless of the current
+ * on-screen zoom and pan (fabric bakes the viewport zoom into exports).
+ */
+function atNativeArtboard<T>(canvas: fabric.Canvas, fn: () => T): T {
+  const vpt = canvas.viewportTransform
+  canvas.viewportTransform = [1, 0, 0, 1, 0, 0]
+  try {
+    return fn()
+  } finally {
+    canvas.viewportTransform = vpt
+  }
+}
+
 function withoutRenderHooks<T>(canvas: fabric.Canvas, fn: () => T): T {
   const listeners = (canvas as unknown as { __eventListeners?: Record<string, unknown[]> })
     .__eventListeners
@@ -42,8 +70,11 @@ function withoutRenderHooks<T>(canvas: fabric.Canvas, fn: () => T): T {
  * when the user's canvas background is transparent (CLR-001).
  */
 export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
-  const dataUrl = withoutRenderHooks(canvas, () =>
-    canvas.toDataURL({ format: 'png', multiplier: scale }),
+  const { width, height } = artboardSize(canvas)
+  const dataUrl = atNativeArtboard(canvas, () =>
+    withoutRenderHooks(canvas, () =>
+      canvas.toDataURL({ format: 'png', multiplier: scale, width, height }),
+    ),
   )
   downloadUrl(dataUrl, `${slugify(name)}.png`)
 }
@@ -64,6 +95,7 @@ export function exportJPEG(
   scale = 1,
   quality = DEFAULT_JPEG_QUALITY,
 ) {
+  const { width, height } = artboardSize(canvas)
   const prevBg = canvas.backgroundColor
   // An empty/undefined background would flatten to black in JPEG; use white.
   if (!prevBg || typeof prevBg !== 'string') canvas.backgroundColor = JPEG_FLATTEN_COLOR
@@ -71,8 +103,10 @@ export function exportJPEG(
 
   let dataUrl: string
   try {
-    dataUrl = withoutRenderHooks(canvas, () =>
-      canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale }),
+    dataUrl = atNativeArtboard(canvas, () =>
+      withoutRenderHooks(canvas, () =>
+        canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale, width, height }),
+      ),
     )
   } finally {
     canvas.backgroundColor = prevBg
@@ -94,10 +128,11 @@ export function exportJPEG(
  * on demand to keep it out of the initial bundle.
  */
 export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) {
-  const pageW = canvas.getWidth()
-  const pageH = canvas.getHeight()
-  const dataUrl = withoutRenderHooks(canvas, () =>
-    canvas.toDataURL({ format: 'png', multiplier: scale }),
+  const { width: pageW, height: pageH } = artboardSize(canvas)
+  const dataUrl = atNativeArtboard(canvas, () =>
+    withoutRenderHooks(canvas, () =>
+      canvas.toDataURL({ format: 'png', multiplier: scale, width: pageW, height: pageH }),
+    ),
   )
 
   const { jsPDF } = await import('jspdf')
@@ -120,7 +155,12 @@ export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) 
  * is needed here.
  */
 export function exportSVG(canvas: fabric.Canvas, name: string) {
-  const svg = withoutRenderHooks(canvas, () => canvas.toSVG())
+  const { width, height } = artboardSize(canvas)
+  const svg = atNativeArtboard(canvas, () =>
+    withoutRenderHooks(canvas, () =>
+      canvas.toSVG({ width: `${width}`, height: `${height}`, viewBox: { x: 0, y: 0, width, height } }),
+    ),
+  )
   const blob = new Blob([svg], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   downloadUrl(url, `${slugify(name)}.svg`)

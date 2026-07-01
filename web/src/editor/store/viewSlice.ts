@@ -1,9 +1,13 @@
 import type { StateCreator } from 'zustand'
-import { GRID_SIZE } from '../constants'
+import { GRID_SIZE, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import type { CanvasState, ViewSlice } from './storeTypes'
+
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (set, get) => ({
   zoom: 1,
+  pan: { x: 0, y: 0 },
+  fitMode: true,
   snapMode: 'guides',
   grid: { visible: false, size: GRID_SIZE, style: 'lines', snap: false },
   showRulers: true,
@@ -13,7 +17,12 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
   snapGuides: true,
   activeGuides: { horizontal: [], vertical: [] },
 
-  setZoom: (zoom) => set({ zoom }),
+  // Manual zoom leaves fit-mode; a manual zoom recenters (pan reset) unless the
+  // caller pans afterwards (scroll-wheel zoom sets pan itself).
+  setZoom: (zoom) => set({ zoom: clampZoom(zoom), fitMode: false }),
+  setZoomRaw: (zoom) => set({ zoom: clampZoom(zoom) }),
+  fitToView: () => set({ fitMode: true }),
+  setPan: (x, y) => set({ pan: { x, y } }),
 
   // Grid snap and alignment guides both control the drag, so they're mutually
   // exclusive — enabling one disables the other (UX-005).
