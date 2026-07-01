@@ -3,6 +3,7 @@ import { ImagePlus, Ban, Eraser } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
+import { FillStrokeControl } from './FillStrokeControl'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
 
@@ -145,18 +146,7 @@ export function PropertiesPanel() {
           <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
             Style
           </div>
-          {obj.type !== 'line' && (
-            <ColorField
-              label="Fill"
-              value={typeof obj.fill === 'string' ? obj.fill : '#000000'}
-              onChange={(v) => updateActive({ fill: v })}
-            />
-          )}
-          <ColorField
-            label="Stroke"
-            value={typeof obj.stroke === 'string' ? obj.stroke : '#000000'}
-            onChange={(v) => updateActive({ stroke: v })}
-          />
+          <FillStrokeControl obj={obj} allowFill={obj.type !== 'line'} />
           <NumberField
             label="SW"
             value={obj.strokeWidth ?? 0}

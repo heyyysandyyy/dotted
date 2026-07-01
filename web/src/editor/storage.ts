@@ -316,6 +316,35 @@ export function removePaletteColor(color: string): string[] {
   return next
 }
 
+/** Recently used colours, tracked automatically (UX-012). */
+export const RECENT_COLORS_KEY = 'dotted_recent_colors'
+export const MAX_RECENT = 8
+
+export function getRecentColors(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_COLORS_KEY)
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Push a colour to the front of the recents (de-duped, newest first, capped). */
+export function addRecentColor(color: string): string[] {
+  const next = [color, ...getRecentColors().filter((c) => c.toLowerCase() !== color.toLowerCase())].slice(
+    0,
+    MAX_RECENT,
+  )
+  try {
+    localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(next))
+  } catch {
+    // Storage unavailable — return the computed list anyway.
+  }
+  return next
+}
+
 /** Current schema version for exported backup files. */
 export const BACKUP_VERSION = 1
 
