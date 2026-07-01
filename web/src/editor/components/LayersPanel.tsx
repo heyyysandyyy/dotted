@@ -29,6 +29,8 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
+  Group as GroupIcon,
+  Ungroup,
 } from 'lucide-react'
 import type * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
@@ -172,7 +174,11 @@ export function LayersPanel() {
   const canvas = useCanvasStore((s) => s.canvas)
   const selection = useCanvasStore((s) => s.selection)
   const applyStackingOrder = useCanvasStore((s) => s.applyStackingOrder)
+  const groupSelection = useCanvasStore((s) => s.groupSelection)
+  const ungroupSelection = useCanvasStore((s) => s.ungroupSelection)
   const [collapsed, setCollapsed] = useState(false)
+  const canGroup = selection.length >= 2
+  const canUngroup = selection.length === 1 && selection[0]?.type === 'group'
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
   // Bottom-first from fabric; display top-first.
@@ -194,14 +200,34 @@ export function LayersPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center gap-1 px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-300"
-        title={collapsed ? 'Expand' : 'Collapse'}
-      >
-        {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-        Layers
-      </button>
+      <div className="flex items-center justify-between px-4 pb-1 pt-3">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-300"
+          title={collapsed ? 'Expand' : 'Collapse'}
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          Layers
+        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={groupSelection}
+            disabled={!canGroup}
+            title="Group (⌘G)"
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <GroupIcon size={14} />
+          </button>
+          <button
+            onClick={ungroupSelection}
+            disabled={!canUngroup}
+            title="Ungroup (⇧⌘G)"
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <Ungroup size={14} />
+          </button>
+        </div>
+      </div>
       {!collapsed && (
         <div className="flex-1 overflow-y-auto px-2 pb-2">
           {topFirst.length === 0 ? (

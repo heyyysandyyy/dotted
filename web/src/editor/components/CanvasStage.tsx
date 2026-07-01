@@ -67,6 +67,8 @@ export function CanvasStage() {
   const backgroundColor = useCanvasStore((s) => s.backgroundColor)
   const canvas = useCanvasStore((s) => s.canvas)
   const snapMode = useCanvasStore((s) => s.snapMode)
+  // Re-render during transforms so the in-place group outline tracks live (UX-016).
+  useCanvasStore((s) => s.tick)
 
   // Create the fabric canvas once.
   useEffect(() => {
@@ -120,6 +122,16 @@ export function CanvasStage() {
         ;(o as unknown as { hiddenTextareaContainer: HTMLElement | null }).hiddenTextareaContainer =
           canvas.wrapperEl
       }
+      // Groups (incl. loaded ones): allow entering to edit a child (UX-016), and
+      // render children directly so their shadows aren't clipped (UX-011). Reset
+      // `interactive` (fabric serializes it) so a fresh single-click hits the
+      // whole group, not a child — in-place editing turns it on per double-click.
+      if (o.type === 'group') {
+        const g = o as fabric.Group
+        g.subTargetCheck = true
+        g.objectCaching = false
+        g.interactive = false
+      }
     })
 
     setCanvas(canvas)
@@ -144,6 +156,8 @@ export function CanvasStage() {
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
   // Pan-mode cursor: hand while space is held, closed hand while dragging (UX-013).
   const [panCursor, setPanCursor] = useState<'grab' | 'grabbing' | null>(null)
+  // The group currently being edited in-place (UX-016), for the muted outline.
+  const [isoGroup, setIsoGroup] = useState<fabric.FabricObject | null>(null)
   useLayoutEffect(() => {
     const el = measureRef.current
     if (!el) return
@@ -388,6 +402,86 @@ export function CanvasStage() {
     return () => canvas.off('mouse:down', onDown as never)
   }, [canvas])
 
+  // UX-016: single-click always selects the whole group; double-click a child
+  // drills in to edit it (fabric's interactive group) and stays in until you
+  // click away. A plain click on the group (no drag) pops back out to the group.
+  useEffect(() => {
+    const c = useCanvasStore.getState().canvas
+    if (!c) return
+    let isolated: fabric.Group | null = null
+    let downX = 0
+    let downY = 0
+    let downInside = false
+    const exit = () => {
+      if (!isolated) return
+      isolated.interactive = false
+      isolated = null
+      setIsoGroup(null)
+      c.requestRenderAll()
+    }
+    // Safety net: outside in-place editing, selecting a group's child promotes to
+    // the whole group, so a single-click anywhere on a group selects the group.
+    const onSelected = () => {
+      if (isolated) return
+      const active = c.getActiveObject()
+      const parent = active && (active.group as fabric.Group | undefined)
+      if (parent && parent.type === 'group') {
+        parent.interactive = false
+        c.setActiveObject(parent)
+        c.requestRenderAll()
+      }
+    }
+    const onDblClick = (opt: { target?: fabric.FabricObject; subTargets?: fabric.FabricObject[] }) => {
+      const t = opt.target
+      const sub = opt.subTargets?.[0]
+      if (t && t.type === 'group' && sub) {
+        const g = t as fabric.Group
+        g.subTargetCheck = true
+        g.interactive = true
+        isolated = g
+        setIsoGroup(g)
+        c.setActiveObject(sub)
+        c.requestRenderAll()
+      }
+    }
+    const onDown = (opt: { e: MouseEvent; target?: fabric.FabricObject }) => {
+      downX = opt.e.clientX
+      downY = opt.e.clientY
+      downInside = !!isolated && !!opt.target && (opt.target === isolated || opt.target.group === isolated)
+    }
+    const onUp = (opt: { e: MouseEvent }) => {
+      if (!isolated) return
+      // A drag = editing a child → stay isolated. A click → pop back out; if it
+      // landed on the group, reselect the whole group (else leave the selection).
+      if (Math.hypot(opt.e.clientX - downX, opt.e.clientY - downY) > 4) return
+      const g = isolated
+      const reselectGroup = downInside
+      exit()
+      if (reselectGroup) {
+        c.setActiveObject(g)
+        c.requestRenderAll()
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') exit()
+    }
+    c.on('selection:created', onSelected)
+    c.on('selection:updated', onSelected)
+    c.on('mouse:dblclick', onDblClick as never)
+    c.on('mouse:down', onDown as never)
+    c.on('mouse:up', onUp as never)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      c.off('selection:created', onSelected)
+      c.off('selection:updated', onSelected)
+      c.off('mouse:dblclick', onDblClick as never)
+      c.off('mouse:down', onDown as never)
+      c.off('mouse:up', onUp as never)
+      window.removeEventListener('keydown', onKey)
+      exit()
+    }
+  }, [canvas])
+
   return (
     <div
       ref={measureRef}
@@ -419,6 +513,35 @@ export function CanvasStage() {
       >
         <canvas ref={canvasElRef} />
       </div>
+      {/* Muted outline of the group being edited in place — from the live union
+          of its children so it grows as a child is resized (UX-016). */}
+      {isoGroup &&
+        (() => {
+          const objs = (isoGroup as fabric.Group).getObjects?.() ?? []
+          if (objs.length === 0) return null
+          let l = Infinity
+          let t = Infinity
+          let r = -Infinity
+          let b = -Infinity
+          for (const o of objs) {
+            const bb = o.getBoundingRect()
+            l = Math.min(l, bb.left)
+            t = Math.min(t, bb.top)
+            r = Math.max(r, bb.left + bb.width)
+            b = Math.max(b, bb.top + bb.height)
+          }
+          return (
+            <div
+              className="pointer-events-none absolute rounded-sm border border-dashed border-indigo-400/50"
+              style={{
+                left: originX + l * zoom,
+                top: originY + t * zoom,
+                width: (r - l) * zoom,
+                height: (b - t) * zoom,
+              }}
+            />
+          )
+        })()}
       <GridOverlay />
       <CanvasRulers />
       <EyedropperOverlay />
