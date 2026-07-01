@@ -44,4 +44,4 @@ checklist of the *active* batch only.
 - [x] UX-014 Resize canvas
 - [ ] UX-015 Book format engine (setup panel, bleed/spine guides, spread canvas, book PDF)
 - [ ] UX-016 Object grouping + nested layers
-- [ ] UX-017 Guide exact-position input (double-click a guide) — nice to have
+- [x] UX-017 Guide exact-position input (double-click a guide)
