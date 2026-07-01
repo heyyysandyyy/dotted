@@ -110,6 +110,22 @@ export function distributeStarts(items: { start: number; size: number }[]): numb
   return out
 }
 
+/**
+ * Position an object so its centre sits at a given scene (canvas) point — used
+ * by image crop (UX-009). If the object is inside a group, the scene point is
+ * converted into the group's local space first, so grouped images crop correctly.
+ */
+export function setImageSceneCenter(obj: fabric.FabricObject, sceneX: number, sceneY: number): void {
+  const g = (obj as unknown as { group?: fabric.Group }).group
+  const scene = new fabric.Point(sceneX, sceneY)
+  const target =
+    g && g.type === 'group'
+      ? fabric.util.transformPoint(scene, fabric.util.invertTransform(g.calcTransformMatrix()))
+      : scene
+  obj.setPositionByOrigin(target, 'center', 'center')
+  obj.setCoords()
+}
+
 /** Re-group objects into an active selection (multi) or select the single one. */
 export function reselect(canvas: fabric.Canvas, objs: fabric.FabricObject[]): void {
   if (objs.length > 1) {
