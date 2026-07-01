@@ -107,6 +107,38 @@ export function alignDelta(r: Box, target: Box, mode: AlignMode): { dx: number; 
   }
 }
 
+/**
+ * Shadow/glow effect config (UX-011). Fabric has a single `shadow` slot, so an
+ * object has at most one of these; `kind` disambiguates drop-shadow vs glow.
+ * `color` carries the effect opacity via its alpha channel.
+ */
+export interface ShadowEffect {
+  kind: 'drop' | 'glow'
+  x: number
+  y: number
+  blur: number
+  color: string
+}
+
+export const DROP_SHADOW_DEFAULT: ShadowEffect = { kind: 'drop', x: 4, y: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }
+export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, color: 'rgba(255,255,255,0.6)' }
+
+/** Read the current shadow/glow effect off an object, or null if none (UX-011). */
+export function readShadowEffect(obj: fabric.FabricObject): ShadowEffect | null {
+  const s = obj.shadow
+  if (!s || typeof s === 'string') return null
+  const kind =
+    (obj as unknown as { shadowKind?: 'drop' | 'glow' }).shadowKind ??
+    (s.offsetX || s.offsetY ? 'drop' : 'glow')
+  return {
+    kind,
+    x: s.offsetX ?? 0,
+    y: s.offsetY ?? 0,
+    blur: s.blur ?? 0,
+    color: (s.color as string) ?? 'rgba(0,0,0,0.3)',
+  }
+}
+
 /** Trigger a browser download for a data/object URL. */
 export function downloadUrl(url: string, filename: string) {
   const a = document.createElement('a')
