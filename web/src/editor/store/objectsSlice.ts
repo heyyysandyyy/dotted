@@ -390,4 +390,45 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.requestRenderAll()
     fireModified(canvas, obj, effect ? 'Changed effects' : 'Removed effect')
   },
+
+  groupSelection: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objects = canvas.getActiveObjects()
+    if (objects.length < 2) return
+    // Discard the selection so children carry absolute coords, remove them from
+    // the canvas, then build the group from those loose objects (fabric 7 has no
+    // toGroup(); the Group layout preserves world positions).
+    canvas.discardActiveObject()
+    canvas.remove(...objects)
+    const group = new fabric.Group(objects)
+    // Allow entering the group to edit a child in place (UX-016 double-click).
+    group.subTargetCheck = true
+    // Render children directly (not via a bbox-sized cache) so their shadows/
+    // glows aren't clipped at the group's bounding box (UX-011 effects).
+    group.objectCaching = false
+    const withId = group as fabric.FabricObject & { id?: string }
+    if (!withId.id) withId.id = crypto.randomUUID()
+    canvas.add(group)
+    canvas.setActiveObject(group)
+    canvas.requestRenderAll()
+    set({ selection: [group] })
+    fireModified(canvas, group, 'Grouped objects')
+  },
+
+  ungroupSelection: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const group = canvas.getActiveObject()
+    if (!group || group.type !== 'group') return
+    const items = (group as fabric.Group).getObjects().slice()
+    // remove() applies the group transform back to each child (world coords).
+    ;(group as fabric.Group).remove(...items)
+    canvas.remove(group)
+    items.forEach((o) => canvas.add(o))
+    reselect(canvas, items)
+    canvas.requestRenderAll()
+    set({ selection: items })
+    if (items[0]) fireModified(canvas, items[0], 'Ungrouped')
+  },
 })

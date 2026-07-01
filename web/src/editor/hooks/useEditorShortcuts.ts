@@ -85,6 +85,14 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Group / ungroup (Cmd/Ctrl+G, Shift+Cmd/Ctrl+G) — UX-016.
+      if (mod && !editing && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault()
+        if (e.shiftKey) useCanvasStore.getState().ungroupSelection()
+        else useCanvasStore.getState().groupSelection()
+        return
+      }
+
       // Copy / paste style (Cmd/Ctrl+Alt+C / V) — use e.code since Alt changes
       // e.key on some layouts (UX-007).
       if (mod && e.altKey && !editing && e.code === 'KeyC') {

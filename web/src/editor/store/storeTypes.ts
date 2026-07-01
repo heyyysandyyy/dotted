@@ -224,6 +224,10 @@ export interface ObjectsSlice {
   removeImageBackground: (tolerance?: number) => void
   /** Apply a drop-shadow/glow effect to the active object, or clear it (UX-011). */
   setShadowEffect: (effect: ShadowEffect | null) => void
+  /** Group the active multi-selection into a single group (UX-016). */
+  groupSelection: () => void
+  /** Ungroup the selected group back into its children at world positions (UX-016). */
+  ungroupSelection: () => void
 }
 
 /** The full editor store: project + view + objects slices combined. */
