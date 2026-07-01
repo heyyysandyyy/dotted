@@ -1,5 +1,6 @@
 import { Plus, X, Square, LayoutGrid, Copy } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { ZoomBar } from './ZoomBar'
 
 /** Bottom strip for multi-page designs: switch, add, and delete pages (TPL-001). */
 export function PageBar() {
@@ -16,7 +17,8 @@ export function PageBar() {
   if (pages.length === 0) return null
 
   return (
-    <div className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-neutral-800 bg-neutral-900 px-2">
+    <div className="flex h-10 shrink-0 items-center border-t border-neutral-800 bg-neutral-900 px-2">
+      <div className="flex flex-1 items-center gap-1 overflow-x-auto">
       {/* View toggle: single page vs all-pages stack. */}
       <div className="mr-1 flex items-center gap-0.5">
         <button
@@ -85,6 +87,8 @@ export function PageBar() {
         <Plus size={14} />
         Add page
       </button>
+      </div>
+      <ZoomBar />
     </div>
   )
 }

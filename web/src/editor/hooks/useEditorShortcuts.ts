@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
 import { pickColor } from '../eyedropper'
+import { ZOOM_STEP } from '../constants'
 
 function isTypingTarget(): boolean {
   const el = document.activeElement
@@ -59,6 +60,28 @@ export function useEditorShortcuts() {
       if (mod && !editing && e.key === "'") {
         e.preventDefault()
         useCanvasStore.getState().toggleGrid()
+        return
+      }
+
+      // Zoom (UX-013): Cmd/Ctrl +/- to step, 0 to reset to 100%, Shift+H to fit.
+      if (mod && e.shiftKey && !editing && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault()
+        useCanvasStore.getState().fitToView()
+        return
+      }
+      if (mod && !editing && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        useCanvasStore.getState().setZoom(useCanvasStore.getState().zoom + ZOOM_STEP)
+        return
+      }
+      if (mod && !editing && e.key === '-') {
+        e.preventDefault()
+        useCanvasStore.getState().setZoom(useCanvasStore.getState().zoom - ZOOM_STEP)
+        return
+      }
+      if (mod && !editing && e.key === '0') {
+        e.preventDefault()
+        useCanvasStore.getState().setZoom(1)
         return
       }
 

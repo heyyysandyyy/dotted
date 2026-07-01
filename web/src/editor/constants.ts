@@ -59,6 +59,11 @@ export const DEFAULT_HEIGHT = 1080
 
 export const DARK_SURROUND = '#1e1e1e'
 
+/** Canvas zoom range and step (UX-013). 1 = 100%. */
+export const MIN_ZOOM = 0.1
+export const MAX_ZOOM = 8
+export const ZOOM_STEP = 0.1
+
 /** Grid step (px) used by snap-to-grid (CLR-004); default for the grid overlay. */
 export const GRID_SIZE = 10
 /** Preset grid sizes (px) offered in the grid settings (UX-005). */

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as fabric from 'fabric'
 import { AligningGuidelines } from 'fabric/extensions'
 import { useCanvasStore } from '../store/useCanvasStore'
@@ -9,7 +9,7 @@ import {
   listProjects,
   migrateLegacyDesign,
 } from '../storage'
-import { DARK_SURROUND, SNAP_MARGIN } from '../constants'
+import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
 import { GridOverlay } from './GridOverlay'
@@ -55,12 +55,15 @@ export function CanvasStage() {
   const measureRef = useRef<HTMLDivElement>(null)
 
   const setCanvas = useCanvasStore((s) => s.setCanvas)
-  const setZoom = useCanvasStore((s) => s.setZoom)
+  const setZoomRaw = useCanvasStore((s) => s.setZoomRaw)
+  const fitMode = useCanvasStore((s) => s.fitMode)
   const setSelection = useCanvasStore((s) => s.setSelection)
   const bump = useCanvasStore((s) => s.bump)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
   const zoom = useCanvasStore((s) => s.zoom)
+  const pan = useCanvasStore((s) => s.pan)
+  const setPan = useCanvasStore((s) => s.setPan)
   const backgroundColor = useCanvasStore((s) => s.backgroundColor)
   const canvas = useCanvasStore((s) => s.canvas)
   const snapMode = useCanvasStore((s) => s.snapMode)
@@ -136,22 +139,174 @@ export function CanvasStage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Recompute fit-to-viewport zoom whenever the container or artboard resizes.
+  // Live viewport (measureRef) size — drives the fabric canvas dimensions and
+  // the artboard centring (UX-013).
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
+  // Pan-mode cursor: hand while space is held, closed hand while dragging (UX-013).
+  const [panCursor, setPanCursor] = useState<'grab' | 'grabbing' | null>(null)
   useLayoutEffect(() => {
     const el = measureRef.current
     if (!el) return
-    const recompute = () => {
-      const availW = el.clientWidth - PADDING * 2
-      const availH = el.clientHeight - PADDING * 2
-      if (availW <= 0 || availH <= 0) return
-      const next = Math.min(availW / width, availH / height, 1)
-      setZoom(Math.max(next, 0.05))
-    }
-    recompute()
-    const ro = new ResizeObserver(recompute)
+    const measure = () => setViewport({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [width, height, setZoom])
+  }, [])
+
+  // On-screen position of artboard (0,0): centred in the viewport, then panned.
+  const originX = (viewport.w - width * zoom) / 2 + pan.x
+  const originY = (viewport.h - height * zoom) / 2 + pan.y
+
+  // Drive fabric's cursor for pan mode so the hand shows over the canvas too —
+  // fabric owns the upper-canvas cursor and resets it on mouse move, so setting
+  // its cursor props (and the element directly) is more reliable than CSS (UX-013).
+  useEffect(() => {
+    const c = useCanvasStore.getState().canvas as
+      | (fabric.Canvas & { upperCanvasEl?: HTMLElement })
+      | null
+    if (!c) return
+    const cur = panCursor === 'grabbing' ? 'grabbing' : panCursor === 'grab' ? 'grab' : ''
+    c.defaultCursor = cur || 'default'
+    c.hoverCursor = cur || 'move'
+    c.moveCursor = cur || 'move'
+    if (c.upperCanvasEl) c.upperCanvasEl.style.cursor = cur
+  }, [panCursor, canvas])
+
+  // Auto-fit the artboard to the viewport on load and on resize — but only while
+  // in fit-mode (UX-013); once the user zooms manually we leave their zoom alone.
+  useLayoutEffect(() => {
+    if (!useCanvasStore.getState().fitMode || viewport.w === 0 || viewport.h === 0) return
+    const availW = viewport.w - PADDING * 2
+    const availH = viewport.h - PADDING * 2
+    if (availW <= 0 || availH <= 0) return
+    const next = Math.min(availW / width, availH / height, 1)
+    setZoomRaw(Math.max(next, 0.05))
+    setPan(0, 0)
+  }, [width, height, fitMode, viewport, setZoomRaw, setPan])
+
+  // Stash the artboard size on the canvas so the exporters (which now get a
+  // viewport-sized canvas) can crop to the page (UX-013). Cropping the *display*
+  // to the page is done with a CSS clip below — deterministic and unaffected by
+  // fabric's load/serialize cycle (a fabric clipPath gets cleared by loadFromJSON).
+  useEffect(() => {
+    const c = useCanvasStore.getState().canvas
+    if (!c) return
+    ;(c as unknown as { __artboardSize?: { width: number; height: number } }).__artboardSize = {
+      width,
+      height,
+    }
+  }, [canvas, width, height])
+
+  // Keep the fabric canvas viewport-sized and its transform in sync with zoom/pan.
+  useEffect(() => {
+    if (!canvas || viewport.w === 0 || viewport.h === 0) return
+    if (canvas.getWidth() !== viewport.w || canvas.getHeight() !== viewport.h) {
+      canvas.setDimensions({ width: viewport.w, height: viewport.h })
+    }
+    canvas.setViewportTransform([zoom, 0, 0, zoom, originX, originY])
+  }, [canvas, viewport, zoom, originX, originY])
+
+  // Scroll-wheel zoom, centred on the cursor (UX-013).
+  useEffect(() => {
+    const el = measureRef.current
+    if (!el || !canvas) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const s = useCanvasStore.getState()
+      const z = s.zoom
+      const ox = (rect.width - s.width * z) / 2 + s.pan.x
+      const oy = (rect.height - s.height * z) / 2 + s.pan.y
+      // Artboard coord under the cursor — keep it fixed while zooming.
+      const coordX = (cx - ox) / z
+      const coordY = (cy - oy) / z
+      const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * Math.exp(-e.deltaY * 0.0015)))
+      const nox = cx - coordX * nz
+      const noy = cy - coordY * nz
+      s.setZoom(nz)
+      s.setPan(nox - (rect.width - s.width * nz) / 2, noy - (rect.height - s.height * nz) / 2)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [canvas])
+
+  // Pan with spacebar-drag or middle-mouse-drag (UX-013). Intercepted as a mouse
+  // event in the capture phase (fabric listens on 'mousedown' at the upper canvas,
+  // so capturing here + stopPropagation beats it) — a pan gesture never starts an
+  // object drag/selection. Space held shows the hand cursor.
+  useEffect(() => {
+    const el = measureRef.current
+    if (!el) return
+    let spaceDown = false
+    let panning = false
+    let lastX = 0
+    let lastY = 0
+    // Only genuine text entry should block space-pan. A focused range slider
+    // (the zoom control), checkbox, or button shouldn't — otherwise using the
+    // zoom slider leaves it focused and space stops panning (UX-013).
+    const isTyping = () => {
+      const a = document.activeElement as HTMLElement | null
+      if (!a) return false
+      if (a.isContentEditable || a.tagName === 'TEXTAREA') return true
+      if (a.tagName === 'INPUT') {
+        const type = (a as HTMLInputElement).type
+        return !['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file'].includes(type)
+      }
+      return false
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !spaceDown && !isTyping()) {
+        e.preventDefault()
+        spaceDown = true
+        if (!panning) setPanCursor('grab')
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceDown = false
+        if (!panning) setPanCursor(null)
+      }
+    }
+    const onMouseDown = (e: MouseEvent) => {
+      if ((spaceDown && e.button === 0) || e.button === 1) {
+        panning = true
+        lastX = e.clientX
+        lastY = e.clientY
+        setPanCursor('grabbing')
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!panning) return
+      const dx = e.clientX - lastX
+      const dy = e.clientY - lastY
+      lastX = e.clientX
+      lastY = e.clientY
+      const p = useCanvasStore.getState().pan
+      useCanvasStore.getState().setPan(p.x + dx, p.y + dy)
+    }
+    const onMouseUp = () => {
+      if (!panning) return
+      panning = false
+      setPanCursor(spaceDown ? 'grab' : null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    el.addEventListener('mousedown', onMouseDown, true)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      el.removeEventListener('mousedown', onMouseDown, true)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   // CLR-004: smart alignment guides while dragging (snap mode 'guides').
   // Mutually exclusive with grid snap (UX-005), enforced in the store.
@@ -236,16 +391,30 @@ export function CanvasStage() {
   return (
     <div
       ref={measureRef}
-      className="relative flex flex-1 items-center justify-center overflow-hidden"
+      className={`relative flex-1 overflow-hidden ${
+        panCursor === 'grabbing' ? 'cursor-grabbing' : panCursor === 'grab' ? 'cursor-grab' : ''
+      }`}
       style={{ backgroundColor: DARK_SURROUND }}
     >
+      {/* Artboard backdrop behind the viewport-sized canvas: the page shadow, and
+          a checkerboard when the artboard background is transparent. */}
       <div
+        className="pointer-events-none absolute"
         style={{
-          transform: `scale(${zoom})`,
-          transformOrigin: 'center center',
+          left: originX,
+          top: originY,
+          width: width * zoom,
+          height: height * zoom,
           boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-          // Transparent artboard → show a checkerboard behind it.
           ...(backgroundColor === '' ? CHECKERBOARD : null),
+        }}
+      />
+      {/* Crop the canvas display to the artboard so content and the background
+          image don't bleed into the dark surround (UX-013). */}
+      <div
+        className="absolute inset-0"
+        style={{
+          clipPath: `inset(${Math.max(0, originY)}px ${Math.max(0, viewport.w - (originX + width * zoom))}px ${Math.max(0, viewport.h - (originY + height * zoom))}px ${Math.max(0, originX)}px)`,
         }}
       >
         <canvas ref={canvasElRef} />

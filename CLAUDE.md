@@ -40,7 +40,7 @@ checklist of the *active* batch only.
 - [x] UX-010 Background remover (offline solid-bg flood-fill, option 3)
 - [ ] UX-011 Shadow and glow effects
 - [x] UX-012 Color picker redesign with fill and stroke
-- [ ] UX-013 Canvas zoom
+- [x] UX-013 Canvas zoom
 - [x] UX-014 Resize canvas
 - [ ] UX-015 Book format engine (setup panel, bleed/spine guides, spread canvas, book PDF)
 - [ ] UX-016 Object grouping + nested layers
