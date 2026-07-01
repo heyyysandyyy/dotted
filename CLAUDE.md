@@ -38,7 +38,7 @@ checklist of the *active* batch only.
 - [x] UX-008 Eyedropper
 - [ ] UX-009 Image crop
 - [x] UX-010 Background remover (offline solid-bg flood-fill, option 3)
-- [ ] UX-011 Shadow and glow effects
+- [x] UX-011 Shadow and glow effects (drop shadow + outer glow; inner shadow deferred)
 - [x] UX-012 Color picker redesign with fill and stroke
 - [x] UX-013 Canvas zoom
 - [x] UX-014 Resize canvas

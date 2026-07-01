@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type * as fabric from 'fabric'
-import { isText, isShape, layerName, kindName, toColorString, alignDelta } from './utils'
+import { isText, isShape, layerName, kindName, toColorString, alignDelta, readShadowEffect } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
@@ -82,5 +82,29 @@ describe('toColorString', () => {
   it('returns an rgba string when translucent', () => {
     expect(toColorString('#ff0000', 50)).toBe('rgba(255, 0, 0, 0.5)')
     expect(toColorString('#000000', 0)).toBe('rgba(0, 0, 0, 0)')
+  })
+})
+
+describe('readShadowEffect', () => {
+  const withShadow = (shadow: unknown, shadowKind?: string) =>
+    ({ shadow, shadowKind }) as unknown as fabric.FabricObject
+
+  it('returns null when there is no shadow', () => {
+    expect(readShadowEffect(withShadow(null))).toBeNull()
+    expect(readShadowEffect(withShadow(undefined))).toBeNull()
+  })
+  it('reads a drop shadow (kind from shadowKind)', () => {
+    const e = readShadowEffect(
+      withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop'),
+    )
+    expect(e).toEqual({ kind: 'drop', x: 4, y: 4, blur: 8, color: 'rgba(0,0,0,0.3)' })
+  })
+  it('infers glow from a zero-offset shadow when shadowKind is absent', () => {
+    const e = readShadowEffect(withShadow({ offsetX: 0, offsetY: 0, blur: 12, color: '#fff' }))
+    expect(e?.kind).toBe('glow')
+  })
+  it('infers drop from a non-zero offset when shadowKind is absent', () => {
+    const e = readShadowEffect(withShadow({ offsetX: 2, offsetY: 0, blur: 6, color: '#000' }))
+    expect(e?.kind).toBe('drop')
   })
 })

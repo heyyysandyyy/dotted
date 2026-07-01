@@ -15,7 +15,7 @@ const projectPayloadKey = (id: string) => `dotted:project:${id}`
 const templatePayloadKey = (id: string) => `dotted:template:${id}`
 
 /** Fabric props persisted beyond the defaults (custom ids/names, lock flags). */
-export const EXTRA_PROPS = ['selectable', 'evented', 'name', 'id', 'lockUniScaling', 'locked']
+export const EXTRA_PROPS = ['selectable', 'evented', 'name', 'id', 'lockUniScaling', 'locked', 'shadowKind']
 
 /** One page of a design — a serialized Fabric canvas (TPL-001). */
 export interface PageData {

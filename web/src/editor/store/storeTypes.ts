@@ -2,7 +2,7 @@ import type * as fabric from 'fabric'
 import type { UnitId } from '../constants'
 import type { PageData, Guides } from '../storage'
 import type { StarterTemplate } from '../templates'
-import type { AlignMode } from '../utils'
+import type { AlignMode, ShadowEffect } from '../utils'
 
 export type ShapeKind = 'rect' | 'roundedRect' | 'ellipse' | 'triangle' | 'line' | 'arrow'
 
@@ -222,6 +222,8 @@ export interface ObjectsSlice {
   /** Remove a solid background from the selected image at the given colour
    *  tolerance; always re-processes from the original so it can be re-tuned. */
   removeImageBackground: (tolerance?: number) => void
+  /** Apply a drop-shadow/glow effect to the active object, or clear it (UX-011). */
+  setShadowEffect: (effect: ShadowEffect | null) => void
 }
 
 /** The full editor store: project + view + objects slices combined. */

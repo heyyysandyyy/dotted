@@ -363,4 +363,31 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     el.onerror = () => done()
     el.src = source
   },
+
+  setShadowEffect: (effect) => {
+    const { canvas } = get()
+    if (!canvas) return
+    const obj = canvas.getActiveObject()
+    if (!obj) return
+    const withKind = obj as unknown as { shadowKind?: 'drop' | 'glow' }
+    if (!effect) {
+      obj.set('shadow', null)
+      withKind.shadowKind = undefined
+    } else {
+      // Glow is just a zero-offset shadow; colour carries the effect opacity.
+      obj.set(
+        'shadow',
+        new fabric.Shadow({
+          color: effect.color,
+          blur: effect.blur,
+          offsetX: effect.x,
+          offsetY: effect.y,
+        }),
+      )
+      withKind.shadowKind = effect.kind
+    }
+    obj.setCoords()
+    canvas.requestRenderAll()
+    fireModified(canvas, obj, effect ? 'Changed effects' : 'Removed effect')
+  },
 })

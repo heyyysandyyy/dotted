@@ -4,6 +4,7 @@ import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
 import { FillStrokeControl } from './FillStrokeControl'
+import { EffectsPanel } from './EffectsPanel'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
 
@@ -213,6 +214,8 @@ export function PropertiesPanel() {
           </p>
         </div>
       )}
+
+      <EffectsPanel obj={obj} />
       </div>
     </div>
   )
