@@ -12,6 +12,7 @@ import {
   applyStyle,
   reselect,
   distributeStarts,
+  setImageSceneCenter,
 } from './storeHelpers'
 import type { CanvasState, ObjectsSlice } from './storeTypes'
 
@@ -22,6 +23,9 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
   clipboardStyle: null,
   painterMode: 'off',
   bgRemoving: false,
+  cropImage: null,
+  cropFull: null,
+  cropInitial: null,
 
   setCanvas: (canvas) => set({ canvas }),
   setSelection: (selection) => set({ selection }),
@@ -430,5 +434,82 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.requestRenderAll()
     set({ selection: items })
     if (items[0]) fireModified(canvas, items[0], 'Ungrouped')
+  },
+
+  enterCrop: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const obj = canvas.getActiveObject()
+    if (!obj || obj.type !== 'image') return
+    const image = obj as fabric.FabricImage
+    const el = image.getElement() as HTMLImageElement
+    const nW = el.naturalWidth || image.width || 1
+    const nH = el.naturalHeight || image.height || 1
+    // Effective scene scale + centre (includes any parent group's transform), so
+    // the same math works for top-level and grouped images (UX-009 / UX-016).
+    const d = fabric.util.qrDecompose(image.calcTransformMatrix())
+    const esx = Math.abs(d.scaleX) || 1
+    const esy = Math.abs(d.scaleY) || 1
+    const dispW = (image.width ?? 0) * esx
+    const dispH = (image.height ?? 0) * esy
+    const dispLeft = d.translateX - dispW / 2
+    const dispTop = d.translateY - dispH / 2
+    const fullLeft = dispLeft - (image.cropX ?? 0) * esx
+    const fullTop = dispTop - (image.cropY ?? 0) * esy
+    const fullW = nW * esx
+    const fullH = nH * esy
+    // Stash the pre-crop state (centre is in the object's own/parent space).
+    ;(image as unknown as { __cropOrig?: object }).__cropOrig = {
+      cropX: image.cropX ?? 0,
+      cropY: image.cropY ?? 0,
+      width: image.width,
+      height: image.height,
+      center: image.getCenterPoint(),
+    }
+    image.set({ cropX: 0, cropY: 0, width: nW, height: nH })
+    setImageSceneCenter(image, fullLeft + fullW / 2, fullTop + fullH / 2)
+    canvas.setActiveObject(image)
+    canvas.requestRenderAll()
+    set({
+      cropImage: image,
+      cropFull: { left: fullLeft, top: fullTop, width: fullW, height: fullH },
+      cropInitial: { left: dispLeft, top: dispTop, width: dispW, height: dispH },
+    })
+  },
+
+  applyCrop: (rect) => {
+    const { canvas, cropImage, cropFull } = get()
+    if (!canvas || !cropImage || !cropFull) return
+    const d = fabric.util.qrDecompose(cropImage.calcTransformMatrix())
+    const esx = Math.abs(d.scaleX) || 1
+    const esy = Math.abs(d.scaleY) || 1
+    cropImage.set({
+      cropX: Math.max(0, (rect.left - cropFull.left) / esx),
+      cropY: Math.max(0, (rect.top - cropFull.top) / esy),
+      width: rect.width / esx,
+      height: rect.height / esy,
+    })
+    setImageSceneCenter(cropImage, rect.left + rect.width / 2, rect.top + rect.height / 2)
+    delete (cropImage as unknown as { __cropOrig?: object }).__cropOrig
+    canvas.requestRenderAll()
+    fireModified(canvas, cropImage, 'Cropped image')
+    set({ cropImage: null, cropFull: null, cropInitial: null })
+  },
+
+  cancelCrop: () => {
+    const { canvas, cropImage } = get()
+    if (!canvas || !cropImage) return
+    const holder = cropImage as unknown as {
+      __cropOrig?: { cropX: number; cropY: number; width: number; height: number; center: fabric.Point }
+    }
+    const orig = holder.__cropOrig
+    if (orig) {
+      cropImage.set({ cropX: orig.cropX, cropY: orig.cropY, width: orig.width, height: orig.height })
+      cropImage.setPositionByOrigin(orig.center, 'center', 'center')
+      cropImage.setCoords()
+      delete holder.__cropOrig
+    }
+    canvas.requestRenderAll()
+    set({ cropImage: null, cropFull: null, cropInitial: null })
   },
 })

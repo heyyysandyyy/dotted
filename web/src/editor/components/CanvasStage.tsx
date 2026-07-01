@@ -14,6 +14,7 @@ import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
 import { GridOverlay } from './GridOverlay'
 import { EyedropperOverlay } from './EyedropperOverlay'
+import { CropOverlay } from './CropOverlay'
 
 const PADDING = 56
 
@@ -67,6 +68,7 @@ export function CanvasStage() {
   const backgroundColor = useCanvasStore((s) => s.backgroundColor)
   const canvas = useCanvasStore((s) => s.canvas)
   const snapMode = useCanvasStore((s) => s.snapMode)
+  const cropImage = useCanvasStore((s) => s.cropImage)
   // Re-render during transforms so the in-place group outline tracks live (UX-016).
   useCanvasStore((s) => s.tick)
 
@@ -433,9 +435,22 @@ export function CanvasStage() {
     }
     const onDblClick = (opt: { target?: fabric.FabricObject; subTargets?: fabric.FabricObject[] }) => {
       const t = opt.target
+      // Double-click an image → enter crop mode (UX-009).
+      if (t && t.type === 'image') {
+        useCanvasStore.getState().enterCrop()
+        return
+      }
       const sub = opt.subTargets?.[0]
       if (t && t.type === 'group' && sub) {
         const g = t as fabric.Group
+        // Already inside this group and double-clicked an image child → crop it
+        // (UX-009 inside a group). Otherwise drill in to edit the child (UX-016).
+        if (g.interactive && sub.type === 'image') {
+          exit()
+          c.setActiveObject(sub)
+          useCanvasStore.getState().enterCrop()
+          return
+        }
         g.subTargetCheck = true
         g.interactive = true
         isolated = g
@@ -545,6 +560,7 @@ export function CanvasStage() {
       <GridOverlay />
       <CanvasRulers />
       <EyedropperOverlay />
+      {cropImage && <CropOverlay />}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ImagePlus, Ban, Eraser } from 'lucide-react'
+import { ImagePlus, Ban, Eraser, Crop } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { isText, isShape } from '../utils'
 import { ColorField } from './ColorField'
@@ -92,6 +92,7 @@ export function PropertiesPanel() {
   const updateActive = useCanvasStore((s) => s.updateActive)
   const removeImageBackground = useCanvasStore((s) => s.removeImageBackground)
   const bgRemoving = useCanvasStore((s) => s.bgRemoving)
+  const enterCrop = useCanvasStore((s) => s.enterCrop)
   const [bgTolerance, setBgTolerance] = useState(60)
 
   if (selection.length === 0) {
@@ -184,6 +185,14 @@ export function PropertiesPanel() {
           <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
             Image
           </div>
+          <button
+            onClick={enterCrop}
+            title="Crop image"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+          >
+            <Crop size={14} />
+            Crop
+          </button>
           <button
             onClick={() => removeImageBackground(bgTolerance)}
             disabled={bgRemoving}

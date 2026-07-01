@@ -36,7 +36,7 @@ checklist of the *active* batch only.
 - [x] UX-006 Object alignment tools
 - [x] UX-007 Copy and paste styles
 - [x] UX-008 Eyedropper
-- [ ] UX-009 Image crop
+- [x] UX-009 Image crop
 - [x] UX-010 Background remover (offline solid-bg flood-fill, option 3)
 - [x] UX-011 Shadow and glow effects (drop shadow + outer glow; inner shadow deferred)
 - [x] UX-012 Color picker redesign with fill and stroke

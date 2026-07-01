@@ -12,6 +12,14 @@ export type SnapMode = 'none' | 'guides'
 /** Grid overlay rendering style (UX-005). */
 export type GridStyle = 'lines' | 'dots'
 
+/** An axis-aligned rectangle in canvas/scene coordinates (UX-009 crop). */
+export interface CropBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
 /** Format-painter state (UX-007): off, paste-once-then-exit, or sticky. */
 export type PainterMode = 'off' | 'once' | 'sticky'
 
@@ -172,6 +180,12 @@ export interface ObjectsSlice {
   painterMode: PainterMode
   /** True while a solid-background removal is processing (UX-010). */
   bgRemoving: boolean
+  /** The image currently in crop mode, or null (UX-009). */
+  cropImage: fabric.FabricImage | null
+  /** Full (uncropped) image rect in scene coords — the crop-selection bounds. */
+  cropFull: CropBox | null
+  /** Initial crop selection (the current crop) in scene coords, for the overlay. */
+  cropInitial: CropBox | null
 
   setCanvas: (c: fabric.Canvas | null) => void
   setSelection: (objs: fabric.FabricObject[]) => void
@@ -224,6 +238,12 @@ export interface ObjectsSlice {
   removeImageBackground: (tolerance?: number) => void
   /** Apply a drop-shadow/glow effect to the active object, or clear it (UX-011). */
   setShadowEffect: (effect: ShadowEffect | null) => void
+  /** Enter crop mode on the active image (shows the full image + selection). */
+  enterCrop: () => void
+  /** Commit the crop selection (scene rect) to the image; undoable (UX-009). */
+  applyCrop: (rect: CropBox) => void
+  /** Exit crop mode, restoring the image to its pre-crop state (UX-009). */
+  cancelCrop: () => void
   /** Group the active multi-selection into a single group (UX-016). */
   groupSelection: () => void
   /** Ungroup the selected group back into its children at world positions (UX-016). */
