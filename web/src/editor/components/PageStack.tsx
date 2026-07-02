@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { Plus, X, Copy } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { renderPreview } from '../preview'
+import { pageSize } from '../store/storeHelpers'
+import { PageGuideOverlay } from './PageGuideOverlay'
 import type { PageData } from '../storage'
 
 const PREVIEW_W = 220
@@ -9,8 +11,7 @@ const PREVIEW_W = 220
 function PagePreview({
   page,
   index,
-  width,
-  height,
+  fallbackSize,
   active,
   canDelete,
   onOpen,
@@ -19,8 +20,7 @@ function PagePreview({
 }: {
   page: PageData
   index: number
-  width: number
-  height: number
+  fallbackSize: { width: number; height: number }
   active: boolean
   canDelete: boolean
   onOpen: () => void
@@ -28,6 +28,9 @@ function PagePreview({
   onDelete: () => void
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  // Each page renders at its own size (UX-015 book pages can differ from the
+  // project default), not whichever page happens to be active.
+  const { width, height } = pageSize(page, fallbackSize)
 
   useEffect(() => {
     if (!ref.current) return
@@ -35,6 +38,7 @@ function PagePreview({
   }, [page, width, height])
 
   const scale = PREVIEW_W / width
+  const boxH = Math.round(height * scale)
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -44,9 +48,15 @@ function PagePreview({
         className={`relative overflow-hidden rounded border-2 bg-white shadow-lg ${
           active ? 'border-indigo-500' : 'border-neutral-700 hover:border-neutral-500'
         }`}
-        style={{ width: PREVIEW_W, height: Math.round(height * scale) }}
+        style={{ width: PREVIEW_W, height: boxH }}
       >
         <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
+        <PageGuideOverlay
+          type={page.type}
+          width={PREVIEW_W}
+          height={boxH}
+          bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
+        />
       </button>
       <div className="flex items-center gap-1.5 text-xs text-neutral-400">
         <span>Page {index + 1}</span>
@@ -87,8 +97,7 @@ export function PageStack() {
           key={p.id}
           page={p}
           index={i}
-          width={width}
-          height={height}
+          fallbackSize={{ width, height }}
           active={p.id === activePageId}
           canDelete={pages.length > 1}
           onOpen={() => openForEdit(p.id)}
