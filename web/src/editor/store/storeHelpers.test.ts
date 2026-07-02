@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type * as fabric from 'fabric'
-import { readStyle, applyStyle, distributeStarts } from './storeHelpers'
+import { readStyle, applyStyle, distributeStarts, pageSize } from './storeHelpers'
 
 // Minimal object stub — these helpers only read props, set(), and type.
 const obj = (props: Record<string, unknown>) =>
@@ -29,6 +29,19 @@ describe('applyStyle', () => {
     const ellipse = obj({ type: 'ellipse', fill: '#000', rx: 50 })
     applyStyle(ellipse, { rx: 8, fill: '#fff' })
     expect(ellipse.set).toHaveBeenCalledWith({ fill: '#fff' })
+  })
+})
+
+describe('pageSize', () => {
+  it('falls back to the project size when the page has no explicit size', () => {
+    expect(pageSize({ id: 'a', canvas: {} }, { width: 800, height: 600 })).toEqual({
+      width: 800,
+      height: 600,
+    })
+  })
+  it('uses the page\'s own size when set (book pages, UX-015)', () => {
+    const spread = { id: 'a', canvas: {}, type: 'spread' as const, width: 3600, height: 2700 }
+    expect(pageSize(spread, { width: 1800, height: 2700 })).toEqual({ width: 3600, height: 2700 })
   })
 })
 

@@ -17,10 +17,20 @@ const templatePayloadKey = (id: string) => `dotted:template:${id}`
 /** Fabric props persisted beyond the defaults (custom ids/names, lock flags). */
 export const EXTRA_PROPS = ['selectable', 'evented', 'name', 'id', 'lockUniScaling', 'locked', 'shadowKind']
 
-/** One page of a design — a serialized Fabric canvas (TPL-001). */
+/** Book-aware page kind (UX-015); absent means a plain page at the project's size. */
+export type PageType = 'cover' | 'spread' | 'single'
+
+/** One page of a design — a serialized Fabric canvas (TPL-001). Width/height/bleed
+ *  are only set for book pages (UX-015): a cover and its spreads can differ in size
+ *  within one project, unlike plain pages which all share the project's width/height. */
 export interface PageData {
   id: string
   canvas: object
+  type?: PageType
+  width?: number
+  height?: number
+  /** Bleed margin in px, book pages only (UX-015). */
+  bleed?: number
 }
 
 /** Manual ruler guides (UX-004), in canvas px. Horizontal guides are stored by

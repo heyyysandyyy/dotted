@@ -1,5 +1,5 @@
 import * as fabric from 'fabric'
-import { EXTRA_PROPS } from '../storage'
+import { EXTRA_PROPS, type PageData } from '../storage'
 import { GOOGLE_FONTS, loadGoogleFont } from '../fonts'
 
 /** Default name given to a fresh project. */
@@ -26,6 +26,18 @@ export function loadCanvasFonts(canvas: fabric.Canvas): void {
 /** Serialize the live canvas into a page payload. */
 export function serializeCanvas(canvas: fabric.Canvas): object {
   return canvas.toObject(EXTRA_PROPS)
+}
+
+/**
+ * A page's effective artboard size: its own width/height if set (book pages,
+ * UX-015 — a cover and its spreads can differ within one project), else the
+ * project's shared size (every other page).
+ */
+export function pageSize(
+  page: PageData,
+  fallback: { width: number; height: number },
+): { width: number; height: number } {
+  return { width: page.width ?? fallback.width, height: page.height ?? fallback.height }
 }
 
 const TEXT_PROP_KEYS = [
