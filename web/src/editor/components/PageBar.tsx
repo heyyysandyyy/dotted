@@ -8,7 +8,7 @@ import type { PageData } from '../storage'
 import { ZoomBar } from './ZoomBar'
 
 /** Thumbnail height in the strip (px); width follows each page's own aspect ratio. */
-const STRIP_THUMB_H = 40
+const STRIP_THUMB_H = 52
 
 function StripThumb({
   page,
@@ -60,22 +60,25 @@ function StripThumb({
         />
       </button>
       {/* Sibling of the thumbnail button, not a descendant — nesting <button>
-          inside <button> is invalid HTML and misbehaves across browsers. */}
-      <div className="absolute -right-1 -top-1 hidden gap-0.5 group-hover:flex">
+          inside <button> is invalid HTML and misbehaves across browsers. Inset
+          (not offset past the thumbnail's own edge) so it can't get clipped by
+          the strip's scroll container, which forces vertical clipping too once
+          horizontal scroll is enabled. */}
+      <div className="absolute right-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
         <button
           onClick={onDuplicate}
           title="Duplicate page"
-          className="rounded bg-neutral-800 p-0.5 text-neutral-300 hover:text-neutral-100"
+          className="rounded bg-neutral-900/80 p-0.5 text-neutral-300 hover:text-neutral-100"
         >
-          <Copy size={10} />
+          <Copy size={9} />
         </button>
         {canDelete && (
           <button
             onClick={onDelete}
             title="Delete page"
-            className="rounded bg-neutral-800 p-0.5 text-neutral-300 hover:text-red-400"
+            className="rounded bg-neutral-900/80 p-0.5 text-neutral-300 hover:text-red-400"
           >
-            <X size={10} />
+            <X size={9} />
           </button>
         )}
       </div>
@@ -103,7 +106,7 @@ export function PageBar() {
   if (pages.length === 0) return null
 
   return (
-    <div className="flex h-16 shrink-0 items-center gap-2 border-t border-neutral-800 bg-neutral-900 px-2">
+    <div className="flex h-20 shrink-0 items-center gap-2 border-t border-neutral-800 bg-neutral-900 px-2">
       <div className="flex flex-1 items-center gap-2 overflow-x-auto">
         {/* View toggle: single page vs all-pages stack. */}
         <div className="flex items-center gap-0.5">
@@ -145,13 +148,22 @@ export function PageBar() {
             onDelete={() => deletePage(p.id)}
           />
         ))}
-        <button
-          onClick={addPage}
-          title="Add page"
-          className="flex shrink-0 items-center gap-1 rounded border border-dashed border-neutral-700 px-2 py-3 text-xs text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
-        >
-          <Plus size={14} />
-        </button>
+        {/* Matches StripThumb's column shape (thumbnail height + label-height
+            spacer) so the row's vertical centering lines its top up with the
+            page thumbnails instead of floating in the middle of the strip. */}
+        <div className="flex shrink-0 flex-col items-center gap-0.5">
+          <button
+            onClick={addPage}
+            title="Add page"
+            style={{ height: STRIP_THUMB_H }}
+            className="flex items-center justify-center rounded border border-dashed border-neutral-700 px-3 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+          >
+            <Plus size={14} />
+          </button>
+          <span aria-hidden className="text-[9px] text-transparent">
+            +
+          </span>
+        </div>
       </div>
       <ZoomBar />
     </div>
