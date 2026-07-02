@@ -12,6 +12,7 @@ import {
 import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText } from '../utils'
 import { CanvasRulers } from './CanvasRulers'
+import { CanvasGuides } from './CanvasGuides'
 import { GridOverlay } from './GridOverlay'
 import { EyedropperOverlay } from './EyedropperOverlay'
 import { CropOverlay } from './CropOverlay'
@@ -69,6 +70,11 @@ export function CanvasStage() {
   const canvas = useCanvasStore((s) => s.canvas)
   const snapMode = useCanvasStore((s) => s.snapMode)
   const cropImage = useCanvasStore((s) => s.cropImage)
+  const spreadView = useCanvasStore((s) => s.spreadView)
+  const activePageType = useCanvasStore((s) => s.pages.find((p) => p.id === s.activePageId)?.type)
+  // Single-page framing only applies to a spread (UX-015) — a cover/plain page
+  // always shows at full width.
+  const singleSpreadView = spreadView === 'single' && activePageType === 'spread'
   // Re-render during transforms so the in-place group outline tracks live (UX-016).
   useCanvasStore((s) => s.tick)
 
@@ -196,10 +202,13 @@ export function CanvasStage() {
     const availW = viewport.w - PADDING * 2
     const availH = viewport.h - PADDING * 2
     if (availW <= 0 || availH <= 0) return
-    const next = Math.min(availW / width, availH / height, 1)
-    setZoomRaw(Math.max(next, 0.05))
-    setPan(0, 0)
-  }, [width, height, fitMode, viewport, setZoomRaw, setPan])
+    // "Single page" view (UX-015) fits to one half of a spread, then pans so
+    // that half (the left page) is centred instead of the whole spread.
+    const fitWidth = singleSpreadView ? width / 2 : width
+    const nextZoom = Math.max(Math.min(availW / fitWidth, availH / height, 1), 0.05)
+    setZoomRaw(nextZoom)
+    setPan(singleSpreadView ? (width * nextZoom) / 4 : 0, 0)
+  }, [width, height, fitMode, viewport, setZoomRaw, setPan, singleSpreadView])
 
   // Stash the artboard size on the canvas so the exporters (which now get a
   // viewport-sized canvas) can crop to the page (UX-013). Cropping the *display*
@@ -566,6 +575,7 @@ export function CanvasStage() {
             />
           )
         })()}
+      <CanvasGuides />
       <GridOverlay />
       <CanvasRulers />
       <EyedropperOverlay />

@@ -16,6 +16,7 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
   showGuides: true,
   snapGuides: true,
   activeGuides: { horizontal: [], vertical: [] },
+  spreadView: 'sideBySide',
 
   // Manual zoom leaves fit-mode; a manual zoom recenters (pan reset) unless the
   // caller pans afterwards (scroll-wheel zoom sets pan itself).
@@ -74,4 +75,8 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
   toggleSnapGuides: () => set((s) => ({ snapGuides: !s.snapGuides })),
 
   setActiveGuides: (activeGuides) => set({ activeGuides }),
+
+  // Re-enable fit-mode so the new framing (whole spread vs. one page) takes
+  // effect immediately, even if the user had previously zoomed manually.
+  setSpreadView: (spreadView) => set({ spreadView, fitMode: true }),
 })
