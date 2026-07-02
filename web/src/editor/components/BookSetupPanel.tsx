@@ -106,7 +106,10 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-const THUMB_BOX_W = 160
+/** Fixed preview height (px) shared by the cover and spread thumbnails — width
+ *  follows from each one's own aspect ratio, so a wide spread reads naturally
+ *  wider than its cover instead of shrinking to match a shared box. Every book
+ *  preset's spread stays well under the panel's width at this height. */
 const THUMB_BOX_H = 110
 /** Visual (not to-scale) length/offset for cut-mark ticks in the small preview. */
 const MARK_LEN = 5
@@ -120,9 +123,9 @@ function BookThumb({ kind, preset }: { kind: 'cover' | 'spread'; preset: SizePre
   const bleed = BOOK_BLEED_PX
   const fullW = trimW + bleed * 2
   const fullH = trimH + bleed * 2
-  const scale = Math.min(THUMB_BOX_W / fullW, THUMB_BOX_H / fullH)
+  const scale = THUMB_BOX_H / fullH
   const boxW = fullW * scale
-  const boxH = fullH * scale
+  const boxH = THUMB_BOX_H
 
   useEffect(() => {
     const el = canvasRef.current
