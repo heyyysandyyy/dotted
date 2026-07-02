@@ -8,6 +8,7 @@ import {
   type UnitId,
 } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { BookSetupPanel } from './BookSetupPanel'
 import { Modal } from './Modal'
 
 interface Props {
@@ -54,6 +55,9 @@ export function NewDesignModal({ open, onClose }: Props) {
   }, [filter, search])
 
   if (!open) return null
+
+  const selectedPreset = SIZE_PRESETS.find((p) => p.id === selectedId) ?? null
+  const isBook = selectedPreset?.category === 'book'
 
   // Clicking a preset fills the custom-size inputs (in px) rather than creating
   // immediately, so the user can tweak before committing.
@@ -147,58 +151,64 @@ export function NewDesignModal({ open, onClose }: Props) {
         )}
       </div>
 
-      <div className="mt-5 rounded-lg border border-neutral-700 p-3">
-        <div className="mb-2 text-sm font-medium text-neutral-200">Custom size</div>
-        <div className="flex items-end gap-3">
-          <label className="flex flex-col text-xs text-neutral-400">
-            Width
-            <input
-              type="number"
-              min={1}
-              value={wStr}
-              onChange={(e) => {
-                setWStr(e.target.value)
-                setSelectedId(null)
-              }}
-              className={input}
-            />
-          </label>
-          <span className="pb-2 text-neutral-500">×</span>
-          <label className="flex flex-col text-xs text-neutral-400">
-            Height
-            <input
-              type="number"
-              min={1}
-              value={hStr}
-              onChange={(e) => {
-                setHStr(e.target.value)
-                setSelectedId(null)
-              }}
-              className={input}
-            />
-          </label>
-          <label className="flex flex-col text-xs text-neutral-400">
-            Units
-            <select
-              value={unit}
-              onChange={(e) => changeUnit(e.target.value as UnitId)}
-              className="mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
-            >
-              {SIZE_UNITS.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            onClick={create}
-            className="ml-auto rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-          >
-            Create
-          </button>
+      {isBook && selectedPreset ? (
+        <div className="mt-5">
+          <BookSetupPanel initialPresetId={selectedPreset.id} onCreated={onClose} />
         </div>
-      </div>
+      ) : (
+        <div className="mt-5 rounded-lg border border-neutral-700 p-3">
+          <div className="mb-2 text-sm font-medium text-neutral-200">Custom size</div>
+          <div className="flex items-end gap-3">
+            <label className="flex flex-col text-xs text-neutral-400">
+              Width
+              <input
+                type="number"
+                min={1}
+                value={wStr}
+                onChange={(e) => {
+                  setWStr(e.target.value)
+                  setSelectedId(null)
+                }}
+                className={input}
+              />
+            </label>
+            <span className="pb-2 text-neutral-500">×</span>
+            <label className="flex flex-col text-xs text-neutral-400">
+              Height
+              <input
+                type="number"
+                min={1}
+                value={hStr}
+                onChange={(e) => {
+                  setHStr(e.target.value)
+                  setSelectedId(null)
+                }}
+                className={input}
+              />
+            </label>
+            <label className="flex flex-col text-xs text-neutral-400">
+              Units
+              <select
+                value={unit}
+                onChange={(e) => changeUnit(e.target.value as UnitId)}
+                className="mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
+              >
+                {SIZE_UNITS.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={create}
+              className="ml-auto rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 flex justify-end">
         <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200">

@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 import * as fabric from 'fabric'
-import { DEFAULT_WIDTH, DEFAULT_HEIGHT } from '../constants'
+import { DEFAULT_WIDTH, DEFAULT_HEIGHT, BOOK_BLEED_PX, type SizePreset } from '../constants'
 import {
   saveProject,
   loadProject,
@@ -70,6 +70,63 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     setCurrentProjectId(id)
     // Persist the fresh blank project immediately so it appears in the list.
     saveProject({ id, name: DEFAULT_NAME, width, height, pages, activePageId: pageId, guides: EMPTY_GUIDES })
+    useHistoryStore.getState().reset()
+  },
+
+  newBookProject: (preset: SizePreset, pageCount: number) => {
+    const { canvas } = get()
+    const id = crypto.randomUUID()
+    const bleed = BOOK_BLEED_PX
+    const coverSize = { width: preset.width + bleed * 2, height: preset.height + bleed * 2 }
+    const spreadSize = { width: preset.width * 2 + bleed * 2, height: preset.height + bleed * 2 }
+    if (canvas) {
+      canvas.clear()
+      canvas.backgroundColor = '#ffffff'
+    }
+    // Every page starts from the same blank cleared canvas; each spread gets
+    // its own clone so later edits to one page don't leak into another.
+    const blank = canvas ? serializeCanvas(canvas) : { objects: [] }
+    const coverPage: PageData = {
+      id: crypto.randomUUID(),
+      canvas: blank,
+      type: 'cover',
+      bleed,
+      ...coverSize,
+    }
+    const spreadCount = Math.max(1, Math.ceil(pageCount / 2))
+    const spreadPages: PageData[] = Array.from({ length: spreadCount }, () => ({
+      id: crypto.randomUUID(),
+      canvas: structuredClone(blank),
+      type: 'spread',
+      bleed,
+      ...spreadSize,
+    }))
+    const pages = [coverPage, ...spreadPages]
+    if (canvas) {
+      canvas.setDimensions(coverSize)
+      canvas.requestRenderAll()
+    }
+    set({
+      width: coverSize.width,
+      height: coverSize.height,
+      selection: [],
+      designName: DEFAULT_NAME,
+      currentProjectId: id,
+      pages,
+      activePageId: coverPage.id,
+      backgroundColor: '#ffffff',
+      guides: EMPTY_GUIDES,
+    })
+    setCurrentProjectId(id)
+    saveProject({
+      id,
+      name: DEFAULT_NAME,
+      width: coverSize.width,
+      height: coverSize.height,
+      pages,
+      activePageId: coverPage.id,
+      guides: EMPTY_GUIDES,
+    })
     useHistoryStore.getState().reset()
   },
 

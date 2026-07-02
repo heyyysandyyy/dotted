@@ -1,5 +1,5 @@
 import type * as fabric from 'fabric'
-import type { UnitId } from '../constants'
+import type { UnitId, SizePreset } from '../constants'
 import type { PageData, Guides } from '../storage'
 import type { StarterTemplate } from '../templates'
 import type { AlignMode, ShadowEffect } from '../utils'
@@ -58,6 +58,9 @@ export interface ProjectSlice {
   newProject: (w: number, h: number) => void
   /** Start a new project pre-filled from a starter template (TPL-003). */
   newProjectFromTemplate: (tpl: StarterTemplate) => void
+  /** Start a book project: one cover page + pageCount/2 spread pages, all
+   *  book-typed with bleed baked into their size (UX-015). */
+  newBookProject: (preset: SizePreset, pageCount: number) => void
   /** Save the current design as a reusable template (TPL-004). */
   saveAsTemplate: (name: string) => boolean
   /** Start a new project from a user-saved template by id (TPL-004). */
