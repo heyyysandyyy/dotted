@@ -87,6 +87,9 @@ export interface ProjectSlice {
   deletePage: (id: string) => void
   /** Duplicate a page, inserting the copy right after it. */
   duplicatePage: (id: string) => void
+  /** Move a page from one index to another; undoable as a single "Reorder
+   *  pages" step (BOOK-003). No-op for an out-of-range or same-index move. */
+  reorderPages: (fromIndex: number, toIndex: number) => void
   /** Switch between single-page editing and the all-pages stack view. */
   setViewMode: (mode: ViewMode) => void
   /** Resize the artboard; optionally scale all objects to fit. Undoable (UX-014). */
