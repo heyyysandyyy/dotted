@@ -38,6 +38,9 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
   const toggleSnapGuides = useCanvasStore((s) => s.toggleSnapGuides)
   const clearGuides = useCanvasStore((s) => s.clearGuides)
   const hasGuides = useCanvasStore((s) => s.guides.horizontal.length + s.guides.vertical.length > 0)
+  const spreadView = useCanvasStore((s) => s.spreadView)
+  const setSpreadView = useCanvasStore((s) => s.setSpreadView)
+  const isSpreadPage = useCanvasStore((s) => s.pages.find((p) => p.id === s.activePageId)?.type === 'spread')
 
   const canUndo = useHistoryStore((s) => s.canUndo)
   const canRedo = useHistoryStore((s) => s.canRedo)
@@ -162,6 +165,28 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
       </div>
 
       <div className="ml-auto flex items-center gap-3 text-xs text-neutral-400">
+        {isSpreadPage && (
+          <div className="flex items-center rounded-md bg-neutral-800 p-0.5 text-xs">
+            <button
+              onClick={() => setSpreadView('sideBySide')}
+              aria-pressed={spreadView === 'sideBySide'}
+              className={`rounded px-2 py-1 font-medium ${
+                spreadView === 'sideBySide' ? 'bg-neutral-700 text-neutral-100' : 'text-neutral-400'
+              }`}
+            >
+              Side by side
+            </button>
+            <button
+              onClick={() => setSpreadView('single')}
+              aria-pressed={spreadView === 'single'}
+              className={`rounded px-2 py-1 font-medium ${
+                spreadView === 'single' ? 'bg-neutral-700 text-neutral-100' : 'text-neutral-400'
+              }`}
+            >
+              Single page
+            </button>
+          </div>
+        )}
         <button
           onClick={() => window.dispatchEvent(new Event('dotted:resize-canvas'))}
           title="Resize canvas (Cmd/Ctrl+Shift+R)"
