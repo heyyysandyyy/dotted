@@ -37,6 +37,13 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: 'book-a5', label: 'A5', width: 1748, height: 2480, category: 'book' },
 ]
 
+/** Book-format presets only, in the order shown by the book setup panel (UX-015). */
+export const BOOK_PRESETS = SIZE_PRESETS.filter((p) => p.category === 'book')
+
+/** Bleed margin for book pages (UX-015): 0.125in at the book presets' own
+ *  resolution (300dpi, unlike the 96dpi screen scale other presets use). */
+export const BOOK_BLEED_PX = 38
+
 /** Filter pills shown above the preset grid; 'all' clears the category filter. */
 export const PRESET_FILTERS = ['all', 'social', 'print', 'book', 'presentation', 'video'] as const
 export type PresetFilter = (typeof PRESET_FILTERS)[number]
