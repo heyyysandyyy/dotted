@@ -323,6 +323,27 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     useHistoryStore.getState().record('Duplicated page')
   },
 
+  reorderPages: (fromIndex, toIndex) => {
+    const { pages } = get()
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= pages.length ||
+      toIndex >= pages.length
+    ) {
+      return
+    }
+    // Only the order changes — activePageId is untouched, so the selection
+    // follows the moved page itself, not whichever slot it used to occupy.
+    const next = [...pages]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+    set({ pages: next })
+    // Single undo step (record() also auto-saves).
+    useHistoryStore.getState().record('Reorder pages')
+  },
+
   setViewMode: (mode) => {
     // Flush the live canvas into the active page so previews are current.
     if (mode === 'stack') get().saveCurrentProject()

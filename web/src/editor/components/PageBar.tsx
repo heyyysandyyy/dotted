@@ -1,5 +1,23 @@
-import { useEffect, useRef } from 'react'
-import { Plus, X, Copy, Square, LayoutGrid } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Plus, X, Copy, Square, LayoutGrid, GripVertical } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { renderPreview } from '../preview'
 import { pageSize } from '../store/storeHelpers'
@@ -16,6 +34,7 @@ function StripThumb({
   fallbackSize,
   active,
   canDelete,
+  dropBefore,
   onOpen,
   onDuplicate,
   onDelete,
@@ -25,6 +44,8 @@ function StripThumb({
   fallbackSize: { width: number; height: number }
   active: boolean
   canDelete: boolean
+  /** Show the insertion-point indicator on this thumbnail's leading edge (BOOK-003). */
+  dropBefore: boolean
   onOpen: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -36,19 +57,38 @@ function StripThumb({
   const scale = STRIP_THUMB_H / height
   const boxW = Math.round(width * scale)
 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: page.id,
+  })
+
   useEffect(() => {
     if (!ref.current) return
     return renderPreview(ref.current, page.canvas, width, height)
   }, [page, width, height])
 
   return (
-    <div className="group relative flex shrink-0 flex-col items-center gap-0.5">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className="group relative flex shrink-0 flex-col items-center gap-0.5"
+    >
+      {/* Insertion-point indicator (BOOK-003) — the project has no --border-accent
+          token, so this reuses the app's existing indigo accent for consistency
+          with the active-page border below. */}
+      {dropBefore && (
+        <div
+          className="absolute -left-1.5 top-0 w-0.5 rounded bg-indigo-400"
+          style={{ height: STRIP_THUMB_H }}
+        />
+      )}
       <button
         onClick={onOpen}
         title={`Edit page ${index + 1}`}
-        className={`relative overflow-hidden rounded border bg-white ${
+        {...attributes}
+        {...listeners}
+        className={`relative touch-none overflow-hidden rounded border bg-white ${
           active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-neutral-700 hover:border-neutral-500'
-        }`}
+        } ${isDragging ? 'opacity-90 shadow-lg shadow-black/50' : ''}`}
         style={{ width: boxW, height: STRIP_THUMB_H }}
       >
         <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
@@ -58,6 +98,12 @@ function StripThumb({
           height={STRIP_THUMB_H}
           bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
         />
+        {/* Drag handle affordance — dragging works from anywhere on the
+            thumbnail (the listeners above are on the whole button); this is
+            just the hover hint, purely decorative. */}
+        <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-neutral-900/60 p-0.5 text-neutral-300 group-hover:block">
+          <GripVertical size={9} />
+        </div>
       </button>
       {/* Sibling of the thumbnail button, not a descendant — nesting <button>
           inside <button> is invalid HTML and misbehaves across browsers. Inset
@@ -87,9 +133,10 @@ function StripThumb({
   )
 }
 
-/** Bottom strip for multi-page designs: a persistent thumbnail strip to switch,
- *  add, and delete pages (TPL-001; upgraded from text-only buttons to real
- *  thumbnails with book guide overlays in BOOK-002). */
+/** Bottom strip for multi-page designs: a persistent, draggable thumbnail strip
+ *  to switch, reorder, add, and delete pages (TPL-001; upgraded from text-only
+ *  buttons to real thumbnails with book guide overlays in BOOK-002; drag
+ *  reorder in BOOK-003 — same @dnd-kit/sortable pattern as LayersPanel). */
 export function PageBar() {
   const pages = useCanvasStore((s) => s.pages)
   const width = useCanvasStore((s) => s.width)
@@ -99,11 +146,39 @@ export function PageBar() {
   const addPage = useCanvasStore((s) => s.addPage)
   const deletePage = useCanvasStore((s) => s.deletePage)
   const duplicatePage = useCanvasStore((s) => s.duplicatePage)
+  const reorderPages = useCanvasStore((s) => s.reorderPages)
   const viewMode = useCanvasStore((s) => s.viewMode)
   const setViewMode = useCanvasStore((s) => s.setViewMode)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+  // Keyboard sensor gives dnd-kit's own accessible drag pattern for free
+  // (focus a thumbnail, Space to pick up, Arrow keys to move, Space to drop).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   // Nothing to show until a project is loaded.
   if (pages.length === 0) return null
+
+  const ids = pages.map((p) => p.id)
+
+  const onDragStart = (e: DragStartEvent) => setActiveId(e.active.id as string)
+  const onDragOver = (e: DragOverEvent) => setOverId((e.over?.id as string | undefined) ?? null)
+  const onDragEnd = (e: DragEndEvent) => {
+    setActiveId(null)
+    setOverId(null)
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = ids.indexOf(active.id as string)
+    const to = ids.indexOf(over.id as string)
+    if (from < 0 || to < 0) return
+    reorderPages(from, to)
+  }
+  const onDragCancel = () => {
+    setActiveId(null)
+    setOverId(null)
+  }
 
   return (
     <div className="flex h-20 shrink-0 items-center gap-2 border-t border-neutral-800 bg-neutral-900 px-2">
@@ -132,22 +207,34 @@ export function PageBar() {
           </button>
         </div>
         <div className="h-8 w-px shrink-0 bg-neutral-800" />
-        {pages.map((p, i) => (
-          <StripThumb
-            key={p.id}
-            page={p}
-            index={i}
-            fallbackSize={{ width, height }}
-            active={p.id === activePageId}
-            canDelete={pages.length > 1}
-            onOpen={() => {
-              selectPage(p.id)
-              setViewMode('single')
-            }}
-            onDuplicate={() => duplicatePage(p.id)}
-            onDelete={() => deletePage(p.id)}
-          />
-        ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDragCancel={onDragCancel}
+        >
+          <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
+            {pages.map((p, i) => (
+              <StripThumb
+                key={p.id}
+                page={p}
+                index={i}
+                fallbackSize={{ width, height }}
+                active={p.id === activePageId}
+                canDelete={pages.length > 1}
+                dropBefore={activeId !== null && overId === p.id && activeId !== p.id}
+                onOpen={() => {
+                  selectPage(p.id)
+                  setViewMode('single')
+                }}
+                onDuplicate={() => duplicatePage(p.id)}
+                onDelete={() => deletePage(p.id)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
         {/* Matches StripThumb's column shape (thumbnail height + label-height
             spacer) so the row's vertical centering lines its top up with the
             page thumbnails instead of floating in the middle of the strip. */}

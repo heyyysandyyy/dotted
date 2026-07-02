@@ -61,3 +61,38 @@ describe('newBookProject (UX-015)', () => {
     expect(useCanvasStore.getState().pages).toHaveLength(1 + 3) // ceil(5/2) = 3
   })
 })
+
+describe('reorderPages (BOOK-003)', () => {
+  it('moves a page from one index to another, leaving the rest in order', () => {
+    useCanvasStore.getState().newBookProject(BOOK_PRESETS[0], 6) // cover + 3 spreads
+    const before = useCanvasStore.getState().pages
+    const ids = before.map((p) => p.id)
+
+    useCanvasStore.getState().reorderPages(0, 2) // move the cover to index 2
+    const after = useCanvasStore.getState().pages.map((p) => p.id)
+
+    expect(after).toEqual([ids[1], ids[2], ids[0], ids[3]])
+  })
+
+  it('keeps the active page selected by id, not by slot', () => {
+    useCanvasStore.getState().newBookProject(BOOK_PRESETS[0], 6)
+    const { pages, activePageId } = useCanvasStore.getState()
+    const activeId = activePageId // the cover, at index 0
+    // Move a later page (index 2) to the front — the active page shifts to
+    // index 1, but activePageId must still point at the same page.
+    useCanvasStore.getState().reorderPages(2, 0)
+    const state = useCanvasStore.getState()
+    expect(state.activePageId).toBe(activeId)
+    expect(state.pages[1].id).toBe(activeId)
+    expect(state.pages[0].id).toBe(pages[2].id)
+  })
+
+  it('is a no-op for an out-of-range or same-index move', () => {
+    useCanvasStore.getState().newBookProject(BOOK_PRESETS[0], 6)
+    const before = useCanvasStore.getState().pages
+    useCanvasStore.getState().reorderPages(1, 1)
+    useCanvasStore.getState().reorderPages(-1, 2)
+    useCanvasStore.getState().reorderPages(0, 99)
+    expect(useCanvasStore.getState().pages).toBe(before)
+  })
+})

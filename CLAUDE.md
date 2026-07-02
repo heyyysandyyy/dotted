@@ -46,5 +46,6 @@ checklist of the *active* batch only.
 - [~] UX-016 Object grouping (group/ungroup, in-place edit); nested layers panel deferred
 - [x] UX-017 Guide exact-position input (double-click a guide)
 - [x] BOOK-002 Stack view — spread and guides (bottom strip upgraded to real thumbnails with bleed/trim/cut-mark/spine overlays, shared with the main canvas)
-- [ ] BOOK-003 Draggable page reorder in strip
+- [x] BOOK-003 Draggable page reorder in strip
 - [ ] BOOK-001 Page templates system (large — data model, template UI, page numbers, resize propagation; to be phased like UX-015)
+- [ ] BOOK-004 Print export modal for book projects (large — PDF/X-1a & CMYK, font embed/outline, page range, zip bundling; likely needs phasing too, issue #126)
