@@ -153,7 +153,10 @@ export function NewDesignModal({ open, onClose }: Props) {
 
       {isBook && selectedPreset ? (
         <div className="mt-5">
-          <BookSetupPanel initialPresetId={selectedPreset.id} onCreated={onClose} />
+          {/* key remounts the panel when a different preset card is clicked —
+              otherwise its internal size state (seeded once from the prop)
+              would never pick up the new selection. */}
+          <BookSetupPanel key={selectedPreset.id} initialPresetId={selectedPreset.id} onCreated={onClose} />
         </div>
       ) : (
         <div className="mt-5 rounded-lg border border-neutral-700 p-3">
