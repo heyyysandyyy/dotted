@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SIZE_PRESETS, SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { Modal } from './Modal'
 
 /** Remembered across opens for the session (dimensions always reseed from the
  *  current artboard, but the user's unit/lock/scale choices stick). */
@@ -85,115 +86,88 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
     onClose()
   }
 
+  const input =
+    'mt-1 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-neutral-500'
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="w-[420px] rounded-xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-4 text-lg font-semibold text-neutral-900">Resize canvas</h2>
-
-        <div className="flex items-end gap-3">
-          <label className="flex flex-col text-xs text-neutral-500">
-            Width
-            <input
-              type="number"
-              min={1}
-              value={wStr}
-              onChange={(e) => onWidth(e.target.value)}
-              className="mt-1 w-24 rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
-            />
-          </label>
-          <span className="pb-2 text-neutral-400">×</span>
-          <label className="flex flex-col text-xs text-neutral-500">
-            Height
-            <input
-              type="number"
-              min={1}
-              value={hStr}
-              onChange={(e) => onHeight(e.target.value)}
-              className="mt-1 w-24 rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
-            />
-          </label>
-          <label className="flex flex-col text-xs text-neutral-500">
-            Units
-            <select
-              value={unit}
-              onChange={(e) => changeUnit(e.target.value as UnitId)}
-              className="mt-1 rounded border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
-            >
-              {SIZE_UNITS.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm text-neutral-700">
-            <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} />
-            Lock aspect ratio
-          </label>
-          <label className="flex items-center gap-2 text-sm text-neutral-700">
-            <input
-              type="checkbox"
-              checked={scaleContent}
-              onChange={(e) => setScaleContent(e.target.checked)}
-            />
-            Scale content to fit
-          </label>
-        </div>
-
-        <div className="mt-4">
-          <div className="mb-1 text-xs font-medium text-neutral-500">Presets</div>
-          <div className="flex flex-wrap gap-1">
-            {SIZE_PRESETS.filter((p) => p.category !== 'book').map((p) => (
-              <button
-                key={p.id}
-                onClick={() => pickPreset(p.width, p.height)}
-                className="rounded border border-neutral-200 px-2 py-1 text-xs text-neutral-700 hover:border-neutral-400"
-              >
-                {p.label}
-              </button>
+    <Modal title="Resize canvas" widthClass="w-[420px]" onClose={onClose}>
+      <div className="flex items-end gap-3">
+        <label className="flex flex-col text-xs text-neutral-400">
+          Width
+          <input type="number" min={1} value={wStr} onChange={(e) => onWidth(e.target.value)} className={input} />
+        </label>
+        <span className="pb-2 text-neutral-500">×</span>
+        <label className="flex flex-col text-xs text-neutral-400">
+          Height
+          <input type="number" min={1} value={hStr} onChange={(e) => onHeight(e.target.value)} className={input} />
+        </label>
+        <label className="flex flex-col text-xs text-neutral-400">
+          Units
+          <select
+            value={unit}
+            onChange={(e) => changeUnit(e.target.value as UnitId)}
+            className="mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
+          >
+            {SIZE_UNITS.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
             ))}
-          </div>
-        </div>
+          </select>
+        </label>
+      </div>
 
-        <button
-          onClick={() => {
-            fitToContent()
-            onClose()
-          }}
-          disabled={!hasObjects}
-          title="Resize the canvas to exactly wrap all objects"
-          className="mt-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Fit to content
-        </button>
+      <div className="mt-3 space-y-2">
+        <label className="flex items-center gap-2 text-sm text-neutral-300">
+          <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} className="accent-indigo-500" />
+          Lock aspect ratio
+        </label>
+        <label className="flex items-center gap-2 text-sm text-neutral-300">
+          <input type="checkbox" checked={scaleContent} onChange={(e) => setScaleContent(e.target.checked)} className="accent-indigo-500" />
+          Scale content to fit
+        </label>
+      </div>
 
-        {outOfBounds && (
-          <p className="mt-3 text-xs text-amber-600">
-            Some objects are outside the canvas bounds.
-          </p>
-        )}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={confirm}
-            className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-          >
-            Resize
-          </button>
+      <div className="mt-4">
+        <div className="mb-1 text-xs font-medium text-neutral-500">Presets</div>
+        <div className="flex flex-wrap gap-1">
+          {SIZE_PRESETS.filter((p) => p.category !== 'book').map((p) => (
+            <button
+              key={p.id}
+              onClick={() => pickPreset(p.width, p.height)}
+              className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      <button
+        onClick={() => {
+          fitToContent()
+          onClose()
+        }}
+        disabled={!hasObjects}
+        title="Resize the canvas to exactly wrap all objects"
+        className="mt-4 w-full rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Fit to content
+      </button>
+
+      {outOfBounds && <p className="mt-3 text-xs text-amber-500">Some objects are outside the canvas bounds.</p>}
+
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200">
+          Cancel
+        </button>
+        <button
+          onClick={confirm}
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+        >
+          Resize
+        </button>
+      </div>
+    </Modal>
   )
 }
