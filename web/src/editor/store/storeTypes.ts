@@ -34,6 +34,10 @@ export interface GridSettings {
 /** Canvas view: edit one page, or see all pages stacked (TPL-001). */
 export type ViewMode = 'single' | 'stack'
 
+/** How a book spread page is framed in the viewport (UX-015): both pages at
+ *  once, or fitted to a single page at a time. */
+export type SpreadView = 'sideBySide' | 'single'
+
 /** Project, pages, background, and persistence. */
 export interface ProjectSlice {
   width: number
@@ -128,6 +132,8 @@ export interface ViewSlice {
   showGuides: boolean
   /** Whether objects snap to guides while dragging (UX-004). */
   snapGuides: boolean
+  /** Book spread framing (UX-015): side-by-side (both pages) or single (one at a time). */
+  spreadView: SpreadView
   /** Guides the dragging object is currently snapped to (transient highlight). */
   activeGuides: Guides
 
@@ -167,6 +173,8 @@ export interface ViewSlice {
   toggleSnapGuides: () => void
   /** Set the guides currently being snapped to (highlight; not persisted). */
   setActiveGuides: (g: Guides) => void
+  /** Set the spread framing and re-enable auto-fit so it takes effect immediately. */
+  setSpreadView: (v: SpreadView) => void
 }
 
 /** The live canvas, selection, object operations, and style/painter. */
