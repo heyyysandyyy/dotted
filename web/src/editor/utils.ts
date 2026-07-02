@@ -44,6 +44,8 @@ export function layerName(obj: fabric.FabricObject): string {
       return 'Line'
     case 'path':
       return 'Arrow'
+    case 'group':
+      return 'Group'
     default:
       return obj.type ?? 'Object'
   }

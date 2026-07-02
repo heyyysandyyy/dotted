@@ -36,6 +36,7 @@ describe('layerName', () => {
     expect(layerName(obj('ellipse'))).toBe('Ellipse')
     expect(layerName(obj('rect'))).toBe('Rectangle')
     expect(layerName(obj('rect', { rx: 24 }))).toBe('Rounded rectangle')
+    expect(layerName(obj('group'))).toBe('Group')
   })
   it('uses trimmed, truncated text for text layers', () => {
     expect(layerName(obj('textbox', { text: '  Hello  ' }))).toBe('Hello')
