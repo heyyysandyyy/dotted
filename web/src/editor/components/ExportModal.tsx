@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { exportPNG, exportJPEG, exportPDF, exportSVG, DEFAULT_JPEG_QUALITY } from '../exporters'
+import { exportBookPDF, type BookExportScope } from '../bookExport'
 import { Modal } from './Modal'
 
 interface Props {
@@ -10,16 +11,41 @@ interface Props {
 
 type Format = 'png' | 'jpeg' | 'pdf' | 'svg'
 
+const BOOK_SCOPE_LABEL: Record<BookExportScope, string> = {
+  all: 'All pages',
+  cover: 'Cover only',
+  spreads: 'Spreads only',
+}
+
 export function ExportModal({ open, onClose }: Props) {
   const canvas = useCanvasStore((s) => s.canvas)
   const designName = useCanvasStore((s) => s.designName)
+  // A book project (UX-015) has at least one page tagged cover/spread. (Not a
+  // bare `p.type` truthy check: PageType's 'single' variant is never actually
+  // assigned to a plain page — those signal "not a book page" via an absent
+  // `type` — so this stays correct even if that changes.)
+  const isBook = useCanvasStore((s) => s.pages.some((p) => p.type === 'cover' || p.type === 'spread'))
   const [format, setFormat] = useState<Format>('png')
   const [scale, setScale] = useState(1)
   const [quality, setQuality] = useState(DEFAULT_JPEG_QUALITY)
+  const [bookScope, setBookScope] = useState<BookExportScope>('all')
 
   if (!open) return null
 
+  const bookPdfExport = isBook && format === 'pdf'
+
   const doExport = () => {
+    if (bookPdfExport) {
+      // Flush the live canvas into the active page first so the export
+      // reflects any edit still in the 300ms autosave debounce window.
+      useCanvasStore.getState().saveCurrentProject()
+      const { pages, width, height, designName: name } = useCanvasStore.getState()
+      exportBookPDF(pages, { width, height }, name, bookScope).catch((err) => {
+        console.error('Book PDF export failed', err)
+      })
+      onClose()
+      return
+    }
     if (!canvas) return
     if (format === 'png') exportPNG(canvas, designName, scale)
     else if (format === 'jpeg') exportJPEG(canvas, designName, scale, quality)
@@ -72,18 +98,33 @@ export function ExportModal({ open, onClose }: Props) {
         </div>
       )}
 
-      {/* SVG is vector and resolution-independent, so scale does not apply. */}
-      {format !== 'svg' && (
+      {/* Book PDF (UX-015) renders every page at its own native 300dpi size —
+          no scale multiplier — but offers which pages to include instead. */}
+      {bookPdfExport ? (
         <div className="mb-5">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Scale</div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Pages</div>
           <div className="flex gap-2">
-            {[1, 2, 3].map((s) => (
-              <button key={s} onClick={() => setScale(s)} className={chip(scale === s)}>
-                {s}×
+            {(['all', 'cover', 'spreads'] as BookExportScope[]).map((s) => (
+              <button key={s} onClick={() => setBookScope(s)} className={chip(bookScope === s)}>
+                {BOOK_SCOPE_LABEL[s]}
               </button>
             ))}
           </div>
         </div>
+      ) : (
+        // SVG is vector and resolution-independent, so scale does not apply.
+        format !== 'svg' && (
+          <div className="mb-5">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Scale</div>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((s) => (
+                <button key={s} onClick={() => setScale(s)} className={chip(scale === s)}>
+                  {s}×
+                </button>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       <div className="flex justify-end gap-2">
