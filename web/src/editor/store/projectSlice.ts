@@ -14,7 +14,7 @@ import {
   type PageData,
 } from '../storage'
 import { useHistoryStore } from './useHistoryStore'
-import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts } from './storeHelpers'
+import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, pageSize } from './storeHelpers'
 import type { CanvasState, ProjectSlice } from './storeTypes'
 
 export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice> = (set, get) => ({
@@ -30,12 +30,19 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
   setDesignName: (designName) => set({ designName }),
 
   setDimensions: (width, height) => {
-    const { canvas } = get()
+    const { canvas, pages, activePageId } = get()
     if (canvas) {
       canvas.setDimensions({ width, height })
       canvas.requestRenderAll()
     }
-    set({ width, height })
+    // Book pages (UX-015) carry their own width/height — keep the active page's
+    // copy in sync so re-visiting it later doesn't snap back to a stale size.
+    const nextPages = pages.map((p) =>
+      p.id === activePageId && (p.width !== undefined || p.height !== undefined)
+        ? { ...p, width, height }
+        : p,
+    )
+    set({ width, height, pages: nextPages })
   },
 
   newProject: (width, height) => {
@@ -135,9 +142,12 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     const proj = loadProject(id)
     if (!canvas || !proj) return
     const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0]
+    // The opened page may be a book page (UX-015) sized differently than the
+    // project's default (e.g. a spread saved as the last-active page).
+    const size = pageSize(active, { width: proj.width, height: proj.height })
     set({
-      width: proj.width,
-      height: proj.height,
+      width: size.width,
+      height: size.height,
       selection: [],
       designName: proj.name,
       currentProjectId: id,
@@ -145,7 +155,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       activePageId: active.id,
       guides: proj.guides ?? { horizontal: [], vertical: [] },
     })
-    canvas.setDimensions({ width: proj.width, height: proj.height })
+    canvas.setDimensions(size)
     setCurrentProjectId(id)
     canvas.loadFromJSON(active.canvas).then(() => {
       canvas.requestRenderAll()
@@ -215,14 +225,18 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
   },
 
   selectPage: (pageId) => {
-    const { canvas, pages, activePageId } = get()
+    const { canvas, pages, activePageId, width, height } = get()
     if (!canvas || pageId === activePageId) return
     const synced = pages.map((p) =>
       p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
     )
     const target = synced.find((p) => p.id === pageId)
     if (!target) return
-    set({ pages: synced, activePageId: pageId, selection: [] })
+    // Book pages (UX-015) can be a different size than the page being left
+    // (e.g. a cover vs. a spread) — resize the artboard to match.
+    const size = pageSize(target, { width, height })
+    if (size.width !== width || size.height !== height) canvas.setDimensions(size)
+    set({ pages: synced, activePageId: pageId, selection: [], width: size.width, height: size.height })
     canvas.loadFromJSON(target.canvas).then(() => {
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
@@ -240,7 +254,12 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       : pages
     const idx = synced.findIndex((p) => p.id === pageId)
     if (idx < 0) return
-    const copy: PageData = { id: crypto.randomUUID(), canvas: structuredClone(synced[idx].canvas) }
+    // Carry over size/type/bleed (book pages, UX-015), not just the canvas contents.
+    const copy: PageData = {
+      ...synced[idx],
+      id: crypto.randomUUID(),
+      canvas: structuredClone(synced[idx].canvas),
+    }
     const next = [...synced.slice(0, idx + 1), copy, ...synced.slice(idx + 1)]
     set({ pages: next })
     // Record so duplicating a page is undoable (record() also auto-saves).
@@ -337,9 +356,13 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       useHistoryStore.getState().record('Deleted page')
       return
     }
-    // Deleting the active page → switch to a neighbour.
+    // Deleting the active page → switch to a neighbour (resizing if it's a
+    // differently-sized book page, UX-015).
     const neighbour = remaining[Math.min(idx, remaining.length - 1)]
-    set({ pages: remaining, activePageId: neighbour.id, selection: [] })
+    const { width, height } = get()
+    const size = pageSize(neighbour, { width, height })
+    if (size.width !== width || size.height !== height) canvas.setDimensions(size)
+    set({ pages: remaining, activePageId: neighbour.id, selection: [], width: size.width, height: size.height })
     canvas.loadFromJSON(neighbour.canvas).then(() => {
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
