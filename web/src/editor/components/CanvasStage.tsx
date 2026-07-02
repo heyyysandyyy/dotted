@@ -518,16 +518,25 @@ export function CanvasStage() {
           ...(backgroundColor === '' ? CHECKERBOARD : null),
         }}
       />
-      {/* Crop the canvas display to the artboard so content and the background
-          image don't bleed into the dark surround (UX-013). */}
-      <div
-        className="absolute inset-0"
-        style={{
-          clipPath: `inset(${Math.max(0, originY)}px ${Math.max(0, viewport.w - (originX + width * zoom))}px ${Math.max(0, viewport.h - (originY + height * zoom))}px ${Math.max(0, originX)}px)`,
-        }}
-      >
+      <div className="absolute inset-0">
         <canvas ref={canvasElRef} />
       </div>
+      {/* Pasteboard (UX-019): off-page content isn't clipped — it's dimmed by a
+          scrim over the surround, so objects can be parked outside the page while
+          the artboard stays clearly delineated. Click-through to the canvas. */}
+      {(() => {
+        const aR = originX + width * zoom
+        const aB = originY + height * zoom
+        const dim: React.CSSProperties = { position: 'absolute', background: 'rgba(0,0,0,0.55)', pointerEvents: 'none' }
+        return (
+          <>
+            <div style={{ ...dim, left: 0, top: 0, width: viewport.w, height: Math.max(0, originY) }} />
+            <div style={{ ...dim, left: 0, top: aB, width: viewport.w, height: Math.max(0, viewport.h - aB) }} />
+            <div style={{ ...dim, left: 0, top: originY, width: Math.max(0, originX), height: Math.max(0, aB - originY) }} />
+            <div style={{ ...dim, left: aR, top: originY, width: Math.max(0, viewport.w - aR), height: Math.max(0, aB - originY) }} />
+          </>
+        )
+      })()}
       {/* Muted outline of the group being edited in place — from the live union
           of its children so it grows as a child is resized (UX-016). */}
       {isoGroup &&
