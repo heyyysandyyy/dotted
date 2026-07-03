@@ -227,8 +227,6 @@ export interface ObjectsSlice {
   setObjectLocked: (obj: fabric.FabricObject, locked: boolean) => void
   /** Rename an object (layers panel); empty name clears back to the default. */
   setObjectName: (obj: fabric.FabricObject, name: string) => void
-  /** Restack objects given the desired bottom-to-top order. */
-  applyStackingOrder: (bottomFirst: fabric.FabricObject[]) => void
   /** Move the active selection by a pixel delta (arrow-key nudge). */
   nudge: (dx: number, dy: number) => void
   /** Align selected objects — to the canvas (one) or the selection box (many). */
@@ -262,6 +260,13 @@ export interface ObjectsSlice {
   groupSelection: () => void
   /** Ungroup the selected group back into its children at world positions (UX-016). */
   ungroupSelection: () => void
+  /** Move an object to a position in the layer tree — a new bottom-first index
+   *  within `toParent` (null = canvas root). Reorders in place when the object
+   *  is already there; otherwise leaves its current parent (restoring world
+   *  coordinates) and enters the new one (re-expressing them relative to it),
+   *  so a drag between root and a group doesn't visually move anything (UX-018).
+   *  Undoable, single history step. */
+  moveLayerObject: (obj: fabric.FabricObject, toParent: fabric.Group | null, toIndex: number) => void
 }
 
 /** The full editor store: project + view + objects slices combined. */

@@ -209,15 +209,6 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     set((s) => ({ tick: s.tick + 1 }))
   },
 
-  applyStackingOrder: (bottomFirst) => {
-    const { canvas } = get()
-    if (!canvas) return
-    bottomFirst.forEach((o, i) => canvas.moveObjectTo(o, i))
-    canvas.requestRenderAll()
-    fireModified(canvas, bottomFirst[0], 'Reordered layers')
-    set((s) => ({ tick: s.tick + 1 }))
-  },
-
   nudge: (dx, dy) => {
     const { canvas } = get()
     if (!canvas) return
@@ -434,6 +425,29 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.requestRenderAll()
     set({ selection: items })
     if (items[0]) fireModified(canvas, items[0], 'Ungrouped')
+  },
+
+  moveLayerObject: (obj, toParent, toIndex) => {
+    const { canvas } = get()
+    if (!canvas) return
+    const fromParent = (obj.group as fabric.Group | undefined) ?? null
+    if (fromParent === toParent) {
+      // Same parent — just reorder within it.
+      const target = toParent ?? canvas
+      target.moveObjectTo(obj, toIndex)
+    } else {
+      // Leaving a group's remove() re-expresses the object's transform in its
+      // parent's coordinates (world, if leaving to root); entering a group's
+      // add()/insertAt() does the inverse — same primitives ungroupSelection
+      // and groupSelection already rely on, just for one object instead of all.
+      if (fromParent) fromParent.remove(obj)
+      else canvas.remove(obj)
+      if (toParent) toParent.insertAt(toIndex, obj)
+      else canvas.insertAt(toIndex, obj)
+    }
+    canvas.requestRenderAll()
+    fireModified(canvas, obj, 'Moved layer')
+    set((s) => ({ tick: s.tick + 1 }))
   },
 
   enterCrop: () => {
