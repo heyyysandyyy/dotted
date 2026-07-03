@@ -260,23 +260,45 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
   },
 
   addPage: () => {
-    const { canvas, pages, activePageId } = get()
+    const { canvas, pages, activePageId, width, height } = get()
     if (!canvas) return
     // Capture the current page, then start a blank one after it.
     const synced = pages.map((p) =>
       p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
     )
+    // Book projects (UX-015): a new interior page is a spread matching the
+    // book's own size/bleed, not a generic page — otherwise it'd render with
+    // no bleed/cut-mark guides and the wrong dimensions. Sourced from the
+    // active page if it's already a spread, else any existing spread in the
+    // project (a cover has no sibling to size a new page from otherwise).
+    const active = synced.find((p) => p.id === activePageId)
+    const spreadTemplate = active?.type === 'spread' ? active : synced.find((p) => p.type === 'spread')
+    const newSize =
+      spreadTemplate && typeof spreadTemplate.width === 'number' && typeof spreadTemplate.height === 'number'
+        ? {
+            type: spreadTemplate.type,
+            width: spreadTemplate.width,
+            height: spreadTemplate.height,
+            bleed: spreadTemplate.bleed,
+          }
+        : {}
+
     const newPageId = crypto.randomUUID()
     canvas.clear()
     canvas.backgroundColor = '#ffffff'
+    if ('width' in newSize) canvas.setDimensions({ width: newSize.width, height: newSize.height })
     canvas.requestRenderAll()
     const idx = synced.findIndex((p) => p.id === activePageId)
-    const next = [
-      ...synced.slice(0, idx + 1),
-      { id: newPageId, canvas: serializeCanvas(canvas) },
-      ...synced.slice(idx + 1),
-    ]
-    set({ pages: next, activePageId: newPageId, selection: [], backgroundColor: '#ffffff' })
+    const newPage: PageData = { id: newPageId, canvas: serializeCanvas(canvas), ...newSize }
+    const next = [...synced.slice(0, idx + 1), newPage, ...synced.slice(idx + 1)]
+    set({
+      pages: next,
+      activePageId: newPageId,
+      selection: [],
+      backgroundColor: '#ffffff',
+      width: 'width' in newSize ? newSize.width : width,
+      height: 'width' in newSize ? newSize.height : height,
+    })
     // Record so adding a page is undoable (record() also auto-saves).
     useHistoryStore.getState().record('Added page')
   },
