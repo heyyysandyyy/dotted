@@ -43,8 +43,9 @@ checklist of the *active* batch only.
 - [x] UX-013 Canvas zoom
 - [x] UX-014 Resize canvas
 - [x] UX-015 Book format engine (setup panel, bleed/spine guides, spread canvas, book PDF)
-- [~] UX-016 Object grouping (group/ungroup, in-place edit); nested layers panel deferred
+- [x] UX-016 Object grouping (group/ungroup, in-place edit); nested layers panel shipped as UX-018
 - [x] UX-017 Guide exact-position input (double-click a guide)
+- [x] UX-018 Nested layers panel (grouped layers tree, cross-group drag, world-position-preserving moves)
 - [x] BOOK-002 Stack view — spread and guides (bottom strip upgraded to real thumbnails with bleed/trim/cut-mark/spine overlays, shared with the main canvas)
 - [x] BOOK-003 Draggable page reorder in strip
 - [ ] BOOK-001 Page templates system (large — data model, template UI, page numbers, resize propagation; to be phased like UX-015)
