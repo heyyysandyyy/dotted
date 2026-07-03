@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
+import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
 import { BOOK_PRESETS, BOOK_BLEED_PX } from '../constants'
 
@@ -94,5 +95,56 @@ describe('reorderPages (BOOK-003)', () => {
     useCanvasStore.getState().reorderPages(-1, 2)
     useCanvasStore.getState().reorderPages(0, 99)
     expect(useCanvasStore.getState().pages).toBe(before)
+  })
+})
+
+describe('addPage on a book project', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({ canvas: new fabric.Canvas(document.createElement('canvas')) })
+  })
+
+  it('adds a new page sized/typed as a spread, not a generic page, when the active page is a spread', () => {
+    useCanvasStore.getState().newBookProject(BOOK_PRESETS[0], 4) // cover + 2 spreads
+    const spread = useCanvasStore.getState().pages[1]
+    useCanvasStore.getState().selectPage(spread.id)
+
+    useCanvasStore.getState().addPage()
+    const state = useCanvasStore.getState()
+    const newPage = state.pages.find((p) => p.id === state.activePageId)!
+
+    expect(newPage.type).toBe('spread')
+    expect(newPage.width).toBe(spread.width)
+    expect(newPage.height).toBe(spread.height)
+    expect(newPage.bleed).toBe(spread.bleed)
+    // Active page's size mirrors onto the top-level width/height, same
+    // invariant every other page-switch path relies on.
+    expect(state.width).toBe(spread.width)
+    expect(state.height).toBe(spread.height)
+  })
+
+  it('sizes the new page as a spread even when added from the cover (no spread sibling to copy otherwise)', () => {
+    useCanvasStore.getState().newBookProject(BOOK_PRESETS[0], 4)
+    const spread = useCanvasStore.getState().pages[1] // cover is already active
+
+    useCanvasStore.getState().addPage()
+    const state = useCanvasStore.getState()
+    const newPage = state.pages.find((p) => p.id === state.activePageId)!
+
+    expect(newPage.type).toBe('spread')
+    expect(newPage.width).toBe(spread.width)
+    expect(newPage.height).toBe(spread.height)
+  })
+
+  it('leaves a non-book project unaffected — a plain page has no type/bleed', () => {
+    useCanvasStore.getState().newProject(800, 600)
+    useCanvasStore.getState().addPage()
+    const state = useCanvasStore.getState()
+    const newPage = state.pages.find((p) => p.id === state.activePageId)!
+
+    expect(newPage.type).toBeUndefined()
+    expect(newPage.width).toBeUndefined()
+    expect(newPage.bleed).toBeUndefined()
+    expect(state.width).toBe(800)
+    expect(state.height).toBe(600)
   })
 })
