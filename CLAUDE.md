@@ -54,5 +54,5 @@ checklist of the *active* batch only.
 - [ ] BUG-004 Stack view — cover/spread pages render at inconsistent sizes (issue #129)
 - [ ] BUG-005 Stack view — cover page not aligned to spread right edge (issue #130; note: needs a back-cover PageType variant that doesn't exist yet)
 - [~] UX-020 Shadow effects (issue #113) — spread control shipped in phase 1 (#133), multiple simultaneous effects shipped in phase 2; inner shadow remains (needs real raster compositing, not just another clone)
-- [ ] UX-021 Crop rotated images (issue #115)
+- [x] UX-021 Crop rotated images (issue #115)
 - [ ] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
