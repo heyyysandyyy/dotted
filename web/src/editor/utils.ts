@@ -111,12 +111,13 @@ export function alignDelta(r: Box, target: Box, mode: AlignMode): { dx: number; 
 
 /**
  * Shadow/glow effect config (UX-011; `spread` added in UX-020 phase 1).
- * Fabric has a single `shadow` slot, so an object has at most one of these;
  * `kind` disambiguates drop-shadow vs glow. `color` carries the effect
- * opacity via its alpha channel. `spread` > 0 needs a second synthetic
- * object (see effectsEngine.ts) since canvas 2D can't cast a shadow from a
- * transparent fill, so there's no way to draw a bigger shadow on the host
- * object alone.
+ * opacity via its alpha channel. An object can have more than one of these
+ * active at once (UX-020 phase 2) even though fabric has a single native
+ * `shadow` slot — every effect past the first, and any effect with
+ * `spread` > 0, needs a synthetic clone (see effectsEngine.ts) since canvas
+ * 2D can't cast a shadow from a transparent fill, so there's no way to draw
+ * a second or bigger shadow on the host object alone.
  */
 export interface ShadowEffect {
   kind: 'drop' | 'glow'
@@ -130,8 +131,45 @@ export interface ShadowEffect {
 export const DROP_SHADOW_DEFAULT: ShadowEffect = { kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.3)' }
 export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, spread: 0, color: 'rgba(255,255,255,0.6)' }
 
-/** Read the current shadow/glow effect off an object, or null if none (UX-011). */
-export function readShadowEffect(obj: fabric.FabricObject): ShadowEffect | null {
+/** A ShadowEffect's fields as fabric.Shadow constructor options — shared by
+ *  the host's own native shadow (objectsSlice.ts) and each synthetic clone's
+ *  native shadow (effectsEngine.ts) so the two can never drift apart.
+ *
+ * `spread` folds directly into the blur radius rather than scaling the
+ * casting shape's geometry. Canvas 2D's shadowBlur only softens the edge of
+ * whatever shape is actually casting it — if spread instead grew a clone's
+ * silhouette first, the band between the host's real edge and the clone's
+ * enlarged edge would be flat, un-blurred solid fill (it's nowhere near
+ * either shape's edge), which reads as a hard-edged stroke, not a soft glow.
+ * Folding spread into blur keeps the clone the same size as the host (fully
+ * hidden behind it) and produces one smooth gradient starting at the real
+ * edge, growing wider as spread increases — this loses literal CSS
+ * box-shadow-spread fidelity (which does grow the shape first) but that's
+ * the right trade for a design tool where "never looks like a stroke"
+ * matters more than spec accuracy. */
+export function shadowOptions(effect: ShadowEffect): { color: string; blur: number; offsetX: number; offsetY: number } {
+  return { color: effect.color, blur: effect.blur + effect.spread, offsetX: effect.x, offsetY: effect.y }
+}
+
+/** Read an object's active effects (UX-020 phase 2): the new `effects` array
+ *  if present, else a pre-phase-2 object's single legacy shadow (native
+ *  `shadow` + `shadowKind` + `shadowSpread`), else none. */
+export function readShadowEffects(obj: fabric.FabricObject): ShadowEffect[] {
+  const withEffects = obj as unknown as { effects?: ShadowEffect[] }
+  if (withEffects.effects) return withEffects.effects
+  const legacy = readLegacyShadowEffect(obj)
+  return legacy ? [legacy] : []
+}
+
+/** Read a single kind's active effect, or null if that kind isn't on. */
+export function readShadowEffectByKind(obj: fabric.FabricObject, kind: ShadowEffect['kind']): ShadowEffect | null {
+  return readShadowEffects(obj).find((e) => e.kind === kind) ?? null
+}
+
+/** Pre-UX-020-phase-2 single-effect representation: a native fabric.Shadow
+ *  plus the shadowKind/shadowSpread custom props phase 1 wrote. Only used as
+ *  a fallback for objects saved before the `effects` array existed. */
+function readLegacyShadowEffect(obj: fabric.FabricObject): ShadowEffect | null {
   const s = obj.shadow
   if (!s || typeof s === 'string') return null
   const kind =
@@ -142,8 +180,6 @@ export function readShadowEffect(obj: fabric.FabricObject): ShadowEffect | null 
     x: s.offsetX ?? 0,
     y: s.offsetY ?? 0,
     blur: s.blur ?? 0,
-    // Pre-UX-020 saved shadows predate spread — a plain 0 reads the same as
-    // "no spread clone", so nothing changes for a project saved before this.
     spread: (obj as unknown as { shadowSpread?: number }).shadowSpread ?? 0,
     color: (s.color as string) ?? 'rgba(0,0,0,0.3)',
   }

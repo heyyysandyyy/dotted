@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import type * as fabric from 'fabric'
-import { isText, isShape, layerName, kindName, toColorString, alignDelta, readShadowEffect } from './utils'
+import {
+  isText,
+  isShape,
+  layerName,
+  kindName,
+  toColorString,
+  alignDelta,
+  readShadowEffects,
+  readShadowEffectByKind,
+  shadowOptions,
+} from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
 const obj = (type: string, extra: Record<string, unknown> = {}) =>
@@ -86,32 +96,62 @@ describe('toColorString', () => {
   })
 })
 
-describe('readShadowEffect', () => {
+describe('readShadowEffects (legacy single-effect fallback, pre-UX-020-phase-2)', () => {
   const withShadow = (shadow: unknown, shadowKind?: string, shadowSpread?: number) =>
     ({ shadow, shadowKind, shadowSpread }) as unknown as fabric.FabricObject
 
-  it('returns null when there is no shadow', () => {
-    expect(readShadowEffect(withShadow(null))).toBeNull()
-    expect(readShadowEffect(withShadow(undefined))).toBeNull()
+  it('returns an empty array when there is no shadow', () => {
+    expect(readShadowEffects(withShadow(null))).toEqual([])
+    expect(readShadowEffects(withShadow(undefined))).toEqual([])
   })
   it('reads a drop shadow (kind from shadowKind), defaulting spread to 0 for a pre-UX-020 shadow', () => {
-    const e = readShadowEffect(
-      withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop'),
-    )
+    const [e] = readShadowEffects(withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop'))
     expect(e).toEqual({ kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.3)' })
   })
-  it('reads a saved spread value (UX-020)', () => {
-    const e = readShadowEffect(
+  it('reads a saved spread value (UX-020 phase 1)', () => {
+    const [e] = readShadowEffects(
       withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop', 12),
     )
-    expect(e?.spread).toBe(12)
+    expect(e.spread).toBe(12)
   })
   it('infers glow from a zero-offset shadow when shadowKind is absent', () => {
-    const e = readShadowEffect(withShadow({ offsetX: 0, offsetY: 0, blur: 12, color: '#fff' }))
-    expect(e?.kind).toBe('glow')
+    const [e] = readShadowEffects(withShadow({ offsetX: 0, offsetY: 0, blur: 12, color: '#fff' }))
+    expect(e.kind).toBe('glow')
   })
   it('infers drop from a non-zero offset when shadowKind is absent', () => {
-    const e = readShadowEffect(withShadow({ offsetX: 2, offsetY: 0, blur: 6, color: '#000' }))
-    expect(e?.kind).toBe('drop')
+    const [e] = readShadowEffects(withShadow({ offsetX: 2, offsetY: 0, blur: 6, color: '#000' }))
+    expect(e.kind).toBe('drop')
+  })
+})
+
+describe('readShadowEffects / readShadowEffectByKind (UX-020 phase 2)', () => {
+  const withEffects = (effects: unknown) => ({ effects }) as unknown as fabric.FabricObject
+
+  it('prefers the new effects array over any legacy shadow prop', () => {
+    const drop = { kind: 'drop' as const, x: 4, y: 4, blur: 8, spread: 0, color: '#000' }
+    const obj = { effects: [drop], shadow: 'ignored-legacy-value' } as unknown as fabric.FabricObject
+    expect(readShadowEffects(obj)).toEqual([drop])
+  })
+  it('returns both effects when two are active at once', () => {
+    const drop = { kind: 'drop' as const, x: 4, y: 4, blur: 8, spread: 0, color: '#000' }
+    const glow = { kind: 'glow' as const, x: 0, y: 0, blur: 12, spread: 0, color: '#fff' }
+    expect(readShadowEffects(withEffects([drop, glow]))).toEqual([drop, glow])
+    expect(readShadowEffectByKind(withEffects([drop, glow]), 'drop')).toEqual(drop)
+    expect(readShadowEffectByKind(withEffects([drop, glow]), 'glow')).toEqual(glow)
+  })
+  it('readShadowEffectByKind returns null for a kind that is not active', () => {
+    const drop = { kind: 'drop' as const, x: 4, y: 4, blur: 8, spread: 0, color: '#000' }
+    expect(readShadowEffectByKind(withEffects([drop]), 'glow')).toBeNull()
+  })
+})
+
+describe('shadowOptions (UX-020 — spread folds into blur, not geometry)', () => {
+  it('adds spread directly onto blur, not a separate field', () => {
+    const opts = shadowOptions({ kind: 'glow', x: 0, y: 0, blur: 12, spread: 20, color: '#fff' })
+    expect(opts).toEqual({ color: '#fff', blur: 32, offsetX: 0, offsetY: 0 })
+  })
+  it('with zero spread, blur is unchanged', () => {
+    const opts = shadowOptions({ kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: '#000' })
+    expect(opts.blur).toBe(8)
   })
 })
