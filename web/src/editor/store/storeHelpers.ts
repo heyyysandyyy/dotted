@@ -1,4 +1,5 @@
 import * as fabric from 'fabric'
+import type { ModifiedEvent } from 'fabric'
 import { EXTRA_PROPS, type PageData } from '../storage'
 import { GOOGLE_FONTS, loadGoogleFont } from '../fonts'
 
@@ -52,12 +53,14 @@ const TEXT_PROP_KEYS = [
 ]
 
 /**
- * Fire `object:modified` carrying a history label. Fabric's typed event map
- * doesn't allow extra fields, so the label is attached via a cast; it rides
- * along at runtime for the history-panel handler in CanvasStage.
+ * Fire `object:modified` carrying a history label. Fabric's ModifiedEvent
+ * type doesn't have a historyLabel field, so the payload is asserted against
+ * an intersection type extending it — narrower than `as unknown as never`,
+ * since `target` still has to actually be a FabricObject. It rides along at
+ * runtime for the history-panel handler in CanvasStage.
  */
 export function fireModified(canvas: fabric.Canvas, target: fabric.FabricObject, historyLabel: string) {
-  canvas.fire('object:modified', { target, historyLabel } as unknown as never)
+  canvas.fire('object:modified', { target, historyLabel } as ModifiedEvent & { historyLabel: string })
 }
 
 /** Visual style props copied/pasted between objects (UX-007). */

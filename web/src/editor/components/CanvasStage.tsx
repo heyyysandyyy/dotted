@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as fabric from 'fabric'
+import type { TPointerEventInfo, BasicTransformEvent } from 'fabric'
 import { AligningGuidelines } from 'fabric/extensions'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
@@ -102,11 +103,11 @@ export function CanvasStage() {
     // (UX-020) — cheap position-only sync, no rebuild; a resize is corrected
     // by the full rebuild setShadowEffect triggers on the next effect change,
     // or immediately below on object:modified (drag end).
-    const syncSpreadPosition = (e: { target?: fabric.FabricObject }) => {
-      if (e.target && !isEffectClone(e.target)) repositionSpreadClone(canvas, e.target)
+    const syncSpreadPosition = (e: BasicTransformEvent & { target: fabric.FabricObject }) => {
+      if (!isEffectClone(e.target)) repositionSpreadClone(canvas, e.target)
     }
-    canvas.on('object:moving', syncSpreadPosition as never)
-    canvas.on('object:rotating', syncSpreadPosition as never)
+    canvas.on('object:moving', syncSpreadPosition)
+    canvas.on('object:rotating', syncSpreadPosition)
     // A removed host's spread clone would otherwise be orphaned (delete,
     // group, and ungroup all remove the object from the canvas first).
     canvas.on('object:removed', (e) => {
@@ -427,9 +428,12 @@ export function CanvasStage() {
   // object; right-click selects the object under the cursor (for the menu).
   useEffect(() => {
     if (!canvas) return
-    const onDown = (opt: { target?: fabric.FabricObject; e: { button?: number } }) => {
+    const onDown = (opt: TPointerEventInfo) => {
       const store = useCanvasStore.getState()
-      if (opt.e.button === 2 && opt.target) {
+      // Right-click is mouse-only (fabric's event can also be Touch/Pointer);
+      // .button doesn't exist on TouchEvent.
+      const button = opt.e instanceof MouseEvent ? opt.e.button : undefined
+      if (button === 2 && opt.target) {
         canvas.setActiveObject(opt.target)
         canvas.requestRenderAll()
       }
@@ -437,9 +441,8 @@ export function CanvasStage() {
         store.pasteStyleOnTarget(opt.target)
       }
     }
-    // fabric's mouse:down callback type is stricter than what we read; cast it.
-    canvas.on('mouse:down', onDown as never)
-    return () => canvas.off('mouse:down', onDown as never)
+    canvas.on('mouse:down', onDown)
+    return () => canvas.off('mouse:down', onDown)
   }, [canvas])
 
   // UX-016: single-click always selects the whole group; double-click a child
@@ -471,7 +474,7 @@ export function CanvasStage() {
         c.requestRenderAll()
       }
     }
-    const onDblClick = (opt: { target?: fabric.FabricObject; subTargets?: fabric.FabricObject[] }) => {
+    const onDblClick = (opt: TPointerEventInfo) => {
       const t = opt.target
       // Double-click an image → enter crop mode (UX-009).
       if (t && t.type === 'image') {
@@ -497,13 +500,16 @@ export function CanvasStage() {
         c.requestRenderAll()
       }
     }
-    const onDown = (opt: { e: MouseEvent; target?: fabric.FabricObject }) => {
+    const onDown = (opt: TPointerEventInfo) => {
+      // Drag-distance tracking is mouse-only (fabric's event can also be
+      // Touch/Pointer); touch isn't supported elsewhere in this app either.
+      if (!(opt.e instanceof MouseEvent)) return
       downX = opt.e.clientX
       downY = opt.e.clientY
       downInside = !!isolated && !!opt.target && (opt.target === isolated || opt.target.group === isolated)
     }
-    const onUp = (opt: { e: MouseEvent }) => {
-      if (!isolated) return
+    const onUp = (opt: TPointerEventInfo) => {
+      if (!isolated || !(opt.e instanceof MouseEvent)) return
       // A drag = editing a child → stay isolated. A click → pop back out; if it
       // landed on the group, reselect the whole group (else leave the selection).
       if (Math.hypot(opt.e.clientX - downX, opt.e.clientY - downY) > 4) return
@@ -520,16 +526,16 @@ export function CanvasStage() {
     }
     c.on('selection:created', onSelected)
     c.on('selection:updated', onSelected)
-    c.on('mouse:dblclick', onDblClick as never)
-    c.on('mouse:down', onDown as never)
-    c.on('mouse:up', onUp as never)
+    c.on('mouse:dblclick', onDblClick)
+    c.on('mouse:down', onDown)
+    c.on('mouse:up', onUp)
     window.addEventListener('keydown', onKey)
     return () => {
       c.off('selection:created', onSelected)
       c.off('selection:updated', onSelected)
-      c.off('mouse:dblclick', onDblClick as never)
-      c.off('mouse:down', onDown as never)
-      c.off('mouse:up', onUp as never)
+      c.off('mouse:dblclick', onDblClick)
+      c.off('mouse:down', onDown)
+      c.off('mouse:up', onUp)
       window.removeEventListener('keydown', onKey)
       exit()
     }
