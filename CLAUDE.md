@@ -46,7 +46,13 @@ checklist of the *active* batch only.
 - [x] UX-016 Object grouping (group/ungroup, in-place edit); nested layers panel shipped as UX-018
 - [x] UX-017 Guide exact-position input (double-click a guide)
 - [x] UX-018 Nested layers panel (grouped layers tree, cross-group drag, world-position-preserving moves)
-- [x] BOOK-002 Stack view — spread and guides (bottom strip upgraded to real thumbnails with bleed/trim/cut-mark/spine overlays, shared with the main canvas)
-- [x] BOOK-003 Draggable page reorder in strip
+- [x] BOOK-002 Stack view — spread and guides (bottom strip upgraded to real thumbnails with bleed/trim/cut-mark/spine overlays, shared with the main canvas; issue #135)
+- [x] BOOK-003 Draggable page reorder in strip (issue #136)
 - [ ] BOOK-001 Page templates system (large — data model, template UI, page numbers, resize propagation; to be phased like UX-015)
 - [ ] BOOK-004 Print export modal for book projects (large — PDF/X-1a & CMYK, font embed/outline, page range, zip bundling; likely needs phasing too, issue #126)
+- [ ] BUG-003 Zoom slider not functional in stack view (issue #128)
+- [ ] BUG-004 Stack view — cover/spread pages render at inconsistent sizes (issue #129)
+- [ ] BUG-005 Stack view — cover page not aligned to spread right edge (issue #130; note: needs a back-cover PageType variant that doesn't exist yet)
+- [~] UX-020 Shadow effects (issue #113) — spread control + the synthetic-clone effects engine shipped in phase 1 (#133); inner shadow and multiple simultaneous effects remain
+- [ ] UX-021 Crop rotated images (issue #115)
+- [ ] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
