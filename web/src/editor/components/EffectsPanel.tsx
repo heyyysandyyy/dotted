@@ -75,6 +75,7 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
           <SliderRow label="X" value={effect.x} min={-50} max={50} onChange={(v) => update({ x: v })} />
           <SliderRow label="Y" value={effect.y} min={-50} max={50} onChange={(v) => update({ y: v })} />
           <SliderRow label="Blur" value={effect.blur} min={0} max={50} onChange={(v) => update({ blur: v })} />
+          <SliderRow label="Spread" value={effect.spread} min={0} max={30} onChange={(v) => update({ spread: v })} />
           <ColorField label="Colour" value={effect.color} onChange={(c) => update({ color: c })} />
         </div>
       )}
@@ -83,6 +84,7 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
       {active === 'glow' && effect && (
         <div className="space-y-2 pl-1 pt-1">
           <SliderRow label="Blur" value={effect.blur} min={0} max={100} onChange={(v) => update({ blur: v })} />
+          <SliderRow label="Spread" value={effect.spread} min={0} max={30} onChange={(v) => update({ spread: v })} />
           <ColorField label="Colour" value={effect.color} onChange={(c) => update({ color: c })} />
         </div>
       )}

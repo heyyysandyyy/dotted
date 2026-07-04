@@ -3,6 +3,7 @@ import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
+import { syncSpreadClone, removeSpreadClone } from '../effectsEngine'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -373,12 +374,14 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
   setShadowEffect: (effect) => {
     const { canvas } = get()
     if (!canvas) return
-    const obj = canvas.getActiveObject()
+    const obj = canvas.getActiveObject() as (fabric.FabricObject & { id?: string }) | null
     if (!obj) return
-    const withKind = obj as unknown as { shadowKind?: 'drop' | 'glow' }
+    const tagged = obj as unknown as { shadowKind?: 'drop' | 'glow'; shadowSpread?: number }
     if (!effect) {
       obj.set('shadow', null)
-      withKind.shadowKind = undefined
+      tagged.shadowKind = undefined
+      tagged.shadowSpread = undefined
+      if (obj.id) removeSpreadClone(canvas, obj.id)
     } else {
       // Glow is just a zero-offset shadow; colour carries the effect opacity.
       obj.set(
@@ -390,7 +393,12 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
           offsetY: effect.y,
         }),
       )
-      withKind.shadowKind = effect.kind
+      tagged.shadowKind = effect.kind
+      tagged.shadowSpread = effect.spread
+      // Spread needs a second synthetic object (see effectsEngine.ts) — canvas
+      // 2D can't cast a shadow from a transparent fill, so there's no way to
+      // draw a bigger shadow on the host alone.
+      syncSpreadClone(canvas, obj, effect)
     }
     obj.setCoords()
     canvas.requestRenderAll()

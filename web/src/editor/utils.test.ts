@@ -87,18 +87,24 @@ describe('toColorString', () => {
 })
 
 describe('readShadowEffect', () => {
-  const withShadow = (shadow: unknown, shadowKind?: string) =>
-    ({ shadow, shadowKind }) as unknown as fabric.FabricObject
+  const withShadow = (shadow: unknown, shadowKind?: string, shadowSpread?: number) =>
+    ({ shadow, shadowKind, shadowSpread }) as unknown as fabric.FabricObject
 
   it('returns null when there is no shadow', () => {
     expect(readShadowEffect(withShadow(null))).toBeNull()
     expect(readShadowEffect(withShadow(undefined))).toBeNull()
   })
-  it('reads a drop shadow (kind from shadowKind)', () => {
+  it('reads a drop shadow (kind from shadowKind), defaulting spread to 0 for a pre-UX-020 shadow', () => {
     const e = readShadowEffect(
       withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop'),
     )
-    expect(e).toEqual({ kind: 'drop', x: 4, y: 4, blur: 8, color: 'rgba(0,0,0,0.3)' })
+    expect(e).toEqual({ kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.3)' })
+  })
+  it('reads a saved spread value (UX-020)', () => {
+    const e = readShadowEffect(
+      withShadow({ offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }, 'drop', 12),
+    )
+    expect(e?.spread).toBe(12)
   })
   it('infers glow from a zero-offset shadow when shadowKind is absent', () => {
     const e = readShadowEffect(withShadow({ offsetX: 0, offsetY: 0, blur: 12, color: '#fff' }))

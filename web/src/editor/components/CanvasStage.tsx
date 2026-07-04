@@ -11,6 +11,7 @@ import {
 } from '../storage'
 import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText } from '../utils'
+import { isEffectClone, removeSpreadClone, repositionSpreadClone } from '../effectsEngine'
 import { CanvasRulers } from './CanvasRulers'
 import { CanvasGuides } from './CanvasGuides'
 import { GridOverlay } from './GridOverlay'
@@ -97,19 +98,46 @@ export function CanvasStage() {
     canvas.on('object:scaling', bump)
     canvas.on('object:rotating', bump)
     canvas.on('object:modified', bump)
+    // Keep a shadow-spread clone locked to its host during a live drag/rotate
+    // (UX-020) — cheap position-only sync, no rebuild; a resize is corrected
+    // by the full rebuild setShadowEffect triggers on the next effect change,
+    // or immediately below on object:modified (drag end).
+    const syncSpreadPosition = (e: { target?: fabric.FabricObject }) => {
+      if (e.target && !isEffectClone(e.target)) repositionSpreadClone(canvas, e.target)
+    }
+    canvas.on('object:moving', syncSpreadPosition as never)
+    canvas.on('object:rotating', syncSpreadPosition as never)
+    // A removed host's spread clone would otherwise be orphaned (delete,
+    // group, and ungroup all remove the object from the canvas first).
+    canvas.on('object:removed', (e) => {
+      const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
+      if (o?.id && !isEffectClone(o)) removeSpreadClone(canvas, o.id)
+    })
 
     // Push a debounced history snapshot on any structural/transform change,
     // tagged with a human-readable label for the history panel (UX-003).
+    // Effect clones (UX-020 spread halo) are excluded — syncSpreadClone
+    // removes/recreates them on every effect tweak, which isn't a structural
+    // change worth its own undo step (setShadowEffect already records one
+    // "Changed effects" step for the whole operation).
     const rec = (label: string) => useHistoryStore.getState().scheduleRecord(label)
-    canvas.on('object:added', (e) => rec(`Added ${kindName(e.target)}`))
-    canvas.on('object:removed', (e) => rec(`Deleted ${kindName(e.target)}`))
+    canvas.on('object:added', (e) => {
+      if (e.target && !isEffectClone(e.target)) rec(`Added ${kindName(e.target)}`)
+    })
+    canvas.on('object:removed', (e) => {
+      if (e.target && !isEffectClone(e.target)) rec(`Deleted ${kindName(e.target)}`)
+    })
     canvas.on('object:modified', (e) => rec(modifiedLabel(e)))
     // Editing text fires text:changed (per keystroke), not a reliable
     // object:modified — record it so text content edits autosave (debounced).
     canvas.on('text:changed', (e) => rec(`Edited ${kindName(e.target)}`))
     // Keep the layers panel in sync when objects are added/removed.
-    canvas.on('object:added', bump)
-    canvas.on('object:removed', bump)
+    canvas.on('object:added', (e) => {
+      if (e.target && !isEffectClone(e.target)) bump()
+    })
+    canvas.on('object:removed', (e) => {
+      if (e.target && !isEffectClone(e.target)) bump()
+    })
     // Guarantee every object (incl. those restored from history) has an id, and
     // keep IText's editing textarea inside the (overflow-hidden) canvas wrapper
     // instead of document.body — fabric appends it at absolute page coordinates
@@ -118,6 +146,7 @@ export function CanvasStage() {
       const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
       if (!o) return
       if (!o.id) o.id = crypto.randomUUID()
+      if (isEffectClone(o)) return
       // Self-heal stale data: selectable/evented are only ever turned off by the
       // lock toggle (which also sets locked). An un-locked object that loaded as
       // non-selectable is corrupt state — force it interactive again.
