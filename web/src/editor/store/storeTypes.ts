@@ -248,8 +248,10 @@ export interface ObjectsSlice {
   /** Remove a solid background from the selected image at the given colour
    *  tolerance; always re-processes from the original so it can be re-tuned. */
   removeImageBackground: (tolerance?: number) => void
-  /** Apply a drop-shadow/glow effect to the active object, or clear it (UX-011). */
-  setShadowEffect: (effect: ShadowEffect | null) => void
+  /** Set (or clear, passing null) one effect kind on the active object,
+   *  independently of the other kind — both can be active at once (UX-011;
+   *  independent toggling in UX-020 phase 2). */
+  setShadowEffect: (kind: ShadowEffect['kind'], effect: ShadowEffect | null) => void
   /** Enter crop mode on the active image (shows the full image + selection). */
   enterCrop: () => void
   /** Commit the crop selection (scene rect) to the image; undoable (UX-009). */

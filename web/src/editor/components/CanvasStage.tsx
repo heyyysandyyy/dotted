@@ -12,7 +12,7 @@ import {
 } from '../storage'
 import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText } from '../utils'
-import { isEffectClone, removeSpreadClone, repositionSpreadClone } from '../effectsEngine'
+import { isEffectClone, removeEffectClones, repositionEffectClones } from '../effectsEngine'
 import { CanvasRulers } from './CanvasRulers'
 import { CanvasGuides } from './CanvasGuides'
 import { GridOverlay } from './GridOverlay'
@@ -99,28 +99,28 @@ export function CanvasStage() {
     canvas.on('object:scaling', bump)
     canvas.on('object:rotating', bump)
     canvas.on('object:modified', bump)
-    // Keep a shadow-spread clone locked to its host during a live drag/rotate
+    // Keep every effect clone locked to its host during a live drag/rotate
     // (UX-020) — cheap position-only sync, no rebuild; a resize is corrected
     // by the full rebuild setShadowEffect triggers on the next effect change,
     // or immediately below on object:modified (drag end).
-    const syncSpreadPosition = (e: BasicTransformEvent & { target: fabric.FabricObject }) => {
-      if (!isEffectClone(e.target)) repositionSpreadClone(canvas, e.target)
+    const syncEffectPositions = (e: BasicTransformEvent & { target: fabric.FabricObject }) => {
+      if (!isEffectClone(e.target)) repositionEffectClones(canvas, e.target)
     }
-    canvas.on('object:moving', syncSpreadPosition)
-    canvas.on('object:rotating', syncSpreadPosition)
-    // A removed host's spread clone would otherwise be orphaned (delete,
+    canvas.on('object:moving', syncEffectPositions)
+    canvas.on('object:rotating', syncEffectPositions)
+    // A removed host's effect clone(s) would otherwise be orphaned (delete,
     // group, and ungroup all remove the object from the canvas first).
     canvas.on('object:removed', (e) => {
       const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
-      if (o?.id && !isEffectClone(o)) removeSpreadClone(canvas, o.id)
+      if (o?.id && !isEffectClone(o)) removeEffectClones(canvas, o.id)
     })
 
     // Push a debounced history snapshot on any structural/transform change,
     // tagged with a human-readable label for the history panel (UX-003).
-    // Effect clones (UX-020 spread halo) are excluded — syncSpreadClone
-    // removes/recreates them on every effect tweak, which isn't a structural
-    // change worth its own undo step (setShadowEffect already records one
-    // "Changed effects" step for the whole operation).
+    // Effect clones (UX-020) are excluded — syncEffectClones removes/recreates
+    // them on every effect tweak, which isn't a structural change worth its
+    // own undo step (setShadowEffect already records one "Changed effects"
+    // step for the whole operation).
     const rec = (label: string) => useHistoryStore.getState().scheduleRecord(label)
     canvas.on('object:added', (e) => {
       if (e.target && !isEffectClone(e.target)) rec(`Added ${kindName(e.target)}`)

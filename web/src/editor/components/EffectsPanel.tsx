@@ -1,6 +1,6 @@
 import type * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { readShadowEffect, DROP_SHADOW_DEFAULT, GLOW_DEFAULT, type ShadowEffect } from '../utils'
+import { readShadowEffectByKind, DROP_SHADOW_DEFAULT, GLOW_DEFAULT, type ShadowEffect } from '../utils'
 import { ColorField } from './ColorField'
 
 function SliderRow({
@@ -48,49 +48,74 @@ function EffectToggle({ label, on, onClick }: { label: string; on: boolean; onCl
 }
 
 /**
- * UX-011: shadow + glow effects for the selected object. Fabric has a single
- * shadow slot, so drop-shadow and outer-glow are mutually exclusive; the effect
- * renders natively (so it exports) and colour opacity sets the effect strength.
+ * UX-011: shadow + glow effects for the selected object. Both can be active
+ * at once (UX-020 phase 2) — fabric only has one native shadow slot, but the
+ * store/effectsEngine handle representing the second one as a synthetic
+ * clone, so the panel itself just toggles each kind independently.
  */
 export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
-  // Re-read the effect after each change (setShadowEffect bumps tick via history).
+  // Re-read the effects after each change (setShadowEffect bumps tick via history).
   useCanvasStore((s) => s.tick)
   const setShadowEffect = useCanvasStore((s) => s.setShadowEffect)
-  const effect = readShadowEffect(obj)
-  const active = effect?.kind ?? null
+  const drop = readShadowEffectByKind(obj, 'drop')
+  const glow = readShadowEffectByKind(obj, 'glow')
 
-  const toggle = (kind: 'drop' | 'glow') =>
-    setShadowEffect(active === kind ? null : kind === 'drop' ? DROP_SHADOW_DEFAULT : GLOW_DEFAULT)
-  const update = (patch: Partial<ShadowEffect>) => {
-    if (effect) setShadowEffect({ ...effect, ...patch })
+  const toggle = (kind: 'drop' | 'glow', current: ShadowEffect | null) =>
+    setShadowEffect(kind, current ? null : kind === 'drop' ? DROP_SHADOW_DEFAULT : GLOW_DEFAULT)
+  const update = (kind: 'drop' | 'glow', current: ShadowEffect | null, patch: Partial<ShadowEffect>) => {
+    if (current) setShadowEffect(kind, { ...current, ...patch })
   }
 
   return (
     <div className="space-y-2 border-t border-neutral-800 pt-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Effects</div>
 
-      <EffectToggle label="Drop shadow" on={active === 'drop'} onClick={() => toggle('drop')} />
-      {active === 'drop' && effect && (
+      <EffectToggle label="Drop shadow" on={!!drop} onClick={() => toggle('drop', drop)} />
+      {drop && (
         <div className="space-y-2 pl-1 pt-1">
-          <SliderRow label="X" value={effect.x} min={-50} max={50} onChange={(v) => update({ x: v })} />
-          <SliderRow label="Y" value={effect.y} min={-50} max={50} onChange={(v) => update({ y: v })} />
-          <SliderRow label="Blur" value={effect.blur} min={0} max={50} onChange={(v) => update({ blur: v })} />
-          <SliderRow label="Spread" value={effect.spread} min={0} max={30} onChange={(v) => update({ spread: v })} />
-          <ColorField label="Colour" value={effect.color} onChange={(c) => update({ color: c })} />
+          <SliderRow label="X" value={drop.x} min={-50} max={50} onChange={(v) => update('drop', drop, { x: v })} />
+          <SliderRow label="Y" value={drop.y} min={-50} max={50} onChange={(v) => update('drop', drop, { y: v })} />
+          <SliderRow
+            label="Blur"
+            value={drop.blur}
+            min={0}
+            max={50}
+            onChange={(v) => update('drop', drop, { blur: v })}
+          />
+          <SliderRow
+            label="Spread"
+            value={drop.spread}
+            min={0}
+            max={30}
+            onChange={(v) => update('drop', drop, { spread: v })}
+          />
+          <ColorField label="Colour" value={drop.color} onChange={(c) => update('drop', drop, { color: c })} />
         </div>
       )}
 
-      <EffectToggle label="Outer glow" on={active === 'glow'} onClick={() => toggle('glow')} />
-      {active === 'glow' && effect && (
+      <EffectToggle label="Outer glow" on={!!glow} onClick={() => toggle('glow', glow)} />
+      {glow && (
         <div className="space-y-2 pl-1 pt-1">
-          <SliderRow label="Blur" value={effect.blur} min={0} max={100} onChange={(v) => update({ blur: v })} />
-          <SliderRow label="Spread" value={effect.spread} min={0} max={30} onChange={(v) => update({ spread: v })} />
-          <ColorField label="Colour" value={effect.color} onChange={(c) => update({ color: c })} />
+          <SliderRow
+            label="Blur"
+            value={glow.blur}
+            min={0}
+            max={100}
+            onChange={(v) => update('glow', glow, { blur: v })}
+          />
+          <SliderRow
+            label="Spread"
+            value={glow.spread}
+            min={0}
+            max={30}
+            onChange={(v) => update('glow', glow, { spread: v })}
+          />
+          <ColorField label="Colour" value={glow.color} onChange={(c) => update('glow', glow, { color: c })} />
         </div>
       )}
 
       <p className="text-[11px] leading-snug text-neutral-600">
-        One effect at a time; the colour's opacity sets the effect strength.
+        Drop shadow and outer glow can both be on at once; each colour's opacity sets its own strength.
       </p>
     </div>
   )

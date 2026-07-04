@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand'
 import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
-import { kindName, alignDelta } from '../utils'
+import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
-import { syncSpreadClone, removeSpreadClone } from '../effectsEngine'
+import { syncEffectClones } from '../effectsEngine'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -371,36 +371,38 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     el.src = source
   },
 
-  setShadowEffect: (effect) => {
+  setShadowEffect: (kind, effect) => {
     const { canvas } = get()
     if (!canvas) return
     const obj = canvas.getActiveObject() as (fabric.FabricObject & { id?: string }) | null
     if (!obj) return
-    const tagged = obj as unknown as { shadowKind?: 'drop' | 'glow'; shadowSpread?: number }
-    if (!effect) {
-      obj.set('shadow', null)
-      tagged.shadowKind = undefined
-      tagged.shadowSpread = undefined
-      if (obj.id) removeSpreadClone(canvas, obj.id)
-    } else {
-      // Glow is just a zero-offset shadow; colour carries the effect opacity.
-      obj.set(
-        'shadow',
-        new fabric.Shadow({
-          color: effect.color,
-          blur: effect.blur,
-          offsetX: effect.x,
-          offsetY: effect.y,
-        }),
-      )
-      tagged.shadowKind = effect.kind
-      tagged.shadowSpread = effect.spread
-      // Spread needs a second synthetic object (see effectsEngine.ts) — canvas
-      // 2D can't cast a shadow from a transparent fill, so there's no way to
-      // draw a bigger shadow on the host alone.
-      syncSpreadClone(canvas, obj, effect)
+
+    // Replace (or remove) just this kind's slot, keeping the other kind's
+    // effect untouched — both can be active at once (UX-020 phase 2).
+    const current = readShadowEffects(obj)
+    const withoutKind = current.filter((e) => e.kind !== kind)
+    const next = effect ? [...withoutKind, effect] : withoutKind
+    // Keep drop before glow, deterministic regardless of toggle order, so
+    // which one lands on the host's own native shadow vs. a clone is stable.
+    next.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'drop' ? -1 : 1))
+
+    const tagged = obj as unknown as {
+      effects?: ShadowEffect[]
+      shadowKind?: 'drop' | 'glow'
+      shadowSpread?: number
     }
+    tagged.effects = next
+    // Legacy phase-1 props are no longer written — readShadowEffects only
+    // falls back to them for an object saved before this array existed.
+    tagged.shadowKind = undefined
+    tagged.shadowSpread = undefined
+    // The first effect (if any) still gets the host's own native shadow —
+    // cheap, and correct on its own for the common single-effect case.
+    obj.set('shadow', next[0] ? new fabric.Shadow(shadowOptions(next[0])) : null)
     obj.setCoords()
+    // Every effect past the first (and any effect with spread) needs a
+    // synthetic clone — see effectsEngine.ts.
+    syncEffectClones(canvas, obj, next)
     canvas.requestRenderAll()
     fireModified(canvas, obj, effect ? 'Changed effects' : 'Removed effect')
   },
