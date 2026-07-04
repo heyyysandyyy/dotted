@@ -338,6 +338,15 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     if (!withOrig.originalSrc) withOrig.originalSrc = source
     set({ bgRemoving: true })
     const done = () => set({ bgRemoving: false })
+    // setSrc() replaces the underlying image element, and fabric resets
+    // width/height to the new element's full natural size when it does (it
+    // has no way to know a crop window was in effect) — cropX/cropY are left
+    // stale, pointing a window sized to the whole image partway into it, so
+    // the object suddenly displays uncropped. The processed image is the
+    // same full dimensions as the original (removeSolidBackground doesn't
+    // resize), so the existing crop window is still valid — just needs
+    // reapplying once the new element is in.
+    const cropBefore = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height }
     const el = new Image()
     el.onload = () => {
       try {
@@ -346,6 +355,8 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
         img
           .setSrc(url)
           .then(() => {
+            img.set(cropBefore)
+            img.setCoords()
             canvas.requestRenderAll()
             fireModified(canvas, img, 'Removed background')
             done()

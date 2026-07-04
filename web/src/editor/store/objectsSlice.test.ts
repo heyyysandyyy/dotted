@@ -70,3 +70,49 @@ describe('moveLayerObject (UX-018)', () => {
     expect(group.getObjects()).toEqual([b, a])
   })
 })
+
+describe('removeImageBackground preserves an existing crop window', () => {
+  // removeImageBackground itself can't be exercised end-to-end here: it loads
+  // the source through a plain `new Image()` + onload, and jsdom never
+  // decodes real image bytes, so onload never fires (confirmed by hand — a
+  // fabric.FabricImage.fromURL()/img.setSrc() call on a real data URL just
+  // hangs). setElement() is the synchronous piece of that same code path
+  // (setSrc calls it once the new element loads) and reproduces the exact
+  // bug: it resets width/height to the new element's full size without
+  // touching cropX/cropY, which is what made a cropped image "un-crop" when
+  // its background was removed. This pins that fabric behaviour, and that
+  // re-applying the pre-setSrc crop values (removeImageBackground's fix)
+  // actually restores the crop window.
+  const canvasEl = (w: number, h: number) => {
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    return c
+  }
+
+  it('fabric setElement resets width/height but leaves cropX/cropY stale', () => {
+    const img = new fabric.FabricImage(canvasEl(100, 100))
+    img.set({ cropX: 20, cropY: 10, width: 50, height: 50 })
+
+    img.setElement(canvasEl(100, 100))
+
+    expect(img.width).toBe(100) // reset to the new element's full size
+    expect(img.height).toBe(100)
+    expect(img.cropX).toBe(20) // untouched — now stale relative to width/height
+    expect(img.cropY).toBe(10)
+  })
+
+  it('re-applying the captured crop after setElement restores the crop window', () => {
+    const img = new fabric.FabricImage(canvasEl(100, 100))
+    img.set({ cropX: 20, cropY: 10, width: 50, height: 50 })
+    const cropBefore = { cropX: img.cropX, cropY: img.cropY, width: img.width, height: img.height }
+
+    img.setElement(canvasEl(100, 100))
+    img.set(cropBefore)
+
+    expect(img.cropX).toBe(20)
+    expect(img.cropY).toBe(10)
+    expect(img.width).toBe(50)
+    expect(img.height).toBe(50)
+  })
+})
