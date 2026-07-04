@@ -1,4 +1,5 @@
 import * as fabric from 'fabric'
+import { isEffectClone } from './effectsEngine'
 
 /** This lives outside components/ so LayersPanel doesn't import the fabric
  *  value directly (the architecture lint rule) — it's pure tree-flattening
@@ -29,6 +30,10 @@ export function flattenRows(
 ): void {
   const topFirst = [...objsBottomFirst].reverse() as WithId[]
   for (const obj of topFirst) {
+    // A shadow-spread halo clone (UX-020) is a real canvas object (so it
+    // exports correctly to PNG/PDF/SVG on its own), but it's derived from its
+    // host's effect settings, not something the user created or should see.
+    if (isEffectClone(obj)) continue
     const isGroup = obj.type === 'group'
     out.push({ obj, depth, parent, isGroup })
     if (isGroup && obj.id && !collapsed.has(obj.id)) {
