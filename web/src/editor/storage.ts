@@ -15,7 +15,16 @@ const projectPayloadKey = (id: string) => `dotted:project:${id}`
 const templatePayloadKey = (id: string) => `dotted:template:${id}`
 
 /** Fabric props persisted beyond the defaults (custom ids/names, lock flags). */
-export const EXTRA_PROPS = ['selectable', 'evented', 'name', 'id', 'lockUniScaling', 'locked', 'shadowKind']
+export const EXTRA_PROPS = [
+  'selectable',
+  'evented',
+  'name',
+  'id',
+  'lockUniScaling',
+  'locked',
+  'shadowKind',
+  'shadowSpread',
+]
 
 /** Book-aware page kind (UX-015); absent means a plain page at the project's size. */
 export type PageType = 'cover' | 'spread' | 'single'

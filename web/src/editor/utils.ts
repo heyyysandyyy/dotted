@@ -110,20 +110,25 @@ export function alignDelta(r: Box, target: Box, mode: AlignMode): { dx: number; 
 }
 
 /**
- * Shadow/glow effect config (UX-011). Fabric has a single `shadow` slot, so an
- * object has at most one of these; `kind` disambiguates drop-shadow vs glow.
- * `color` carries the effect opacity via its alpha channel.
+ * Shadow/glow effect config (UX-011; `spread` added in UX-020 phase 1).
+ * Fabric has a single `shadow` slot, so an object has at most one of these;
+ * `kind` disambiguates drop-shadow vs glow. `color` carries the effect
+ * opacity via its alpha channel. `spread` > 0 needs a second synthetic
+ * object (see effectsEngine.ts) since canvas 2D can't cast a shadow from a
+ * transparent fill, so there's no way to draw a bigger shadow on the host
+ * object alone.
  */
 export interface ShadowEffect {
   kind: 'drop' | 'glow'
   x: number
   y: number
   blur: number
+  spread: number
   color: string
 }
 
-export const DROP_SHADOW_DEFAULT: ShadowEffect = { kind: 'drop', x: 4, y: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }
-export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, color: 'rgba(255,255,255,0.6)' }
+export const DROP_SHADOW_DEFAULT: ShadowEffect = { kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.3)' }
+export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, spread: 0, color: 'rgba(255,255,255,0.6)' }
 
 /** Read the current shadow/glow effect off an object, or null if none (UX-011). */
 export function readShadowEffect(obj: fabric.FabricObject): ShadowEffect | null {
@@ -137,6 +142,9 @@ export function readShadowEffect(obj: fabric.FabricObject): ShadowEffect | null 
     x: s.offsetX ?? 0,
     y: s.offsetY ?? 0,
     blur: s.blur ?? 0,
+    // Pre-UX-020 saved shadows predate spread — a plain 0 reads the same as
+    // "no spread clone", so nothing changes for a project saved before this.
+    spread: (obj as unknown as { shadowSpread?: number }).shadowSpread ?? 0,
     color: (s.color as string) ?? 'rgba(0,0,0,0.3)',
   }
 }
