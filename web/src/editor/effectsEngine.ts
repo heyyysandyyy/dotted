@@ -14,9 +14,9 @@ import { shadowOptions, type ShadowEffect } from './utils'
  * colour (opaque, since canvas 2D can't cast a shadow from a transparent
  * fill), with its own native shadow, positioned directly behind the host so
  * the host's real rendering covers the clone's body and only its shadow
- * peeks out. A clone also handles that effect's own spread (scaling the
- * clone up), so "needs a clone for spread" (phase 1) and "needs a clone
- * because it's a second effect" (phase 2) are the same mechanism.
+ * peeks out. A clone is the same size as the host — spread doesn't scale it
+ * (see shadowOptions in utils.ts for why: scaling would create a hard-edged
+ * un-blurred band instead of a soft halo).
  *
  * Known limitations:
  * - A host with internal transparency (gaps between/inside text glyphs, a
@@ -48,16 +48,8 @@ export function removeEffectClones(canvas: fabric.Canvas, hostId: string): void 
   if (clones.length > 0) canvas.remove(...clones)
 }
 
-async function buildEffectClone(
-  host: WithId,
-  effect: ShadowEffect,
-  slot: number,
-): Promise<fabric.FabricObject> {
+async function buildEffectClone(host: WithId, effect: ShadowEffect, slot: number): Promise<fabric.FabricObject> {
   const clone = await host.clone()
-  const w = clone.width || 1
-  const h = clone.height || 1
-  const factorX = (w + effect.spread * 2) / w
-  const factorY = (h + effect.spread * 2) / h
   clone.set({
     fill: effect.color,
     stroke: undefined,
@@ -71,8 +63,8 @@ async function buildEffectClone(
     originX: host.originX,
     originY: host.originY,
     angle: host.angle,
-    scaleX: (host.scaleX ?? 1) * factorX,
-    scaleY: (host.scaleY ?? 1) * factorY,
+    scaleX: host.scaleX ?? 1,
+    scaleY: host.scaleY ?? 1,
     shadow: new fabric.Shadow(shadowOptions(effect)),
   })
   const tagged = tagOf(clone)
@@ -86,9 +78,11 @@ async function buildEffectClone(
 /**
  * Build (or rebuild) every synthetic clone `effects` needs beyond the host's
  * own native shadow (UX-020). `effects[0]` is assumed to already be set as
- * the host's native `shadow` by the caller (setShadowEffect) — it only gets
- * a clone here if it has spread. Every effect after the first always needs
- * one, since there's no second native shadow slot to put it in.
+ * the host's native `shadow` by the caller (setShadowEffect) — every effect
+ * after the first always needs a clone, since there's no second native
+ * shadow slot to put it in. Spread never needs a clone on its own — it folds
+ * into the blur radius (shadowOptions in utils.ts), so it's already correct
+ * on whichever slot the effect is in, clone or not.
  */
 export async function syncEffectClones(
   canvas: fabric.Canvas,
@@ -96,21 +90,14 @@ export async function syncEffectClones(
   effects: ShadowEffect[],
 ): Promise<void> {
   if (!host.id) return
-  if (effects.length === 0) {
+  if (effects.length <= 1) {
     removeEffectClones(canvas, host.id)
     canvas.requestRenderAll()
     return
   }
-  const needsClone = effects
-    .map((effect, slot) => ({ effect, slot }))
-    .filter(({ effect, slot }) => slot > 0 || effect.spread > 0)
-
-  if (needsClone.length === 0) {
-    removeEffectClones(canvas, host.id)
-    canvas.requestRenderAll()
-    return
-  }
-  const clones = await Promise.all(needsClone.map(({ effect, slot }) => buildEffectClone(host, effect, slot)))
+  const clones = await Promise.all(
+    effects.slice(1).map((effect, i) => buildEffectClone(host, effect, i + 1)),
+  )
   // Remove existing clones right before inserting the new ones: a rapid
   // slider drag fires this repeatedly, and clone() is async, so a second
   // call can start (and finish its own remove, which finds nothing yet)

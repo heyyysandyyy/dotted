@@ -133,9 +133,22 @@ export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, 
 
 /** A ShadowEffect's fields as fabric.Shadow constructor options — shared by
  *  the host's own native shadow (objectsSlice.ts) and each synthetic clone's
- *  native shadow (effectsEngine.ts) so the two can never drift apart. */
+ *  native shadow (effectsEngine.ts) so the two can never drift apart.
+ *
+ * `spread` folds directly into the blur radius rather than scaling the
+ * casting shape's geometry. Canvas 2D's shadowBlur only softens the edge of
+ * whatever shape is actually casting it — if spread instead grew a clone's
+ * silhouette first, the band between the host's real edge and the clone's
+ * enlarged edge would be flat, un-blurred solid fill (it's nowhere near
+ * either shape's edge), which reads as a hard-edged stroke, not a soft glow.
+ * Folding spread into blur keeps the clone the same size as the host (fully
+ * hidden behind it) and produces one smooth gradient starting at the real
+ * edge, growing wider as spread increases — this loses literal CSS
+ * box-shadow-spread fidelity (which does grow the shape first) but that's
+ * the right trade for a design tool where "never looks like a stroke"
+ * matters more than spec accuracy. */
 export function shadowOptions(effect: ShadowEffect): { color: string; blur: number; offsetX: number; offsetY: number } {
-  return { color: effect.color, blur: effect.blur, offsetX: effect.x, offsetY: effect.y }
+  return { color: effect.color, blur: effect.blur + effect.spread, offsetX: effect.x, offsetY: effect.y }
 }
 
 /** Read an object's active effects (UX-020 phase 2): the new `effects` array

@@ -9,6 +9,7 @@ import {
   alignDelta,
   readShadowEffects,
   readShadowEffectByKind,
+  shadowOptions,
 } from './utils'
 
 // Minimal stand-ins — these helpers only read `type` (and `text`/`rx`).
@@ -141,5 +142,16 @@ describe('readShadowEffects / readShadowEffectByKind (UX-020 phase 2)', () => {
   it('readShadowEffectByKind returns null for a kind that is not active', () => {
     const drop = { kind: 'drop' as const, x: 4, y: 4, blur: 8, spread: 0, color: '#000' }
     expect(readShadowEffectByKind(withEffects([drop]), 'glow')).toBeNull()
+  })
+})
+
+describe('shadowOptions (UX-020 — spread folds into blur, not geometry)', () => {
+  it('adds spread directly onto blur, not a separate field', () => {
+    const opts = shadowOptions({ kind: 'glow', x: 0, y: 0, blur: 12, spread: 20, color: '#fff' })
+    expect(opts).toEqual({ color: '#fff', blur: 32, offsetX: 0, offsetY: 0 })
+  })
+  it('with zero spread, blur is unchanged', () => {
+    const opts = shadowOptions({ kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: '#000' })
+    expect(opts.blur).toBe(8)
   })
 })
