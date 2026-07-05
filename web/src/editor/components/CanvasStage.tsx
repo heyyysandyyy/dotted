@@ -11,8 +11,8 @@ import {
   migrateLegacyDesign,
 } from '../storage'
 import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
-import { kindName, isText } from '../utils'
-import { isEffectClone, removeEffectClones, repositionEffectClones } from '../effectsEngine'
+import { kindName, isText, readShadowEffects } from '../utils'
+import { isEffectClone, removeEffectClones, repositionEffectClones, syncEffectClones } from '../effectsEngine'
 import { CanvasRulers } from './CanvasRulers'
 import { CanvasGuides } from './CanvasGuides'
 import { GridOverlay } from './GridOverlay'
@@ -100,14 +100,28 @@ export function CanvasStage() {
     canvas.on('object:rotating', bump)
     canvas.on('object:modified', bump)
     // Keep every effect clone locked to its host during a live drag/rotate
-    // (UX-020) — cheap position-only sync, no rebuild; a resize is corrected
-    // by the full rebuild setShadowEffect triggers on the next effect change,
-    // or immediately below on object:modified (drag end).
+    // (UX-020) — cheap position-only sync, no rebuild; scale changes and any
+    // other transform not covered by these two events (Properties Panel
+    // fields, alignment tools, undo/redo — anything that doesn't go through
+    // a live canvas drag) are corrected below on object:modified instead.
     const syncEffectPositions = (e: BasicTransformEvent & { target: fabric.FabricObject }) => {
       if (!isEffectClone(e.target)) repositionEffectClones(canvas, e.target)
     }
     canvas.on('object:moving', syncEffectPositions)
     canvas.on('object:rotating', syncEffectPositions)
+    // Full rebuild on any completed change to a host with active effects —
+    // this is the one path that covers every way a host's transform can
+    // change, not just a live canvas drag: Properties Panel fields (e.g.
+    // rotating via the Rot input, which never fires object:rotating at all),
+    // alignment tools, undo/redo. Without this, a clone-backed second effect
+    // (UX-020 phase 2) goes stale and visibly detaches from its host the
+    // moment it's transformed any other way (reported bug: outer glow left
+    // behind, unrotated, when an object with both drop shadow and glow was
+    // rotated via the panel instead of the on-canvas handle).
+    canvas.on('object:modified', (e) => {
+      const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
+      if (o && !isEffectClone(o)) syncEffectClones(canvas, o, readShadowEffects(o))
+    })
     // A removed host's effect clone(s) would otherwise be orphaned (delete,
     // group, and ungroup all remove the object from the canvas first).
     canvas.on('object:removed', (e) => {
