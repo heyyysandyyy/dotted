@@ -10,16 +10,36 @@ import type { PageData } from '../storage'
  *  same gesture as the main canvas (CanvasStage.tsx's own UX-013 pan), kept
  *  as a separate, self-contained copy rather than a shared hook: this one
  *  scrolls a plain DOM container directly (native overflow, not a store
- *  `pan` value), and the main canvas's version has fabric-specific capture-
- *  phase concerns that don't apply here, so extracting a "shared" hook would
- *  need to abstract away real differences rather than remove duplication.
+ *  `pan` value), so extracting a "shared" hook would need to abstract away
+ *  a real difference rather than remove duplication.
  *
  * Needed because at higher zoom (BUG-003) a page's thumbnail can genuinely
  * be wider than the viewport — native two-finger/trackpad horizontal scroll
  * already reaches the overflow, but there's no visible scrollbar hinting
  * that, and no way to pan at all with a plain mouse (reported: "I cannot
  * pan"). This adds an explicit, discoverable gesture matching the one users
- * already know from the main canvas. */
+ * already know from the main canvas.
+ *
+ * A completed drag also has to not open whatever page thumbnail happened to
+ * be under the pointer when it started (reported bug: grabbing to pan was
+ * also selecting/opening the page). A browser tracks whether to fire `click`
+ * on mouseup independently of whatever JS did with the mousedown event —
+ * stopping mousedown's own propagation doesn't stop a *separate*, later
+ * `click` event from still firing on the same element (that's why this
+ * works for CanvasStage's own pan gesture: fabric's own selection logic is
+ * *also* a plain mousedown listener, not click-based, so stopping mousedown
+ * propagation is enough there — a native <button>'s click is a different
+ * mechanism entirely). The fix here is to arm a suppression flag when a
+ * mouseup completes a real drag (more than `CLICK_DRAG_THRESHOLD` px — a
+ * stationary click still opens a page normally) and consume it on whichever
+ * event fires next: `click` for a space+left-drag, `auxclick` for a middle-
+ * drag (middle-button releases never fire a plain `click` at all, so
+ * without also listening for `auxclick` the flag would stay armed and
+ * wrongly suppress a later, unrelated left-click). Listening on `window`
+ * rather than just the container so the flag gets consumed even if the drag
+ * ended with the pointer outside it. */
+const CLICK_DRAG_THRESHOLD = 4
+
 function useSpaceDragPan(containerRef: React.RefObject<HTMLDivElement | null>) {
   const [panCursor, setPanCursor] = useState<'grab' | 'grabbing' | null>(null)
 
@@ -30,6 +50,8 @@ function useSpaceDragPan(containerRef: React.RefObject<HTMLDivElement | null>) {
     let panning = false
     let lastX = 0
     let lastY = 0
+    let dragDistance = 0
+    let suppressNextClick = false
     const isTyping = () => {
       const a = document.activeElement as HTMLElement | null
       if (!a) return false
@@ -58,33 +80,49 @@ function useSpaceDragPan(containerRef: React.RefObject<HTMLDivElement | null>) {
         panning = true
         lastX = e.clientX
         lastY = e.clientY
+        dragDistance = 0
         setPanCursor('grabbing')
         e.preventDefault()
       }
     }
     const onMouseMove = (e: MouseEvent) => {
       if (!panning) return
-      el.scrollLeft -= e.clientX - lastX
-      el.scrollTop -= e.clientY - lastY
+      const dx = e.clientX - lastX
+      const dy = e.clientY - lastY
+      dragDistance += Math.abs(dx) + Math.abs(dy)
+      el.scrollLeft -= dx
+      el.scrollTop -= dy
       lastX = e.clientX
       lastY = e.clientY
     }
     const onMouseUp = () => {
       if (!panning) return
       panning = false
+      if (dragDistance > CLICK_DRAG_THRESHOLD) suppressNextClick = true
       setPanCursor(spaceDown ? 'grab' : null)
+    }
+    const onClickCapture = (e: MouseEvent) => {
+      if (suppressNextClick) {
+        e.stopPropagation()
+        e.preventDefault()
+      }
+      suppressNextClick = false
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     el.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('click', onClickCapture, { capture: true })
+    window.addEventListener('auxclick', onClickCapture, { capture: true })
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       el.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('click', onClickCapture, { capture: true })
+      window.removeEventListener('auxclick', onClickCapture, { capture: true })
     }
   }, [containerRef])
 
