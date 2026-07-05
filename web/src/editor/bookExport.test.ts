@@ -174,21 +174,26 @@ describe('exportBookPrint — PNG', () => {
 })
 
 describe('exportBookPrintBoth', () => {
-  it('PDF: merges cover + interior into one continuous document, not a zip of two files', async () => {
-    // "I don't like the individual downloads why can it be combined" — a zip
-    // of two PDFs was never necessary, since jsPDF already supports per-page
-    // sizing (the interior's own multi-spread PDF already relies on this),
-    // so cover-sized and spread-sized pages can share one document.
+  it('PDF: keeps cover and interior as two separate documents, zipped together — never merged into one PDF', async () => {
+    // Cover and interior aren't just different sizes (cover is a single
+    // page, interior pages are full spreads) — they go to entirely
+    // different print processes at a real vendor (different paper stock, a
+    // separate press run), and services like KDP/IngramSpark require them
+    // as distinct file uploads. An earlier version of this merged them into
+    // one continuous PDF to avoid a zip; that was wrong for exactly this
+    // reason and was reverted.
     const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
     const spread = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     await exportBookPrintBoth([cover, spread], { width: 200, height: 300 }, 'My Book', opts())
     expect(anchors).toHaveLength(1)
-    expect(anchors[0].download).toBe('my-book.pdf')
+    expect(anchors[0].download).toBe('my-book-export.zip')
+    // Two separate single-page PDF documents, not one two-page document —
+    // addPage (which starts a new page within *one* document) never fires.
     expect(addImage).toHaveBeenCalledTimes(2)
-    expect(addPage).toHaveBeenCalledTimes(1)
+    expect(addPage).not.toHaveBeenCalled()
   })
 
-  it('PNG: cover + every interior page still can\'t become one file, so this still zips', async () => {
+  it('PNG: cover + every interior page still can\'t become one file, so this also zips', async () => {
     const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
     const spread1 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     const spread2 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })

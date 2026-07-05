@@ -255,13 +255,14 @@ export async function exportBookPrint(
 }
 
 /**
- * "Both files" (BOOK-004). For PDF, cover and interior merge into one
- * continuous document — no zip needed, since it's already exactly one file
- * (this is what "I don't like the individual downloads" asked for: a zip of
- * two PDFs isn't actually necessary when they can just be one PDF). PNG has
- * no multi-page concept, so cover + every interior page still can't become
- * a single file — those still bundle into a zip, same reasoning as
- * exportBookPrint's own multi-page PNG case.
+ * "Both files" (BOOK-004). Cover and interior are always kept as separate
+ * documents, never merged into one PDF — they aren't just different sizes
+ * (cover is a single page, interior pages are full spreads), they go to
+ * entirely different print processes at a real vendor (different paper
+ * stock, a separate press run), and services like KDP/IngramSpark require
+ * cover and interior as distinct file uploads. Bundled into a zip so both
+ * come out of one Export click: browsers block/drop the second and later of
+ * several downloads triggered back-to-back without a fresh click per file.
  */
 export async function exportBookPrintBoth(
   pages: PageData[],
@@ -271,16 +272,18 @@ export async function exportBookPrintBoth(
 ): Promise<void> {
   const coverTargets = targetPages(pages, 'cover', options.pageRange)
   const interiorTargets = targetPages(pages, 'interior', options.pageRange)
-  const targets = [...coverTargets, ...interiorTargets]
-  if (targets.length === 0) return
+  if (coverTargets.length === 0 && interiorTargets.length === 0) return
 
-  if (options.format === 'pdf') {
-    const blob = await buildPdfBlob(targets, fallbackSize, options)
-    downloadBlob(blob, `${slugify(name)}.pdf`)
-    return
+  const buildOne = async (targets: PageData[], fileLabel: 'cover' | 'interior'): Promise<BuiltFile[]> => {
+    if (targets.length === 0) return []
+    if (options.format === 'pdf') {
+      return [{ blob: await buildPdfBlob(targets, fallbackSize, options), filename: `${slugify(name)}-${fileLabel}.pdf` }]
+    }
+    return buildPngFiles(targets, fallbackSize, name, fileLabel, options)
   }
-  const cover = await buildPngFiles(coverTargets, fallbackSize, name, 'cover', options)
-  const interior = await buildPngFiles(interiorTargets, fallbackSize, name, 'interior', options)
+
+  const cover = await buildOne(coverTargets, 'cover')
+  const interior = await buildOne(interiorTargets, 'interior')
   await downloadFiles([...cover, ...interior], `${slugify(name)}-export.zip`)
 }
 
