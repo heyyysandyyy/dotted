@@ -174,14 +174,28 @@ describe('exportBookPrint — PNG', () => {
 })
 
 describe('exportBookPrintBoth', () => {
-  it('always bundles cover + interior into a single zip, never two separate downloads', async () => {
+  it('PDF: merges cover + interior into one continuous document, not a zip of two files', async () => {
+    // "I don't like the individual downloads why can it be combined" — a zip
+    // of two PDFs was never necessary, since jsPDF already supports per-page
+    // sizing (the interior's own multi-spread PDF already relies on this),
+    // so cover-sized and spread-sized pages can share one document.
     const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
     const spread = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     await exportBookPrintBoth([cover, spread], { width: 200, height: 300 }, 'My Book', opts())
     expect(anchors).toHaveLength(1)
-    expect(anchors[0].download).toBe('my-book-export.zip')
-    // Both files actually got built into it: 2 PDF documents worth of content.
+    expect(anchors[0].download).toBe('my-book.pdf')
     expect(addImage).toHaveBeenCalledTimes(2)
+    expect(addPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('PNG: cover + every interior page still can\'t become one file, so this still zips', async () => {
+    const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
+    const spread1 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
+    const spread2 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
+    await exportBookPrintBoth([cover, spread1, spread2], { width: 200, height: 300 }, 'My Book', opts({ format: 'png' }))
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0].download).toBe('my-book-export.zip')
+    expect(addImage).not.toHaveBeenCalled()
   })
 })
 
