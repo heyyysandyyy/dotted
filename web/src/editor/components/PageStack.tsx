@@ -143,6 +143,7 @@ function PagePreview({
   columnWidth,
   active,
   canDelete,
+  panCursor,
   onOpen,
   onDuplicate,
   onDelete,
@@ -154,6 +155,7 @@ function PagePreview({
   columnWidth: number
   active: boolean
   canDelete: boolean
+  panCursor: 'grab' | 'grabbing' | null
   onOpen: () => void
   onDuplicate: () => void
   onDelete: () => void
@@ -186,7 +188,19 @@ function PagePreview({
           className={`relative overflow-hidden rounded border-2 bg-white shadow-lg ${
             active ? 'border-indigo-500' : 'border-neutral-700 hover:border-neutral-500'
           }`}
-          style={{ width: thumbWidth, height: thumbHeight, marginLeft: page.type === 'cover' ? 'auto' : undefined }}
+          style={{
+            width: thumbWidth,
+            height: thumbHeight,
+            marginLeft: page.type === 'cover' ? 'auto' : undefined,
+            // A <button>'s own default cursor (pointer) otherwise wins over
+            // the container's cursor style everywhere the mouse is actually
+            // over a thumbnail — which is most of the visible area, so the
+            // grab/grabbing hand from holding space would never show
+            // (reported bug). Same reason CanvasStage.tsx sets its own
+            // cursor directly on specific elements instead of relying on
+            // CSS inheritance from an ancestor.
+            cursor: panCursor ?? undefined,
+          }}
         >
           <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
           <PageGuideOverlay
@@ -262,6 +276,7 @@ export function PageStack() {
           columnWidth={columnWidth}
           active={p.id === activePageId}
           canDelete={pages.length > 1}
+          panCursor={panCursor}
           onOpen={() => openForEdit(p.id)}
           onDuplicate={() => duplicatePage(p.id)}
           onDelete={() => deletePage(p.id)}
