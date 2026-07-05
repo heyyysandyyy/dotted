@@ -1,10 +1,95 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, X, Copy } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { renderPreview } from '../preview'
 import { pageSize } from '../store/storeHelpers'
 import { PageGuideOverlay } from './PageGuideOverlay'
 import type { PageData } from '../storage'
+
+/** Space-held-drag (or middle-mouse-drag) pans the stack view in both axes —
+ *  same gesture as the main canvas (CanvasStage.tsx's own UX-013 pan), kept
+ *  as a separate, self-contained copy rather than a shared hook: this one
+ *  scrolls a plain DOM container directly (native overflow, not a store
+ *  `pan` value), and the main canvas's version has fabric-specific capture-
+ *  phase concerns that don't apply here, so extracting a "shared" hook would
+ *  need to abstract away real differences rather than remove duplication.
+ *
+ * Needed because at higher zoom (BUG-003) a page's thumbnail can genuinely
+ * be wider than the viewport — native two-finger/trackpad horizontal scroll
+ * already reaches the overflow, but there's no visible scrollbar hinting
+ * that, and no way to pan at all with a plain mouse (reported: "I cannot
+ * pan"). This adds an explicit, discoverable gesture matching the one users
+ * already know from the main canvas. */
+function useSpaceDragPan(containerRef: React.RefObject<HTMLDivElement | null>) {
+  const [panCursor, setPanCursor] = useState<'grab' | 'grabbing' | null>(null)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    let spaceDown = false
+    let panning = false
+    let lastX = 0
+    let lastY = 0
+    const isTyping = () => {
+      const a = document.activeElement as HTMLElement | null
+      if (!a) return false
+      if (a.isContentEditable || a.tagName === 'TEXTAREA') return true
+      if (a.tagName === 'INPUT') {
+        const type = (a as HTMLInputElement).type
+        return !['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file'].includes(type)
+      }
+      return false
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !spaceDown && !isTyping()) {
+        e.preventDefault()
+        spaceDown = true
+        if (!panning) setPanCursor('grab')
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceDown = false
+        if (!panning) setPanCursor(null)
+      }
+    }
+    const onMouseDown = (e: MouseEvent) => {
+      if ((spaceDown && e.button === 0) || e.button === 1) {
+        panning = true
+        lastX = e.clientX
+        lastY = e.clientY
+        setPanCursor('grabbing')
+        e.preventDefault()
+      }
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!panning) return
+      el.scrollLeft -= e.clientX - lastX
+      el.scrollTop -= e.clientY - lastY
+      lastX = e.clientX
+      lastY = e.clientY
+    }
+    const onMouseUp = () => {
+      if (!panning) return
+      panning = false
+      setPanCursor(spaceDown ? 'grab' : null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [containerRef])
+
+  return panCursor
+}
 
 /** Display height every thumbnail normalises to, at 100% zoom (BUG-004) —
  *  width follows proportionally from each page's own aspect ratio, so a
@@ -103,6 +188,8 @@ export function PageStack() {
   const addPage = useCanvasStore((s) => s.addPage)
   const deletePage = useCanvasStore((s) => s.deletePage)
   const duplicatePage = useCanvasStore((s) => s.duplicatePage)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const panCursor = useSpaceDragPan(containerRef)
 
   const openForEdit = (id: string) => {
     selectPage(id)
@@ -122,7 +209,11 @@ export function PageStack() {
   )
 
   return (
-    <div className="flex h-full flex-col items-center gap-4 overflow-y-auto bg-neutral-950 p-6">
+    <div
+      ref={containerRef}
+      className="flex h-full flex-col items-center gap-4 overflow-auto bg-neutral-950 p-6"
+      style={{ cursor: panCursor ?? undefined }}
+    >
       {pages.map((p, i) => (
         <PagePreview
           key={p.id}
