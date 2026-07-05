@@ -6,6 +6,7 @@ const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (set, get) => ({
   zoom: 1,
+  stackZoom: 1,
   pan: { x: 0, y: 0 },
   fitMode: true,
   snapMode: 'guides',
@@ -22,6 +23,7 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
   // caller pans afterwards (scroll-wheel zoom sets pan itself).
   setZoom: (zoom) => set({ zoom: clampZoom(zoom), fitMode: false }),
   setZoomRaw: (zoom) => set({ zoom: clampZoom(zoom) }),
+  setStackZoom: (stackZoom) => set({ stackZoom: clampZoom(stackZoom) }),
   fitToView: () => set({ fitMode: true }),
   setPan: (x, y) => set({ pan: { x, y } }),
 

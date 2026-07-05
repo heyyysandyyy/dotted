@@ -227,13 +227,16 @@ function PagePreview({
 }
 
 /** All-pages overview: scroll through every page, click one to edit it
- *  (TPL-001). Shares the main canvas's own zoom state (BUG-003) — the same
- *  slider in the bottom bar scales every page thumbnail uniformly. */
+ *  (TPL-001). Has its own zoom state, `stackZoom` (BUG-003) — the bottom
+ *  bar's slider controls it while in this view, but it's kept independent
+ *  from the single-page canvas's own `zoom` so cranking up the thumbnail
+ *  size to see pages better doesn't also blow up the single-page canvas to
+ *  that same scale the moment a page is clicked open. */
 export function PageStack() {
   const pages = useCanvasStore((s) => s.pages)
   const width = useCanvasStore((s) => s.width)
   const height = useCanvasStore((s) => s.height)
-  const zoom = useCanvasStore((s) => s.zoom)
+  const zoom = useCanvasStore((s) => s.stackZoom)
   const activePageId = useCanvasStore((s) => s.activePageId)
   const selectPage = useCanvasStore((s) => s.selectPage)
   const setViewMode = useCanvasStore((s) => s.setViewMode)
