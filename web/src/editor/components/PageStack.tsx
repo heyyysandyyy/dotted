@@ -161,6 +161,7 @@ function PagePreview({
   onDelete: () => void
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const gridSize = useCanvasStore((s) => s.grid.size)
   // Each page renders at its own size (UX-015 book pages can differ from the
   // project default), not whichever page happens to be active.
   const { width, height } = pageSize(page, fallbackSize)
@@ -185,8 +186,18 @@ function PagePreview({
         <button
           onClick={onOpen}
           title={`Edit page ${index + 1}`}
-          className={`relative overflow-hidden rounded border-2 bg-white shadow-lg ${
-            active ? 'border-indigo-500' : 'border-neutral-700 hover:border-neutral-500'
+          // outline, not border: a border is part of the box (border-box
+          // sizing eats it out of the declared width/height), so the guide
+          // overlay canvas below — sized to exactly thumbWidth x thumbHeight
+          // to match — ended up wider/taller than the actual space left
+          // inside the border, overflowing past the button's own edge and
+          // getting clipped by overflow-hidden. Only showed up as asymmetry
+          // because the clip lands on the right/bottom (top-left anchored),
+          // cutting the right-edge bleed guide down to a sliver (reported
+          // bug). An outline sits outside the box model entirely, so it
+          // can't eat into the content area no matter its width.
+          className={`relative overflow-hidden rounded bg-white shadow-lg outline outline-2 -outline-offset-2 ${
+            active ? 'outline-indigo-500' : 'outline-neutral-700 hover:outline-neutral-500'
           }`}
           style={{
             width: thumbWidth,
@@ -208,6 +219,7 @@ function PagePreview({
             width={thumbWidth}
             height={thumbHeight}
             bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
+            gridSpacingPx={gridSize * scale}
           />
         </button>
       </div>
