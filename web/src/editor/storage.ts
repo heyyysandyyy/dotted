@@ -56,6 +56,16 @@ export interface PageData {
   bleed?: number
 }
 
+/** A book project (UX-015) has at least one page tagged cover/spread — PageType's
+ *  'single' variant is never actually assigned to a plain page (those signal
+ *  "not a book page" via an absent `type`), so checking for either tag alone
+ *  is correct and stays correct if that changes. Shared by ExportModal.tsx,
+ *  PrintExportModal.tsx and bookExport.ts so none of them drift on what
+ *  counts as a book project. */
+export function isBookProject(pages: PageData[]): boolean {
+  return pages.some((p) => p.type === 'cover' || p.type === 'spread')
+}
+
 /** Manual ruler guides (UX-004), in canvas px. Horizontal guides are stored by
  *  their Y position, vertical guides by their X position. */
 export interface Guides {

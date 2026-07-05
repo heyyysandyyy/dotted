@@ -7,6 +7,8 @@ import { NewDesignModal } from './components/NewDesignModal'
 import { TemplatesModal } from './components/TemplatesModal'
 import { ProjectsModal } from './components/ProjectsModal'
 import { ExportModal } from './components/ExportModal'
+import { PrintExportModal } from './components/PrintExportModal'
+import { isBookProject } from './storage'
 import { ResizeModal, type ResizePrefs } from './components/ResizeModal'
 import { LeftSidebar } from './components/LeftSidebar'
 import { PropertiesPanel } from './components/PropertiesPanel'
@@ -25,6 +27,7 @@ export function Editor() {
   const [resizeOpen, setResizeOpen] = useState(false)
   const [resizePrefs, setResizePrefs] = useState<ResizePrefs>({ unit: 'px', lock: false, scale: false })
   const viewMode = useCanvasStore((s) => s.viewMode)
+  const isBook = useCanvasStore((s) => isBookProject(s.pages))
   useEditorShortcuts()
 
   // Open the resize modal from the top bar's size display or Cmd/Ctrl+Shift+R.
@@ -76,7 +79,11 @@ export function Editor() {
       <NewDesignModal open={newOpen} onClose={() => setNewOpen(false)} />
       <TemplatesModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
-      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      {isBook ? (
+        <PrintExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      ) : (
+        <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
+      )}
       {resizeOpen && (
         <ResizeModal
           prefs={resizePrefs}

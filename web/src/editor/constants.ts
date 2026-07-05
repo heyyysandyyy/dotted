@@ -40,9 +40,33 @@ export const SIZE_PRESETS: SizePreset[] = [
 /** Book-format presets only, in the order shown by the book setup panel (UX-015). */
 export const BOOK_PRESETS = SIZE_PRESETS.filter((p) => p.category === 'book')
 
-/** Bleed margin for book pages (UX-015): 0.125in at the book presets' own
- *  resolution (300dpi, unlike the 96dpi screen scale other presets use). */
+/** Book presets/pages are authored at print resolution, unlike the 96dpi
+ *  screen scale other presets use. */
+export const BOOK_DPI = 300
+
+/** Bleed margin for book pages (UX-015): 0.125in at BOOK_DPI. */
 export const BOOK_BLEED_PX = 38
+
+/** Human-readable trim size for a book project's cover page, for display
+ *  (BOOK-004 print export modal): the page's own width/height already have
+ *  bleed baked in twice over (UX-015), so this subtracts it back out before
+ *  converting to inches. Matches against BOOK_PRESETS by trim size to reuse
+ *  the preset's marketing name (e.g. "US Trade"); falls back to bare
+ *  dimensions for a project resized away from any preset. */
+export function bookSizeLabel(coverPage: { width?: number; height?: number; bleed?: number }): string {
+  const bleed = coverPage.bleed ?? 0
+  const trimW = (coverPage.width ?? 0) - bleed * 2
+  const trimH = (coverPage.height ?? 0) - bleed * 2
+  const inW = trimW / BOOK_DPI
+  const inH = trimH / BOOK_DPI
+  const preset = BOOK_PRESETS.find((p) => Math.abs(p.width - trimW) < 1 && Math.abs(p.height - trimH) < 1)
+  const dims = `${round1(inW)}×${round1(inH)} in`
+  return preset ? `${preset.label} ${dims}` : dims
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
+}
 
 /** Filter pills shown above the preset grid; 'all' clears the category filter. */
 export const PRESET_FILTERS = ['all', 'social', 'print', 'book', 'presentation', 'video'] as const
