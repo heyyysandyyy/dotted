@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { exportBookPrint, DEFAULT_PRINT_OPTIONS, type PrintFileScope, type PrintExportOptions } from '../bookExport'
+import {
+  exportBookPrint,
+  exportBookPrintBoth,
+  DEFAULT_PRINT_OPTIONS,
+  type PrintFileScope,
+  type PrintExportOptions,
+} from '../bookExport'
 import { bookSizeLabel } from '../constants'
 import { Modal } from './Modal'
 
@@ -125,11 +131,10 @@ export function PrintExportModal({ open, onClose }: { open: boolean; onClose: ()
       useCanvasStore.getState().saveCurrentProject()
       const fresh = useCanvasStore.getState()
       const fallback = { width: fresh.width, height: fresh.height }
-      if (fileScope === 'cover' || fileScope === 'both') {
-        await exportBookPrint(fresh.pages, fallback, fresh.designName, 'cover', options)
-      }
-      if (fileScope === 'interior' || fileScope === 'both') {
-        await exportBookPrint(fresh.pages, fallback, fresh.designName, 'interior', options)
+      if (fileScope === 'both') {
+        await exportBookPrintBoth(fresh.pages, fallback, fresh.designName, options)
+      } else {
+        await exportBookPrint(fresh.pages, fallback, fresh.designName, fileScope, options)
       }
       onClose()
     } catch (err) {

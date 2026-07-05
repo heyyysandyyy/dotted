@@ -1,4 +1,5 @@
 import * as fabric from 'fabric'
+import JSZip from 'jszip'
 import type { jsPDF } from 'jspdf'
 import type { PageData } from './storage'
 import { slugify } from './exporters'
@@ -52,8 +53,7 @@ const CUT_MARK_LEN = 38
 const CUT_MARK_GAP = 10
 
 /** The pages one export call needs, in order. `fileLabel` picks cover vs.
- *  interior directly — "both" (PrintFileScope) isn't a single export call,
- *  it's the modal calling this twice, once per label (PrintExportModal.tsx). */
+ *  interior directly — "both" isn't a single call, see exportBookPrintBoth. */
 function targetPages(pages: PageData[], fileLabel: 'cover' | 'interior', range: { from: number; to: number } | null): PageData[] {
   if (fileLabel === 'cover') return pages.filter((p) => p.type === 'cover')
   const spreads = pages.filter((p) => p.type === 'spread')
@@ -162,46 +162,50 @@ function orientationOf(size: { width: number; height: number }): 'landscape' | '
   return size.width > size.height ? 'landscape' : 'portrait'
 }
 
-/**
- * Export a book project's cover and/or interior as a print-oriented PDF or
- * PNG (BOOK-004) — cover and interior are always separate files (jsPDF has
- * no cross-document bundling; "both" just runs this twice, see
- * PrintExportModal.tsx). Each page renders off-screen at its own native
- * size; cut marks are drawn as PDF vector lines, never baked into the
- * canvas content itself.
- */
-export async function exportBookPrint(
+interface BuiltFile {
+  blob: Blob
+  filename: string
+}
+
+/** Build every file one export call needs, as in-memory blobs — nothing is
+ *  downloaded here. PDF is always exactly one file (a multi-page document);
+ *  PNG has no multi-page concept, so it's one file per targeted page. */
+async function buildFiles(
   pages: PageData[],
   fallbackSize: { width: number; height: number },
   name: string,
   fileLabel: 'cover' | 'interior',
   options: PrintExportOptions,
-): Promise<void> {
+): Promise<BuiltFile[]> {
   const targets = targetPages(pages, fileLabel, options.pageRange)
-  if (targets.length === 0) return
+  if (targets.length === 0) return []
 
   if (options.format === 'png') {
-    // PNG has no multi-page concept — export one file per page in range.
     const multiplier = options.resolution / BOOK_DPI
-    for (const page of targets) {
+    const files: BuiltFile[] = []
+    for (let i = 0; i < targets.length; i++) {
+      const page = targets[i]
       const { pageSize, imageOffset, fullSize } = pageAndImageRect(page, fallbackSize, options.includeBleed)
       const dataUrl = await renderPageDataUrl(page, fullSize.width, fullSize.height, multiplier)
+      const suffix = targets.length > 1 ? `-${i + 1}` : ''
+      const filename = `${slugify(name)}-${fileLabel}${suffix}.png`
       if (imageOffset.x === 0 && imageOffset.y === 0) {
-        downloadDataUrl(dataUrl, `${slugify(name)}-${fileLabel}${targets.length > 1 ? `-${targets.indexOf(page) + 1}` : ''}.png`)
+        files.push({ blob: dataUrlToBlob(dataUrl), filename })
       } else {
         // Crop to trim by drawing onto a canvas sized to the trim, offset —
-        // toDataURL/addImage's "page boundary crops overflow" trick only
-        // works for jsPDF; PNG needs an actual crop.
+        // jsPDF's "page boundary crops overflow" trick only works for PDF
+        // pages; PNG needs an actual crop.
         const cropped = document.createElement('canvas')
         cropped.width = Math.round(pageSize.width * multiplier)
         cropped.height = Math.round(pageSize.height * multiplier)
         const ctx = cropped.getContext('2d')!
         const img = await loadImage(dataUrl)
         ctx.drawImage(img, imageOffset.x * multiplier, imageOffset.y * multiplier)
-        downloadDataUrl(cropped.toDataURL('image/png'), `${slugify(name)}-${fileLabel}.png`)
+        const blob = await new Promise<Blob>((resolve) => cropped.toBlob((b) => resolve(b!), 'image/png'))
+        files.push({ blob, filename })
       }
     }
-    return
+    return files
   }
 
   const { jsPDF: JsPDF } = await import('jspdf')
@@ -219,14 +223,78 @@ export async function exportBookPrint(
     }
   }
 
-  pdf.save(`${slugify(name)}-${fileLabel}.pdf`)
+  return [{ blob: pdf.output('blob'), filename: `${slugify(name)}-${fileLabel}.pdf` }]
 }
 
-function downloadDataUrl(dataUrl: string, filename: string) {
+/**
+ * Export a book project's cover or interior as a print-oriented PDF or PNG
+ * (BOOK-004). Downloads the file directly when there's exactly one (a PDF,
+ * or a single-page PNG); bundles into a zip when there's more than one (a
+ * multi-page PNG interior) — browsers block/silently drop the second and
+ * later of several downloads triggered back-to-back without an explicit
+ * click on each one, so more than one file from a single Export click has
+ * to go out as one zip, not several direct downloads. See
+ * exportBookPrintBoth for the cover+interior "Both files" case, which hits
+ * this same constraint for the same reason.
+ */
+export async function exportBookPrint(
+  pages: PageData[],
+  fallbackSize: { width: number; height: number },
+  name: string,
+  fileLabel: 'cover' | 'interior',
+  options: PrintExportOptions,
+): Promise<void> {
+  const files = await buildFiles(pages, fallbackSize, name, fileLabel, options)
+  await downloadFiles(files, `${slugify(name)}-${fileLabel}.zip`)
+}
+
+/** "Both files" (BOOK-004): cover and interior are unconditionally zipped
+ *  together, regardless of format — this is always at least 2 downloads
+ *  otherwise, which browsers don't reliably allow back-to-back (see
+ *  exportBookPrint's doc comment). */
+export async function exportBookPrintBoth(
+  pages: PageData[],
+  fallbackSize: { width: number; height: number },
+  name: string,
+  options: PrintExportOptions,
+): Promise<void> {
+  const cover = await buildFiles(pages, fallbackSize, name, 'cover', options)
+  const interior = await buildFiles(pages, fallbackSize, name, 'interior', options)
+  await downloadFiles([...cover, ...interior], `${slugify(name)}-export.zip`)
+}
+
+async function downloadFiles(files: BuiltFile[], zipFilename: string): Promise<void> {
+  if (files.length === 0) return
+  if (files.length === 1) {
+    downloadBlob(files[0].blob, files[0].filename)
+    return
+  }
+  const zip = new JSZip()
+  for (const f of files) zip.file(f.filename, f.blob)
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  downloadBlob(zipBlob, zipFilename)
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = dataUrl
+  a.href = url
   a.download = filename
   a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** Decodes the base64 payload directly rather than `fetch(dataUrl).blob()` —
+ *  the fetch route works in real browsers but produces a Blob jsdom's own
+ *  FileReader (which JSZip uses internally) can't read in tests; this path
+ *  has no such interop gap either way. */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(',')
+  const mime = /data:(.*);base64/.exec(header)?.[1] ?? 'image/png'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

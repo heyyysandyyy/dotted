@@ -7,22 +7,21 @@ const addImage = vi.fn()
 const line = vi.fn()
 const setDrawColor = vi.fn()
 const setLineWidth = vi.fn()
-const save = vi.fn()
+const output = vi.fn(() => new Blob(['fake-pdf-bytes']))
 
 // Stand in for jsPDF so tests exercise our page-scoping/cut-mark logic without
-// depending on real PDF byte generation or a browser download (jsPDF's .save()
-// drives an anchor click, not worth wiring up in jsdom).
+// depending on real PDF byte generation.
 class FakeJsPDF {
   addPage = addPage
   addImage = addImage
   line = line
   setDrawColor = setDrawColor
   setLineWidth = setLineWidth
-  save = save
+  output = output
 }
 vi.mock('jspdf', () => ({ jsPDF: FakeJsPDF }))
 
-import { exportBookPrint, DEFAULT_PRINT_OPTIONS, type PrintExportOptions } from './bookExport'
+import { exportBookPrint, exportBookPrintBoth, DEFAULT_PRINT_OPTIONS, type PrintExportOptions } from './bookExport'
 
 const blankCanvas = { objects: [] }
 
@@ -34,25 +33,37 @@ function opts(overrides: Partial<PrintExportOptions> = {}): PrintExportOptions {
   return { ...DEFAULT_PRINT_OPTIONS, ...overrides }
 }
 
+// jsdom doesn't implement URL.createObjectURL, and a real download would
+// navigate the (fake) page — stub both so exportBookPrint's final download
+// step is a no-op we can inspect instead of a crash.
+let anchors: HTMLAnchorElement[]
 beforeEach(() => {
   addPage.mockClear()
   addImage.mockClear()
   line.mockClear()
   setDrawColor.mockClear()
-  save.mockClear()
+  output.mockClear()
+  URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+  URL.revokeObjectURL = vi.fn()
+  anchors = []
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    anchors.push(this)
+  })
 })
 
 describe('exportBookPrint — PDF', () => {
-  it('fileLabel "cover" exports only the cover page', async () => {
+  it('fileLabel "cover" exports only the cover page, downloaded directly (one file, no zip)', async () => {
     const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
     const spread = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     await exportBookPrint([cover, spread], { width: 200, height: 300 }, 'My Book', 'cover', opts())
     expect(addImage).toHaveBeenCalledTimes(1)
     expect(addPage).not.toHaveBeenCalled()
-    expect(save).toHaveBeenCalledWith('my-book-cover.pdf')
+    expect(output).toHaveBeenCalledWith('blob')
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0].download).toBe('my-book-cover.pdf')
   })
 
-  it('fileLabel "interior" exports every spread page, one PDF page each', async () => {
+  it('fileLabel "interior" exports every spread page, one PDF page each, as a single file', async () => {
     const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
     const spread1 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     const spread2 = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
@@ -61,7 +72,7 @@ describe('exportBookPrint — PDF', () => {
     // The first page uses the constructor's own format; every page after
     // calls addPage to start a new one.
     expect(addPage).toHaveBeenCalledTimes(1)
-    expect(save).toHaveBeenCalledWith('b-interior.pdf')
+    expect(anchors[0].download).toBe('b-interior.pdf')
   })
 
   it('a page range subsets which interior pages export', async () => {
@@ -74,7 +85,7 @@ describe('exportBookPrint — PDF', () => {
     const spread = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
     await exportBookPrint([spread], { width: 400, height: 300 }, 'B', 'cover', opts())
     expect(addImage).not.toHaveBeenCalled()
-    expect(save).not.toHaveBeenCalled()
+    expect(anchors).toHaveLength(0)
   })
 
   it('draws 4 corner cut marks (2 ticks each) for a cover when crop marks are on', async () => {
@@ -140,14 +151,37 @@ describe('exportBookPrint — PDF', () => {
 })
 
 describe('exportBookPrint — PNG', () => {
-  it('exports one PNG per targeted page and never touches jsPDF', async () => {
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  it('a single-page PNG downloads directly, no zip', async () => {
+    const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
+    await exportBookPrint([cover], { width: 200, height: 300 }, 'B', 'cover', opts({ format: 'png' }))
+    expect(addImage).not.toHaveBeenCalled()
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0].download).toBe('b-cover.png')
+  })
+
+  it('a multi-page PNG interior bundles into one zip download instead of several direct downloads', async () => {
+    // Regression test: browsers block/drop the second+ of several downloads
+    // triggered back-to-back from one click without a fresh user gesture per
+    // file — reported as "export only gives me the cover" for "Both files",
+    // the same underlying issue as a multi-page PNG interior would hit.
     const spreads = [1, 2].map(() => page({ type: 'spread', width: 400, height: 300, bleed: 20 }))
     await exportBookPrint(spreads, { width: 400, height: 300 }, 'B', 'interior', opts({ format: 'png' }))
-    expect(clickSpy).toHaveBeenCalledTimes(2)
     expect(addImage).not.toHaveBeenCalled()
-    expect(save).not.toHaveBeenCalled()
-    clickSpy.mockRestore()
+    // Exactly one download — the zip — not one per page.
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0].download).toBe('b-interior.zip')
+  })
+})
+
+describe('exportBookPrintBoth', () => {
+  it('always bundles cover + interior into a single zip, never two separate downloads', async () => {
+    const cover = page({ type: 'cover', width: 200, height: 300, bleed: 20 })
+    const spread = page({ type: 'spread', width: 400, height: 300, bleed: 20 })
+    await exportBookPrintBoth([cover, spread], { width: 200, height: 300 }, 'My Book', opts())
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0].download).toBe('my-book-export.zip')
+    // Both files actually got built into it: 2 PDF documents worth of content.
+    expect(addImage).toHaveBeenCalledTimes(2)
   })
 })
 
