@@ -12,7 +12,10 @@ export type SnapMode = 'none' | 'guides'
 /** Grid overlay rendering style (UX-005). */
 export type GridStyle = 'lines' | 'dots'
 
-/** An axis-aligned rectangle in canvas/scene coordinates (UX-009 crop). */
+/** A rectangle in the crop's own local (unrotated) axes (UX-009 crop; made
+ *  relative to the image's own centre rather than absolute scene coordinates
+ *  in UX-021, so the same box shape works whether or not the image is
+ *  rotated — see cropAngle on CanvasState and cropGeometry.ts). */
 export interface CropBox {
   left: number
   top: number
@@ -196,10 +199,25 @@ export interface ObjectsSlice {
   bgRemoving: boolean
   /** The image currently in crop mode, or null (UX-009). */
   cropImage: fabric.FabricImage | null
-  /** Full (uncropped) image rect in scene coords — the crop-selection bounds. */
+  /** Full (uncropped) image rect, in the image's own unrotated local axes,
+   *  relative to cropCenter (fixed for the whole crop session — see below,
+   *  *not* the image's current position, which enterCrop itself moves). */
   cropFull: CropBox | null
-  /** Initial crop selection (the current crop) in scene coords, for the overlay. */
+  /** Initial crop selection (the current crop), same local/cropCenter-
+   *  relative frame as cropFull, for the overlay. */
   cropInitial: CropBox | null
+  /** The image's effective rotation (own angle + any parent group's, via
+   *  qrDecompose) at the moment crop mode was entered — fixed for the whole
+   *  crop session (UX-021). 0 for an axis-aligned image; CropOverlay rotates
+   *  its frame/handles/scrim by this to match the image's own orientation. */
+  cropAngle: number
+  /** The image's scene centre at the moment crop mode was entered — the
+   *  fixed origin cropFull/cropInitial/the overlay's selection box are all
+   *  relative to (UX-021). Captured once because enterCrop itself repositions
+   *  the image (to show its full uncropped bounds), so re-reading the image's
+   *  live position partway through a crop session would give the wrong
+   *  origin — this is the one value that has to be a frozen snapshot. */
+  cropCenter: { x: number; y: number }
 
   setCanvas: (c: fabric.Canvas | null) => void
   setSelection: (objs: fabric.FabricObject[]) => void

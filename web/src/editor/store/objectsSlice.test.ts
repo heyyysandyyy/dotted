@@ -116,3 +116,133 @@ describe('removeImageBackground preserves an existing crop window', () => {
     expect(img.height).toBe(50)
   })
 })
+
+describe('enterCrop / applyCrop on a rotated image (UX-021)', () => {
+  let canvas: fabric.Canvas
+  // enterCrop reads the *natural* (full, uncropped) size off the element via
+  // `el.naturalWidth || image.width` — a real <img> reports that regardless
+  // of the fabric object's current crop, but a plain <canvas> element (jsdom
+  // can't decode real image bytes, so this is what stands in for one) has no
+  // naturalWidth at all, so the fallback would silently pick up the already-
+  // cropped `image.width` instead. Stamping naturalWidth/Height on it here
+  // makes the fixture behave like the real element type enterCrop expects.
+  const canvasEl = (w: number, h: number) => {
+    const c = document.createElement('canvas') as HTMLCanvasElement & { naturalWidth: number; naturalHeight: number }
+    c.width = w
+    c.height = h
+    c.naturalWidth = w
+    c.naturalHeight = h
+    return c
+  }
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    useCanvasStore.setState({ canvas })
+  })
+
+  // 100x100 natural image, currently showing a 60x100 crop (cropX 10, cropY
+  // 5) at scale 1, rotated 90 degrees, centred at scene (200, 200). Origin
+  // 'center' so left/top *are* the scene centre regardless of angle, keeping
+  // the fixture's own numbers easy to reason about by hand.
+  function rotatedCroppedImage() {
+    const img = new fabric.FabricImage(canvasEl(100, 100), {
+      originX: 'center',
+      originY: 'center',
+      left: 200,
+      top: 200,
+      angle: 90,
+      cropX: 10,
+      cropY: 5,
+      width: 60,
+      height: 100,
+    })
+    canvas.add(img)
+    canvas.setActiveObject(img)
+    return img
+  }
+
+  it('enterCrop captures angle + a fixed centre, and expands along the rotated axis (not the screen axis)', () => {
+    const img = rotatedCroppedImage()
+
+    useCanvasStore.getState().enterCrop()
+
+    const s = useCanvasStore.getState()
+    expect(s.cropAngle).toBeCloseTo(90, 5)
+    expect(s.cropCenter.x).toBeCloseTo(200, 5)
+    expect(s.cropCenter.y).toBeCloseTo(200, 5)
+    // dispLeft/Top = -30/-50 (half of 60x100); fullLeft/Top subtract off
+    // cropX/cropY (10, 5) on top of that.
+    expect(s.cropFull).toEqual({ left: -40, top: -55, width: 100, height: 100 })
+    expect(s.cropInitial).toEqual({ left: -30, top: -50, width: 60, height: 100 })
+
+    expect(img.cropX).toBe(0)
+    expect(img.cropY).toBe(0)
+    expect(img.width).toBe(100)
+    expect(img.height).toBe(100)
+    // Full bounds' local-frame centre is (10, -5) relative to cropCenter.
+    // Rotated 90 degrees ((x,y) -> (-y,x) direction, matching fabric's own
+    // convention — see cropGeometry.test.ts), that lands at (205, 210), not
+    // the naive unrotated (210, 195) an angle-blind implementation would give.
+    const d = fabric.util.qrDecompose(img.calcTransformMatrix())
+    expect(d.translateX).toBeCloseTo(205, 5)
+    expect(d.translateY).toBeCloseTo(210, 5)
+  })
+
+  it('applyCrop commits a new selection along the rotated axis and preserves the angle', () => {
+    const img = rotatedCroppedImage()
+    useCanvasStore.getState().enterCrop()
+
+    useCanvasStore.getState().applyCrop({ left: -20, top: -30, width: 50, height: 60 })
+
+    expect(img.cropX).toBeCloseTo(20, 5) // (-20) - (-40)
+    expect(img.cropY).toBeCloseTo(25, 5) // (-30) - (-55)
+    expect(img.width).toBeCloseTo(50, 5)
+    expect(img.height).toBeCloseTo(60, 5)
+    const d = fabric.util.qrDecompose(img.calcTransformMatrix())
+    expect(d.angle).toBeCloseTo(90, 5)
+    // New selection's local-frame centre is (5, 0) relative to cropCenter —
+    // rotated 90 degrees that's (0, 5) added onto (200, 200).
+    expect(d.translateX).toBeCloseTo(200, 5)
+    expect(d.translateY).toBeCloseTo(205, 5)
+
+    const s = useCanvasStore.getState()
+    expect(s.cropImage).toBeNull()
+    expect(s.cropAngle).toBe(0)
+  })
+
+  it('cancelCrop restores the exact pre-crop state regardless of rotation', () => {
+    const img = rotatedCroppedImage()
+    const centreBefore = img.getCenterPoint()
+    useCanvasStore.getState().enterCrop()
+
+    useCanvasStore.getState().cancelCrop()
+
+    expect(img.cropX).toBe(10)
+    expect(img.cropY).toBe(5)
+    expect(img.width).toBe(60)
+    expect(img.height).toBe(100)
+    const centreAfter = img.getCenterPoint()
+    expect(centreAfter.x).toBeCloseTo(centreBefore.x, 5)
+    expect(centreAfter.y).toBeCloseTo(centreBefore.y, 5)
+  })
+
+  it("picks up a parent group's rotation, not just the image's own angle", () => {
+    // Image itself is axis-aligned (angle 0); all the effective rotation
+    // comes from the group it's nested in. calcTransformMatrix() composes
+    // through ancestors, so enterCrop should report the group's angle.
+    const img = new fabric.FabricImage(canvasEl(100, 100), {
+      angle: 0,
+      cropX: 0,
+      cropY: 0,
+      width: 100,
+      height: 100,
+    })
+    const group = new fabric.Group([img], { left: 300, top: 300, angle: 60 })
+    canvas.add(group)
+    canvas.setActiveObject(img)
+
+    useCanvasStore.getState().enterCrop()
+
+    expect(useCanvasStore.getState().cropAngle).toBeCloseTo(60, 5)
+  })
+})
