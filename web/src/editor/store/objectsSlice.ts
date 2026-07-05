@@ -4,6 +4,7 @@ import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
 import { syncEffectClones } from '../effectsEngine'
+import { localToScene } from '../cropGeometry'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -27,6 +28,8 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
   cropImage: null,
   cropFull: null,
   cropInitial: null,
+  cropAngle: 0,
+  cropCenter: { x: 0, y: 0 },
 
   setCanvas: (canvas) => set({ canvas }),
   setSelection: (selection) => set({ selection }),
@@ -480,15 +483,23 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     const el = image.getElement() as HTMLImageElement
     const nW = el.naturalWidth || image.width || 1
     const nH = el.naturalHeight || image.height || 1
-    // Effective scene scale + centre (includes any parent group's transform), so
-    // the same math works for top-level and grouped images (UX-009 / UX-016).
+    // Effective scene scale/centre/angle (includes any parent group's
+    // transform), so the same math works for top-level and grouped, rotated
+    // images alike (UX-009 / UX-016 / UX-021).
     const d = fabric.util.qrDecompose(image.calcTransformMatrix())
     const esx = Math.abs(d.scaleX) || 1
     const esy = Math.abs(d.scaleY) || 1
+    // cropFull/cropInitial live in the image's own local (unrotated) axes,
+    // relative to its own centre — see localToScene below for converting a
+    // local-frame point back to an absolute scene position for positioning
+    // the actual fabric object. Centre-relative (rather than the pre-UX-021
+    // absolute-scene convention) because rotation happens around the centre,
+    // so this is the one frame where the crop math and CropOverlay's
+    // handle/aspect logic don't need to know about rotation at all.
     const dispW = (image.width ?? 0) * esx
     const dispH = (image.height ?? 0) * esy
-    const dispLeft = d.translateX - dispW / 2
-    const dispTop = d.translateY - dispH / 2
+    const dispLeft = -dispW / 2
+    const dispTop = -dispH / 2
     const fullLeft = dispLeft - (image.cropX ?? 0) * esx
     const fullTop = dispTop - (image.cropY ?? 0) * esy
     const fullW = nW * esx
@@ -502,19 +513,26 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       center: image.getCenterPoint(),
     }
     image.set({ cropX: 0, cropY: 0, width: nW, height: nH })
-    setImageSceneCenter(image, fullLeft + fullW / 2, fullTop + fullH / 2)
+    const fullCentre = localToScene(fullLeft + fullW / 2, fullTop + fullH / 2, d)
+    setImageSceneCenter(image, fullCentre.x, fullCentre.y)
     canvas.setActiveObject(image)
     canvas.requestRenderAll()
     set({
       cropImage: image,
       cropFull: { left: fullLeft, top: fullTop, width: fullW, height: fullH },
       cropInitial: { left: dispLeft, top: dispTop, width: dispW, height: dispH },
+      cropAngle: d.angle,
+      cropCenter: { x: d.translateX, y: d.translateY },
     })
   },
 
   applyCrop: (rect) => {
-    const { canvas, cropImage, cropFull } = get()
+    const { canvas, cropImage, cropFull, cropAngle, cropCenter } = get()
     if (!canvas || !cropImage || !cropFull) return
+    // Scale only — translate/angle must come from the frozen cropCenter/
+    // cropAngle, not a fresh decompose: enterCrop already repositioned the
+    // image to its full-bounds centre, so the image's *current* position is
+    // no longer the origin rect/cropFull's coordinates are relative to.
     const d = fabric.util.qrDecompose(cropImage.calcTransformMatrix())
     const esx = Math.abs(d.scaleX) || 1
     const esy = Math.abs(d.scaleY) || 1
@@ -524,11 +542,16 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       width: rect.width / esx,
       height: rect.height / esy,
     })
-    setImageSceneCenter(cropImage, rect.left + rect.width / 2, rect.top + rect.height / 2)
+    const centre = localToScene(rect.left + rect.width / 2, rect.top + rect.height / 2, {
+      translateX: cropCenter.x,
+      translateY: cropCenter.y,
+      angle: cropAngle,
+    })
+    setImageSceneCenter(cropImage, centre.x, centre.y)
     delete (cropImage as unknown as { __cropOrig?: object }).__cropOrig
     canvas.requestRenderAll()
     fireModified(canvas, cropImage, 'Cropped image')
-    set({ cropImage: null, cropFull: null, cropInitial: null })
+    set({ cropImage: null, cropFull: null, cropInitial: null, cropAngle: 0, cropCenter: { x: 0, y: 0 } })
   },
 
   cancelCrop: () => {
@@ -545,6 +568,6 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       delete holder.__cropOrig
     }
     canvas.requestRenderAll()
-    set({ cropImage: null, cropFull: null, cropInitial: null })
+    set({ cropImage: null, cropFull: null, cropInitial: null, cropAngle: 0, cropCenter: { x: 0, y: 0 } })
   },
 })

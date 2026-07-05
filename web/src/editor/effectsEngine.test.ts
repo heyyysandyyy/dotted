@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as fabric from 'fabric'
 import { isEffectClone, syncEffectClones, removeEffectClones, repositionEffectClones } from './effectsEngine'
+import { EXTRA_PROPS } from './storage'
 import type { ShadowEffect } from './utils'
 
 const dropEffect = (overrides: Partial<ShadowEffect> = {}): ShadowEffect => ({
@@ -131,5 +132,47 @@ describe('effectsEngine — multiple simultaneous effects (UX-020 phase 2)', () 
     expect(clone.left).toBe(200)
     expect(clone.top).toBe(150)
     expect(clone.angle).toBe(30)
+  })
+})
+
+describe('effects survive a save/reload round trip (EXTRA_PROPS)', () => {
+  // Bug: undo/redo and project save/load both serialize via
+  // canvas.toObject(EXTRA_PROPS) then canvas.loadFromJSON(...) — anything
+  // not listed in EXTRA_PROPS silently vanishes on reload. Before `effects`/
+  // `effectHostId`/`effectSlot` were added there, a host's second active
+  // effect lost its data, and its clone reloaded as a plain, untagged
+  // object — isEffectClone() stopped recognizing it, so it never moved
+  // again when the (former) host was transformed. Reproduced by hand via a
+  // real undo in the browser before fixing EXTRA_PROPS in storage.ts.
+  it('a second effect and its clone both survive toObject/loadFromJSON', async () => {
+    const canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    const host = new fabric.Rect({ left: 50, top: 50, width: 100, height: 60, fill: '#f00' }) as fabric.Rect & {
+      id: string
+    }
+    host.id = 'host-1'
+    ;(host as unknown as { effects?: ShadowEffect[] }).effects = [dropEffect(), glowEffect()]
+    canvas.add(host)
+    await syncEffectClones(canvas, host, [dropEffect(), glowEffect()])
+    expect(canvas.getObjects().filter((o) => isEffectClone(o))).toHaveLength(1)
+
+    const json = canvas.toObject(EXTRA_PROPS)
+    const reloaded = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    await reloaded.loadFromJSON(json)
+
+    const reloadedHost = reloaded.getObjects().find((o) => !isEffectClone(o)) as
+      | (fabric.FabricObject & { effects?: ShadowEffect[] })
+      | undefined
+    expect(reloadedHost?.effects).toHaveLength(2)
+
+    const reloadedClones = reloaded.getObjects().filter((o) => isEffectClone(o))
+    expect(reloadedClones).toHaveLength(1)
+    expect((reloadedClones[0] as unknown as { effectHostId?: string }).effectHostId).toBe('host-1')
+
+    // The reload didn't just preserve the tag — the clone is still
+    // trackable: a host transform after reload still finds and moves it.
+    reloadedHost!.set({ left: 300, top: 250 })
+    repositionEffectClones(reloaded, reloadedHost as fabric.FabricObject & { id?: string })
+    expect(reloadedClones[0].left).toBe(300)
+    expect(reloadedClones[0].top).toBe(250)
   })
 })
