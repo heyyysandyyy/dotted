@@ -3,7 +3,7 @@ import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
-import { syncEffectClones } from '../effectsEngine'
+import { syncEffectClones, syncInnerShadow } from '../effectsEngine'
 import { localToScene } from '../cropGeometry'
 import {
   SHAPE_FILL,
@@ -380,14 +380,19 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     const obj = canvas.getActiveObject() as (fabric.FabricObject & { id?: string }) | null
     if (!obj) return
 
-    // Replace (or remove) just this kind's slot, keeping the other kind's
-    // effect untouched — both can be active at once (UX-020 phase 2).
+    // Replace (or remove) just this kind's slot, keeping the other kinds'
+    // effects untouched — up to all three can be active at once (UX-020).
     const current = readShadowEffects(obj)
     const withoutKind = current.filter((e) => e.kind !== kind)
     const next = effect ? [...withoutKind, effect] : withoutKind
-    // Keep drop before glow, deterministic regardless of toggle order, so
-    // which one lands on the host's own native shadow vs. a clone is stable.
-    next.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'drop' ? -1 : 1))
+    // Keep drop before glow before inner, deterministic regardless of toggle
+    // order: drop/glow compete for the host's own native shadow slot (the
+    // first of the two present gets it, see below); inner can never use it
+    // at all (canvas 2D shadows are physically incapable of casting inward —
+    // see effectsEngine.ts's syncInnerShadow), so it's sorted last purely
+    // for stable storage/display order, not slot assignment.
+    const rank: Record<ShadowEffect['kind'], number> = { drop: 0, glow: 1, inner: 2 }
+    next.sort((a, b) => rank[a.kind] - rank[b.kind])
 
     const tagged = obj as unknown as {
       effects?: ShadowEffect[]
@@ -399,13 +404,18 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     // falls back to them for an object saved before this array existed.
     tagged.shadowKind = undefined
     tagged.shadowSpread = undefined
-    // The first effect (if any) still gets the host's own native shadow —
-    // cheap, and correct on its own for the common single-effect case.
-    obj.set('shadow', next[0] ? new fabric.Shadow(shadowOptions(next[0])) : null)
+
+    const outer = next.filter((e) => e.kind !== 'inner')
+    const inner = next.find((e) => e.kind === 'inner') ?? null
+    // The first outer effect (if any) still gets the host's own native
+    // shadow — cheap, and correct on its own for the common case.
+    obj.set('shadow', outer[0] ? new fabric.Shadow(shadowOptions(outer[0])) : null)
     obj.setCoords()
-    // Every effect past the first (and any effect with spread) needs a
-    // synthetic clone — see effectsEngine.ts.
-    syncEffectClones(canvas, obj, next)
+    // Every outer effect past the first (and any with spread) needs a
+    // synthetic clone; inner shadow is raster-composited separately — see
+    // effectsEngine.ts.
+    syncEffectClones(canvas, obj, outer)
+    syncInnerShadow(canvas, obj, inner)
     canvas.requestRenderAll()
     fireModified(canvas, obj, effect ? 'Changed effects' : 'Removed effect')
   },

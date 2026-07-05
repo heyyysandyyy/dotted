@@ -1,6 +1,12 @@
 import type * as fabric from 'fabric'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { readShadowEffectByKind, DROP_SHADOW_DEFAULT, GLOW_DEFAULT, type ShadowEffect } from '../utils'
+import {
+  readShadowEffectByKind,
+  DROP_SHADOW_DEFAULT,
+  GLOW_DEFAULT,
+  INNER_SHADOW_DEFAULT,
+  type ShadowEffect,
+} from '../utils'
 import { ColorField } from './ColorField'
 
 function SliderRow({
@@ -47,11 +53,19 @@ function EffectToggle({ label, on, onClick }: { label: string; on: boolean; onCl
   )
 }
 
+const DEFAULTS: Record<ShadowEffect['kind'], ShadowEffect> = {
+  drop: DROP_SHADOW_DEFAULT,
+  glow: GLOW_DEFAULT,
+  inner: INNER_SHADOW_DEFAULT,
+}
+
 /**
- * UX-011: shadow + glow effects for the selected object. Both can be active
- * at once (UX-020 phase 2) — fabric only has one native shadow slot, but the
- * store/effectsEngine handle representing the second one as a synthetic
- * clone, so the panel itself just toggles each kind independently.
+ * UX-011/UX-020: shadow, glow, and inner-shadow effects for the selected
+ * object. All three can be active at once (UX-020 phase 2/3) — fabric only
+ * has one native shadow slot, and canvas 2D can't cast a shadow inward at
+ * all, but the store/effectsEngine handle representing drop/glow past the
+ * first as a synthetic clone and inner shadow as a raster-composited
+ * overlay, so the panel itself just toggles each kind independently.
  */
 export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
   // Re-read the effects after each change (setShadowEffect bumps tick via history).
@@ -59,10 +73,11 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
   const setShadowEffect = useCanvasStore((s) => s.setShadowEffect)
   const drop = readShadowEffectByKind(obj, 'drop')
   const glow = readShadowEffectByKind(obj, 'glow')
+  const inner = readShadowEffectByKind(obj, 'inner')
 
-  const toggle = (kind: 'drop' | 'glow', current: ShadowEffect | null) =>
-    setShadowEffect(kind, current ? null : kind === 'drop' ? DROP_SHADOW_DEFAULT : GLOW_DEFAULT)
-  const update = (kind: 'drop' | 'glow', current: ShadowEffect | null, patch: Partial<ShadowEffect>) => {
+  const toggle = (kind: ShadowEffect['kind'], current: ShadowEffect | null) =>
+    setShadowEffect(kind, current ? null : DEFAULTS[kind])
+  const update = (kind: ShadowEffect['kind'], current: ShadowEffect | null, patch: Partial<ShadowEffect>) => {
     if (current) setShadowEffect(kind, { ...current, ...patch })
   }
 
@@ -114,8 +129,24 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
         </div>
       )}
 
+      <EffectToggle label="Inner shadow" on={!!inner} onClick={() => toggle('inner', inner)} />
+      {inner && (
+        <div className="space-y-2 pl-1 pt-1">
+          <SliderRow label="X" value={inner.x} min={-50} max={50} onChange={(v) => update('inner', inner, { x: v })} />
+          <SliderRow label="Y" value={inner.y} min={-50} max={50} onChange={(v) => update('inner', inner, { y: v })} />
+          <SliderRow
+            label="Blur"
+            value={inner.blur}
+            min={0}
+            max={50}
+            onChange={(v) => update('inner', inner, { blur: v })}
+          />
+          <ColorField label="Colour" value={inner.color} onChange={(c) => update('inner', inner, { color: c })} />
+        </div>
+      )}
+
       <p className="text-[11px] leading-snug text-neutral-600">
-        Drop shadow and outer glow can both be on at once; each colour's opacity sets its own strength.
+        Any combination can be on at once; each colour's opacity sets its own strength.
       </p>
     </div>
   )

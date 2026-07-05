@@ -12,7 +12,13 @@ import {
 } from '../storage'
 import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText, readShadowEffects } from '../utils'
-import { isEffectClone, removeEffectClones, repositionEffectClones, syncEffectClones } from '../effectsEngine'
+import {
+  isEffectClone,
+  removeAllEffectVisuals,
+  repositionEffectClones,
+  syncEffectClones,
+  syncInnerShadow,
+} from '../effectsEngine'
 import { CanvasRulers } from './CanvasRulers'
 import { CanvasGuides } from './CanvasGuides'
 import { GridOverlay } from './GridOverlay'
@@ -120,13 +126,16 @@ export function CanvasStage() {
     // rotated via the panel instead of the on-canvas handle).
     canvas.on('object:modified', (e) => {
       const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
-      if (o && !isEffectClone(o)) syncEffectClones(canvas, o, readShadowEffects(o))
+      if (!o || isEffectClone(o)) return
+      const effects = readShadowEffects(o)
+      syncEffectClones(canvas, o, effects.filter((eff) => eff.kind !== 'inner'))
+      syncInnerShadow(canvas, o, effects.find((eff) => eff.kind === 'inner') ?? null)
     })
-    // A removed host's effect clone(s) would otherwise be orphaned (delete,
+    // A removed host's effect visual(s) would otherwise be orphaned (delete,
     // group, and ungroup all remove the object from the canvas first).
     canvas.on('object:removed', (e) => {
       const o = e.target as (fabric.FabricObject & { id?: string }) | undefined
-      if (o?.id && !isEffectClone(o)) removeEffectClones(canvas, o.id)
+      if (o?.id && !isEffectClone(o)) removeAllEffectVisuals(canvas, o.id)
     })
 
     // Push a debounced history snapshot on any structural/transform change,
