@@ -64,24 +64,35 @@ export function useEditorShortcuts() {
       }
 
       // Zoom (UX-013): Cmd/Ctrl +/- to step, 0 to reset to 100%, Shift+H to fit.
+      // In stack view (BUG-003) these target stackZoom instead of the
+      // single-page canvas's own zoom — kept separate so zooming in on
+      // thumbnails doesn't also blow up the canvas to that scale the moment
+      // a page is opened. Fit-to-view has no stack-view equivalent (no
+      // single artboard to fit), so it's a no-op there.
+      const inStack = useCanvasStore.getState().viewMode === 'stack'
       if (mod && e.shiftKey && !editing && (e.key === 'h' || e.key === 'H')) {
         e.preventDefault()
-        useCanvasStore.getState().fitToView()
+        if (!inStack) useCanvasStore.getState().fitToView()
         return
       }
       if (mod && !editing && (e.key === '=' || e.key === '+')) {
         e.preventDefault()
-        useCanvasStore.getState().setZoom(useCanvasStore.getState().zoom + ZOOM_STEP)
+        const { zoom, stackZoom, setZoom, setStackZoom } = useCanvasStore.getState()
+        if (inStack) setStackZoom(stackZoom + ZOOM_STEP)
+        else setZoom(zoom + ZOOM_STEP)
         return
       }
       if (mod && !editing && e.key === '-') {
         e.preventDefault()
-        useCanvasStore.getState().setZoom(useCanvasStore.getState().zoom - ZOOM_STEP)
+        const { zoom, stackZoom, setZoom, setStackZoom } = useCanvasStore.getState()
+        if (inStack) setStackZoom(stackZoom - ZOOM_STEP)
+        else setZoom(zoom - ZOOM_STEP)
         return
       }
       if (mod && !editing && e.key === '0') {
         e.preventDefault()
-        useCanvasStore.getState().setZoom(1)
+        if (inStack) useCanvasStore.getState().setStackZoom(1)
+        else useCanvasStore.getState().setZoom(1)
         return
       }
 
