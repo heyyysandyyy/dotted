@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
+import { isEffectClone } from '../effectsEngine'
+import { DROP_SHADOW_DEFAULT } from '../utils'
 
 function matrixOf(obj: fabric.FabricObject): number[] {
   return obj.calcTransformMatrix()
@@ -313,5 +315,126 @@ describe('selectAllObjects (UX-024)', () => {
 
     expect(canvas.getActiveObject()).toBeUndefined()
     expect(useCanvasStore.getState().selection).toEqual([])
+  })
+})
+
+describe('duplicateActive / copyObjects / pasteObjects (UX-022)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    useCanvasStore.setState({ canvas, objectClipboard: null, pasteCount: 0 })
+  })
+
+  it('duplicateActive adds an offset copy with a fresh id, and selects it', async () => {
+    const rect = new fabric.Rect({ left: 50, top: 50, width: 100, height: 60, fill: '#f00' }) as fabric.Rect & {
+      id?: string
+    }
+    rect.id = 'original-1'
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+
+    await useCanvasStore.getState().duplicateActive()
+
+    expect(canvas.getObjects()).toHaveLength(2)
+    const clone = canvas.getObjects()[1] as fabric.Rect & { id?: string }
+    expect(clone.id).toBeDefined()
+    expect(clone.id).not.toBe('original-1')
+    expect(clone.left).toBe(62) // 50 + DUPLICATE_OFFSET (12)
+    expect(clone.top).toBe(62)
+    expect(canvas.getActiveObject()).toBe(clone)
+    // The original is untouched.
+    expect(rect.left).toBe(50)
+  })
+
+  it('duplicateActive on a multi-selection duplicates every object and reselects the copies', async () => {
+    const a = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const b = new fabric.Rect({ left: 20, top: 0, width: 10, height: 10 })
+    canvas.add(a, b)
+    canvas.setActiveObject(new fabric.ActiveSelection([a, b], { canvas }))
+
+    await useCanvasStore.getState().duplicateActive()
+
+    expect(canvas.getObjects()).toHaveLength(4)
+    const active = canvas.getActiveObject()
+    expect(active?.type).toBe('activeselection')
+    expect((active as fabric.ActiveSelection).getObjects()).toHaveLength(2)
+  })
+
+  it('duplicateActive carries over a drop-shadow effect (the native shadow slot survives a plain clone)', async () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 }) as fabric.Rect & {
+      id?: string
+      effects?: unknown
+    }
+    rect.id = 'host-1'
+    rect.effects = [DROP_SHADOW_DEFAULT]
+    rect.set('shadow', new fabric.Shadow({ color: DROP_SHADOW_DEFAULT.color, blur: DROP_SHADOW_DEFAULT.blur }))
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+
+    await useCanvasStore.getState().duplicateActive()
+
+    const clone = canvas.getObjects()[1] as fabric.Rect
+    expect((clone.shadow as fabric.Shadow)?.color).toBe(DROP_SHADOW_DEFAULT.color)
+    expect((clone.shadow as fabric.Shadow)?.blur).toBe(DROP_SHADOW_DEFAULT.blur)
+  })
+
+  it('duplicateActive rebuilds a second effect as a fresh clone tagged to the new object, not the original', async () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 }) as fabric.Rect & {
+      id?: string
+      effects?: unknown
+    }
+    rect.id = 'host-1'
+    rect.effects = [DROP_SHADOW_DEFAULT, { ...DROP_SHADOW_DEFAULT, kind: 'glow', color: 'rgba(255,255,255,0.6)' }]
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+
+    await useCanvasStore.getState().duplicateActive()
+
+    const objs = canvas.getObjects()
+    const clone = objs.find((o) => (o as { id?: string }).id !== 'host-1' && !isEffectClone(o)) as fabric.Rect & {
+      id?: string
+    }
+    const effectClones = objs.filter(isEffectClone)
+    expect(effectClones).toHaveLength(1) // only the duplicate's own — the original never had one to begin with
+    expect((effectClones[0] as unknown as { effectHostId?: string }).effectHostId).toBe(clone.id)
+  })
+
+  it('copyObjects + pasteObjects adds an offset copy; empty clipboard paste is a no-op', async () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+
+    // Nothing copied yet — paste is a no-op.
+    await useCanvasStore.getState().pasteObjects()
+    expect(canvas.getObjects()).toHaveLength(1)
+
+    await useCanvasStore.getState().copyObjects()
+    await useCanvasStore.getState().pasteObjects()
+
+    expect(canvas.getObjects()).toHaveLength(2)
+    const pasted = canvas.getObjects()[1] as fabric.Rect
+    expect(pasted.left).toBe(16) // 0 + PASTE_OFFSET (16) * 1st paste
+    expect(canvas.getActiveObject()).toBe(pasted)
+  })
+
+  it('repeated pasteObjects cascades the offset further each time, from the original copied position', async () => {
+    const rect = new fabric.Rect({ left: 100, top: 100, width: 10, height: 10 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    await useCanvasStore.getState().copyObjects()
+
+    await useCanvasStore.getState().pasteObjects()
+    await useCanvasStore.getState().pasteObjects()
+
+    const objs = canvas.getObjects()
+    expect(objs).toHaveLength(3)
+    expect((objs[1] as fabric.Rect).left).toBe(116) // 100 + 16*1
+    expect((objs[2] as fabric.Rect).left).toBe(132) // 100 + 16*2 — from the original, not stacked off the 1st paste
+  })
+
+  it('copyObjects with no selection is a no-op (clipboard stays empty)', async () => {
+    await useCanvasStore.getState().copyObjects()
+    expect(useCanvasStore.getState().objectClipboard).toBeNull()
   })
 })
