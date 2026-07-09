@@ -16,6 +16,7 @@ import { useCanvasStore } from '../store/useCanvasStore'
 import { GridControls } from './GridControls'
 import { useHistoryStore } from '../store/useHistoryStore'
 import { useThemeStore } from '../store/useThemeStore'
+import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher'
 
 interface Props {
   onNewDesign: () => void
@@ -56,6 +57,8 @@ export function TopBar({ onNewDesign, onTemplates, onProjects, onExport }: Props
   return (
     <header className="flex h-12 items-center gap-3 border-b border-editor bg-editor-bg px-3 text-editor-text">
       <span className="font-semibold tracking-tight">dotted</span>
+
+      <WorkspaceSwitcher />
 
       <button
         onClick={onNewDesign}
