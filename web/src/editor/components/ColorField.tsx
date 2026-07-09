@@ -122,7 +122,7 @@ export function ColorPickerBody({
           type="button"
           onClick={() => pickColor().then((c) => c && fromColor(c))}
           title="Pick a colour from the canvas (I)"
-          className="flex h-6 w-6 items-center justify-center rounded border border-neutral-700 text-neutral-300 hover:text-white"
+          className="flex h-6 w-6 items-center justify-center rounded border border-editor-strong text-editor-text-secondary hover:text-editor-text-strong"
         >
           <Pipette size={13} />
         </button>
@@ -149,12 +149,12 @@ export function ColorPickerBody({
       </div>
 
       {/* HEX / RGB / A inputs. */}
-      <div className="mt-3 grid grid-cols-5 gap-1 text-[10px] text-neutral-400">
+      <div className="mt-3 grid grid-cols-5 gap-1 text-[10px] text-editor-text-muted">
         <label className="col-span-2 flex flex-col">
           <input
             value={hex.replace('#', '').toUpperCase()}
             onChange={(e) => fromColor('#' + e.target.value)}
-            className="rounded border border-neutral-700 bg-neutral-800 px-1 py-1 text-center font-mono text-[11px] text-neutral-100"
+            className="rounded border border-editor-strong bg-editor-surface px-1 py-1 text-center font-mono text-[11px] text-editor-text-strong"
           />
           <span className="mt-0.5 text-center">HEX</span>
         </label>
@@ -169,13 +169,13 @@ export function ColorPickerBody({
                 const n = Math.min(255, Math.max(0, Number(e.target.value) || 0))
                 fromColor(tinycolor({ ...rgb, [ch]: n }).toHexString())
               }}
-              className="w-full rounded border border-neutral-700 bg-neutral-800 px-1 py-1 text-center text-[11px] text-neutral-100"
+              className="w-full rounded border border-editor-strong bg-editor-surface px-1 py-1 text-center text-[11px] text-editor-text-strong"
             />
             <span className="mt-0.5 text-center uppercase">{ch}</span>
           </label>
         ))}
       </div>
-      <label className="mt-1 flex items-center justify-between text-[10px] text-neutral-400">
+      <label className="mt-1 flex items-center justify-between text-[10px] text-editor-text-muted">
         <span>A%</span>
         <input
           type="number"
@@ -183,14 +183,14 @@ export function ColorPickerBody({
           max={100}
           value={alphaPct}
           onChange={(e) => emit({ ...hsv, a: Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100 })}
-          className="w-14 rounded border border-neutral-700 bg-neutral-800 px-1 py-1 text-center text-[11px] text-neutral-100"
+          className="w-14 rounded border border-editor-strong bg-editor-surface px-1 py-1 text-center text-[11px] text-editor-text-strong"
         />
       </label>
 
       {/* Recent colours. */}
       {recent.length > 0 && (
         <div className="mt-3">
-          <div className="mb-1 text-[10px] text-neutral-500">Recent</div>
+          <div className="mb-1 text-[10px] text-editor-text-subtle">Recent</div>
           <div className="grid grid-cols-8 gap-1">
             {recent.map((c) => (
               <button
@@ -198,7 +198,7 @@ export function ColorPickerBody({
                 type="button"
                 onClick={() => fromColor(c)}
                 title={c}
-                className="h-4 w-4 overflow-hidden rounded border border-neutral-700"
+                className="h-4 w-4 overflow-hidden rounded border border-editor-strong"
                 style={CHECKER}
               >
                 <span className="block h-full w-full" style={{ backgroundColor: c }} />
@@ -214,7 +214,7 @@ export function ColorPickerBody({
           addRecentColor(toColorString(hex, alphaPct))
           onClose()
         }}
-        className="mt-3 w-full rounded bg-neutral-800 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+        className="mt-3 w-full rounded bg-editor-surface py-1 text-xs text-editor-text hover:bg-editor-surface-2"
       >
         Done
       </button>
@@ -232,13 +232,13 @@ export function ColorField({ label, value, onChange }: Props) {
   const color = tinycolor(value || '#000000')
 
   return (
-    <div className="relative flex items-center justify-between text-xs text-neutral-400">
+    <div className="relative flex items-center justify-between text-xs text-editor-text-muted">
       <span>{label}</span>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         title={color.toRgbString()}
-        className="h-6 w-10 overflow-hidden rounded border border-neutral-700"
+        className="h-6 w-10 overflow-hidden rounded border border-editor-strong"
         style={CHECKER}
       >
         <span className="block h-full w-full" style={{ backgroundColor: color.toRgbString() }} />
@@ -248,7 +248,7 @@ export function ColorField({ label, value, onChange }: Props) {
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 top-7 z-20 w-56 rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl"
+            className="absolute right-0 top-7 z-20 w-56 rounded-lg border border-editor-strong bg-editor-bg p-3 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <ColorPickerBody value={value} onChange={onChange} onClose={() => setOpen(false)} />

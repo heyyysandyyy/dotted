@@ -35,7 +35,7 @@ export function Editor() {
   }, [])
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-editor-shell">
       <TopBar
         onNewDesign={() => setNewOpen(true)}
         onTemplates={() => setTemplatesOpen(true)}
@@ -60,11 +60,11 @@ export function Editor() {
           <PageBar />
         </div>
 
-        <aside className="flex w-64 shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
-          <div className="shrink-0 border-b border-neutral-800">
+        <aside className="flex w-64 shrink-0 flex-col border-l border-editor bg-editor-bg">
+          <div className="shrink-0 border-b border-editor">
             <PropertiesPanel />
           </div>
-          <div className="min-h-0 flex-1 border-b border-neutral-800">
+          <div className="min-h-0 flex-1 border-b border-editor">
             <LayersPanel />
           </div>
           <div className="min-h-0 flex-1">

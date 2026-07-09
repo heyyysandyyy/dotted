@@ -30,13 +30,13 @@ export function AlignmentToolbar() {
     { mode: 'bottom', label: 'Align bottom', Icon: AlignEndHorizontal },
   ]
 
-  const btn = 'rounded p-1.5 text-neutral-300 hover:bg-neutral-800'
+  const btn = 'rounded p-1.5 text-editor-text-secondary hover:bg-editor-surface'
 
   return (
     <CollapsibleSection
       title={selection.length > 1 ? 'Align to selection' : 'Align to canvas'}
       storageKey="align"
-      className="p-4"
+      className="space-y-2 p-4"
     >
       <div className="flex flex-wrap gap-1">
         {aligns.map(({ mode, label, Icon }) => (

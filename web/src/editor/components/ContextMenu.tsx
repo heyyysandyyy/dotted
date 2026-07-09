@@ -48,7 +48,7 @@ export function ContextMenu() {
         onClick()
         setMenu(null)
       }}
-      className="block w-full px-3 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-700 disabled:cursor-not-allowed disabled:text-neutral-600 disabled:hover:bg-transparent"
+      className="block w-full px-3 py-1.5 text-left text-sm text-editor-text hover:bg-editor-surface-2 disabled:cursor-not-allowed disabled:text-editor-text-subtle disabled:hover:bg-transparent"
     >
       {label}
     </button>
@@ -56,17 +56,17 @@ export function ContextMenu() {
 
   return (
     <div
-      className="fixed z-50 min-w-[160px] rounded-md border border-neutral-700 bg-neutral-800 py-1 shadow-xl"
+      className="fixed z-50 min-w-[160px] rounded-md border border-editor-strong bg-editor-surface py-1 shadow-xl"
       style={{ left: menu.x, top: menu.y }}
       onClick={(e) => e.stopPropagation()}
     >
       {item('Duplicate', hasSelection, duplicateActive)}
-      <hr className="my-1 border-neutral-700" />
+      <hr className="my-1 border-editor-strong" />
       {item('Bring to front', hasSelection, bringToFront)}
       {item('Bring forward', hasSelection, bringForward)}
       {item('Send backward', hasSelection, sendBackward)}
       {item('Send to back', hasSelection, sendToBack)}
-      <hr className="my-1 border-neutral-700" />
+      <hr className="my-1 border-editor-strong" />
       {item('Copy style', hasSelection, copyStyle)}
       {item('Paste style', canPaste, pasteStyle)}
     </div>

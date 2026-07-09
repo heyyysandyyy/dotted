@@ -19,7 +19,7 @@ function NumberField({
   onCommit: (v: number) => void
 }) {
   return (
-    <label className="flex items-center justify-between gap-2 text-xs text-neutral-400">
+    <label className="flex items-center justify-between gap-2 text-xs text-editor-text-muted">
       <span className="w-8">{label}</span>
       <input
         type="number"
@@ -28,7 +28,7 @@ function NumberField({
           const v = Number(e.target.value)
           if (!Number.isNaN(v)) onCommit(v)
         }}
-        className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-neutral-100 outline-none focus:border-neutral-500"
+        className="w-full rounded border border-editor-strong bg-editor-surface px-2 py-1 text-right text-editor-text-strong outline-none focus:border-editor-input"
       />
     </label>
   )
@@ -52,7 +52,7 @@ function CanvasBackground() {
       />
       <button
         onClick={() => fileInputRef.current?.click()}
-        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
       >
         <ImagePlus size={14} />
         Background image
@@ -70,12 +70,12 @@ function CanvasBackground() {
       />
       <button
         onClick={clearBackground}
-        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-muted hover:border-editor-input"
       >
         <Ban size={14} />
         Clear / transparent
       </button>
-      <p className="text-[11px] leading-snug text-neutral-600">
+      <p className="text-[11px] leading-snug text-editor-text-subtle">
         Clear the background for a transparent PNG. JPEG and PDF fill
         transparency with white.
       </p>
@@ -102,7 +102,7 @@ export function PropertiesPanel() {
       <div>
         <AlignmentToolbar />
         <StyleTools />
-        <div className="px-4 pb-4 pt-2 text-xs text-neutral-500">
+        <div className="px-4 pb-4 pt-2 text-xs text-editor-text-subtle">
           {selection.length} objects selected
         </div>
       </div>
@@ -120,7 +120,7 @@ export function PropertiesPanel() {
       <CollapsibleSection
         title="Position & size"
         storageKey="position-size"
-        className="space-y-3 border-t border-neutral-800 p-4"
+        className="space-y-3 border-t border-editor p-4"
       >
         <div className="grid grid-cols-2 gap-2">
           <NumberField label="X" value={obj.left ?? 0} onCommit={(v) => updateActive({ left: v })} />
@@ -142,9 +142,9 @@ export function PropertiesPanel() {
       <CollapsibleSection
         title="Appearance"
         storageKey="appearance"
-        className="space-y-2 border-t border-neutral-800 p-4"
+        className="space-y-2 border-t border-editor p-4"
       >
-        <label className="block text-xs text-neutral-400">
+        <label className="block text-xs text-editor-text-muted">
           <div className="mb-1 flex justify-between">
             <span>Opacity</span>
             <span>{Math.round((obj.opacity ?? 1) * 100)}%</span>
@@ -162,7 +162,7 @@ export function PropertiesPanel() {
       </CollapsibleSection>
 
       {isShape(obj) && (
-        <CollapsibleSection title="Style" storageKey="fill-stroke" className="space-y-2 border-t border-neutral-800 p-4">
+        <CollapsibleSection title="Style" storageKey="fill-stroke" className="space-y-2 border-t border-editor p-4">
           <FillStrokeControl obj={obj} allowFill={obj.type !== 'line'} />
           <NumberField
             label="SW"
@@ -173,8 +173,8 @@ export function PropertiesPanel() {
       )}
 
       {isText(obj) && (
-        <CollapsibleSection title="Text" storageKey="text" className="space-y-2 border-t border-neutral-800 p-4">
-          <label className="block text-xs text-neutral-400">
+        <CollapsibleSection title="Text" storageKey="text" className="space-y-2 border-t border-editor p-4">
+          <label className="block text-xs text-editor-text-muted">
             <div className="mb-1 flex justify-between">
               <span>Line height</span>
               <span>{(obj.lineHeight ?? 1.16).toFixed(2)}</span>
@@ -193,11 +193,11 @@ export function PropertiesPanel() {
       )}
 
       {obj.type === 'image' && (
-        <CollapsibleSection title="Image" storageKey="image" className="space-y-2 border-t border-neutral-800 p-4">
+        <CollapsibleSection title="Image" storageKey="image" className="space-y-2 border-t border-editor p-4">
           <button
             onClick={enterCrop}
             title="Crop image"
-            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
           >
             <Crop size={14} />
             Crop
@@ -205,12 +205,12 @@ export function PropertiesPanel() {
           <button
             onClick={() => removeImageBackground(bgTolerance)}
             disabled={bgRemoving}
-            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Eraser size={14} />
             {bgRemoving ? 'Removing…' : 'Remove background'}
           </button>
-          <label className="block text-[11px] text-neutral-400">
+          <label className="block text-[11px] text-editor-text-muted">
             <div className="mb-1 flex justify-between">
               <span>Tolerance</span>
               <span>{bgTolerance}</span>
@@ -225,7 +225,7 @@ export function PropertiesPanel() {
               className="w-full accent-indigo-500"
             />
           </label>
-          <p className="text-[11px] leading-snug text-neutral-600">
+          <p className="text-[11px] leading-snug text-editor-text-subtle">
             Removes a solid/near-solid background by colour — higher tolerance
             erases more. Click again after changing it to re-tune from the
             original. Best on flat backgrounds, not busy photos.

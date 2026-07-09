@@ -30,7 +30,7 @@ export function HistoryPanel() {
               onClick={clearHistory}
               disabled={labels.length <= 1}
               title="Clear history"
-              className="text-neutral-500 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+              className="text-editor-text-subtle hover:text-editor-text disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Trash2 size={14} />
             </button>
@@ -40,7 +40,7 @@ export function HistoryPanel() {
       {open && (
         <div className="flex-1 overflow-y-auto px-2 pb-2">
           {rows.length === 0 ? (
-            <div className="px-2 py-2 text-xs text-neutral-600">No history yet</div>
+            <div className="px-2 py-2 text-xs text-editor-text-subtle">No history yet</div>
           ) : (
             rows.map(({ label, i }) => {
               const isCurrent = i === index
@@ -51,10 +51,10 @@ export function HistoryPanel() {
                   onClick={() => jumpTo(i)}
                   className={`block w-full truncate rounded px-2 py-1 text-left text-xs ${
                     isCurrent
-                      ? 'bg-indigo-600/30 text-white'
+                      ? 'bg-indigo-600/30 text-editor-text-strong'
                       : isFuture
-                        ? 'text-neutral-600 hover:bg-neutral-800'
-                        : 'text-neutral-300 hover:bg-neutral-800'
+                        ? 'text-editor-text-subtle hover:bg-editor-surface'
+                        : 'text-editor-text-secondary hover:bg-editor-surface'
                   }`}
                   title={label}
                 >

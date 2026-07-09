@@ -31,15 +31,15 @@ export function ContextToolbar() {
   const align = obj.textAlign ?? 'left'
 
   const toggleBtn = (active: boolean) =>
-    `rounded p-1.5 ${active ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-800'}`
+    `rounded p-1.5 ${active ? 'bg-editor-surface-2 text-editor-text-strong' : 'text-editor-text-secondary hover:bg-editor-surface'}`
 
   return (
-    <div className="absolute left-1/2 top-3 z-20 flex h-11 -translate-x-1/2 items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 text-neutral-200 shadow-xl backdrop-blur">
+    <div className="absolute left-1/2 top-3 z-20 flex h-11 -translate-x-1/2 items-center gap-2 rounded-lg border border-editor-strong bg-editor-bg/95 px-3 text-editor-text shadow-xl backdrop-blur">
       <FontPicker value={fontFamily} onChange={(family) => updateActive({ fontFamily: family })} />
 
-      <div className="mx-1 h-5 w-px bg-neutral-700" />
+      <div className="mx-1 h-5 w-px bg-editor-surface-2" />
 
-      <label className="flex items-center gap-1 text-xs text-neutral-400">
+      <label className="flex items-center gap-1 text-xs text-editor-text-muted">
         Size
         <input
           type="number"
@@ -50,11 +50,11 @@ export function ContextToolbar() {
             const v = Number(e.target.value)
             if (!Number.isNaN(v) && v > 0) updateActive({ fontSize: v })
           }}
-          className="w-16 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-neutral-100 outline-none focus:border-neutral-500"
+          className="w-16 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-right text-editor-text-strong outline-none focus:border-editor-input"
         />
       </label>
 
-      <div className="mx-1 h-5 w-px bg-neutral-700" />
+      <div className="mx-1 h-5 w-px bg-editor-surface-2" />
 
       <button
         className={toggleBtn(isBold)}
@@ -78,7 +78,7 @@ export function ContextToolbar() {
         <Underline size={16} />
       </button>
 
-      <div className="mx-1 h-5 w-px bg-neutral-700" />
+      <div className="mx-1 h-5 w-px bg-editor-surface-2" />
 
       <button
         className={toggleBtn(align === 'left')}
@@ -109,15 +109,15 @@ export function ContextToolbar() {
         <AlignJustify size={16} />
       </button>
 
-      <div className="mx-1 h-5 w-px bg-neutral-700" />
+      <div className="mx-1 h-5 w-px bg-editor-surface-2" />
 
-      <label className="flex items-center gap-1 text-xs text-neutral-400" title="Text colour">
+      <label className="flex items-center gap-1 text-xs text-editor-text-muted" title="Text colour">
         Colour
         <input
           type="color"
           value={fill}
           onChange={(e) => updateActive({ fill: e.target.value })}
-          className="h-6 w-8 cursor-pointer rounded border border-neutral-700 bg-neutral-800"
+          className="h-6 w-8 cursor-pointer rounded border border-editor-strong bg-editor-surface"
         />
       </label>
     </div>

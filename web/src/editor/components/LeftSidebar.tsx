@@ -16,7 +16,7 @@ function ToolButton({
     <button
       onClick={onClick}
       title={label}
-      className="flex h-12 w-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] text-neutral-300 hover:bg-neutral-800"
+      className="flex h-12 w-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] text-editor-text-secondary hover:bg-editor-surface"
     >
       {icon}
       {label}
@@ -32,7 +32,7 @@ export function LeftSidebar() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   return (
-    <aside className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-neutral-800 bg-neutral-900 py-2">
+    <aside className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-editor bg-editor-bg py-2">
       <ToolButton icon={<Type size={18} />} label="Text" onClick={addText} />
       <ToolButton
         icon={<ImagePlus size={18} />}

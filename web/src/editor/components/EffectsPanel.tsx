@@ -24,7 +24,7 @@ function SliderRow({
   onChange: (v: number) => void
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-neutral-400">
+    <label className="flex items-center gap-2 text-xs text-editor-text-muted">
       <span className="w-8">{label}</span>
       <input
         type="range"
@@ -34,7 +34,7 @@ function SliderRow({
         onChange={(e) => onChange(Number(e.target.value))}
         className="flex-1 accent-indigo-500"
       />
-      <span className="w-8 text-right tabular-nums text-neutral-300">{Math.round(value)}</span>
+      <span className="w-8 text-right tabular-nums text-editor-text-secondary">{Math.round(value)}</span>
     </label>
   )
 }
@@ -45,11 +45,11 @@ function EffectToggle({ label, on, onClick }: { label: string; on: boolean; onCl
       type="button"
       onClick={onClick}
       className={`flex w-full items-center justify-between rounded border px-2 py-1.5 text-xs ${
-        on ? 'border-indigo-500 text-white' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+        on ? 'border-indigo-500 text-editor-text-strong' : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
       }`}
     >
       <span>{label}</span>
-      <span className={`h-3 w-3 rounded-full ${on ? 'bg-indigo-500' : 'bg-neutral-700'}`} />
+      <span className={`h-3 w-3 rounded-full ${on ? 'bg-indigo-500' : 'bg-editor-surface-2'}`} />
     </button>
   )
 }
@@ -83,7 +83,7 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
   }
 
   return (
-    <CollapsibleSection title="Effects" storageKey="effects" className="space-y-2 border-t border-neutral-800 p-4">
+    <CollapsibleSection title="Effects" storageKey="effects" className="space-y-2 border-t border-editor p-4">
       <EffectToggle label="Drop shadow" on={!!drop} onClick={() => toggle('drop', drop)} />
       {drop && (
         <div className="space-y-2 pl-1 pt-1">
@@ -144,7 +144,7 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
         </div>
       )}
 
-      <p className="text-[11px] leading-snug text-neutral-600">
+      <p className="text-[11px] leading-snug text-editor-text-subtle">
         Any combination can be on at once; each colour's opacity sets its own strength.
       </p>
     </CollapsibleSection>

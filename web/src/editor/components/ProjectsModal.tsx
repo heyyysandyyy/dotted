@@ -65,13 +65,13 @@ export function ProjectsModal({ open, onClose }: Props) {
   return (
     <Modal title="Projects" widthClass="w-[480px]" onClose={onClose}>
       {projects.length === 0 ? (
-        <div className="py-8 text-center text-sm text-neutral-500">No saved projects yet</div>
+        <div className="py-8 text-center text-sm text-editor-text-subtle">No saved projects yet</div>
       ) : (
-        <ul className="max-h-[60vh] divide-y divide-neutral-800 overflow-y-auto">
+        <ul className="max-h-[60vh] divide-y divide-editor overflow-y-auto">
           {projects.map((p) => (
             <li key={p.id} className="flex items-center gap-3 py-2">
               <button onClick={() => handleOpen(p.id)} className="flex-1 overflow-hidden text-left">
-                <div className="flex items-center gap-2 text-sm font-medium text-neutral-100">
+                <div className="flex items-center gap-2 text-sm font-medium text-editor-text-strong">
                   <span className="truncate">{p.name || 'Untitled design'}</span>
                   {p.id === currentProjectId && (
                     <span className="shrink-0 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-indigo-300">
@@ -79,21 +79,21 @@ export function ProjectsModal({ open, onClose }: Props) {
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-neutral-500">
+                <div className="text-xs text-editor-text-subtle">
                   {p.width} × {p.height} · {new Date(p.updatedAt).toLocaleString()}
                 </div>
               </button>
               <button
                 onClick={() => handleDuplicate(p.id)}
                 title="Duplicate project"
-                className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                className="shrink-0 rounded-md p-1.5 text-editor-text-muted hover:bg-editor-surface hover:text-editor-text"
               >
                 <Copy size={16} />
               </button>
               <button
                 onClick={() => handleDelete(p.id)}
                 title="Delete project"
-                className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-500/10 hover:text-red-400"
+                className="shrink-0 rounded-md p-1.5 text-editor-text-muted hover:bg-red-500/10 hover:text-red-400"
               >
                 <Trash2 size={16} />
               </button>
@@ -102,13 +102,13 @@ export function ProjectsModal({ open, onClose }: Props) {
         </ul>
       )}
 
-      {message && <div className="mt-3 text-xs text-neutral-500">{message}</div>}
+      {message && <div className="mt-3 text-xs text-editor-text-subtle">{message}</div>}
 
       <div className="mt-4 flex items-center gap-2">
         <button
           onClick={handleBackup}
           title="Download a JSON backup of all projects"
-          className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-300 hover:border-neutral-500"
+          className="flex items-center gap-1.5 rounded-md border border-editor-strong px-3 py-1.5 text-sm font-medium text-editor-text-secondary hover:border-editor-input"
         >
           <Download size={15} />
           Backup
@@ -116,7 +116,7 @@ export function ProjectsModal({ open, onClose }: Props) {
         <button
           onClick={() => fileInputRef.current?.click()}
           title="Restore projects from a JSON backup"
-          className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-300 hover:border-neutral-500"
+          className="flex items-center gap-1.5 rounded-md border border-editor-strong px-3 py-1.5 text-sm font-medium text-editor-text-secondary hover:border-editor-input"
         >
           <Upload size={15} />
           Restore
@@ -135,7 +135,7 @@ export function ProjectsModal({ open, onClose }: Props) {
         />
         <button
           onClick={onClose}
-          className="ml-auto rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200"
+          className="ml-auto rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text"
         >
           Close
         </button>
