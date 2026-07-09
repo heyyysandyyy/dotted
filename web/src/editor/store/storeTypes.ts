@@ -120,6 +120,12 @@ export interface ProjectSlice {
 export interface ViewSlice {
   /** Display scale applied to the artboard (UX-013). 1 = 100%. */
   zoom: number
+  /** Display scale for stack-view page thumbnails (BUG-003) — deliberately
+   *  separate from `zoom`: they share one slider in the bottom bar (which
+   *  reads/writes whichever one matches the current viewMode), but zooming
+   *  in on thumbnails to see them better shouldn't also blow up the single-
+   *  page canvas to that same scale the moment a page is clicked open. */
+  stackZoom: number
   /** Artboard pan offset from centred, in screen px (UX-013). */
   pan: { x: number; y: number }
   /** When true, zoom auto-fits the artboard to the viewport on resize (UX-013). */
@@ -147,6 +153,8 @@ export interface ViewSlice {
   setZoom: (z: number) => void
   /** Set zoom without leaving fit-mode (used by the auto-fit computation). */
   setZoomRaw: (z: number) => void
+  /** Set stack-view thumbnail zoom (clamped) — independent of setZoom. */
+  setStackZoom: (z: number) => void
   /** Re-enable auto-fit so the artboard refits the viewport. */
   fitToView: () => void
   /** Set the artboard pan offset (screen px from centred). */

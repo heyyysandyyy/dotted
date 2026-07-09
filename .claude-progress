@@ -1,1 +1,4 @@
-BUG-003
+No auto-pickable ticket next — every open issue besides BOOK-004 is now shipped.
+BOOK-004 (issue #126) was explicitly reverted and deferred by the user pending
+a rethink; do not resume it without the user re-raising it or confirming a
+scope first.

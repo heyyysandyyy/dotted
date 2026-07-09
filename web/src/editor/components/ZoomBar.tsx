@@ -4,10 +4,19 @@ import { useCanvasStore } from '../store/useCanvasStore'
 import { MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../constants'
 
 /** UX-013: bottom-bar zoom controls — slider, +/- buttons, editable % readout,
- *  and fit-to-screen. */
+ *  and fit-to-screen. Controls the single-page canvas's own zoom normally;
+ *  while in stack view (BUG-003) it targets `stackZoom` instead, a separate
+ *  piece of state, so zooming in on page thumbnails doesn't also blow up
+ *  the single-page canvas to that same scale the moment a page is opened.
+ *  Fit-to-screen has no stack-view equivalent (there's no single artboard
+ *  to fit), so it's disabled there rather than silently doing nothing. */
 export function ZoomBar() {
-  const zoom = useCanvasStore((s) => s.zoom)
-  const setZoom = useCanvasStore((s) => s.setZoom)
+  const viewMode = useCanvasStore((s) => s.viewMode)
+  const inStack = viewMode === 'stack'
+  const zoom = useCanvasStore((s) => (inStack ? s.stackZoom : s.zoom))
+  const setZoomSingle = useCanvasStore((s) => s.setZoom)
+  const setStackZoom = useCanvasStore((s) => s.setStackZoom)
+  const setZoom = inStack ? setStackZoom : setZoomSingle
   const fitToView = useCanvasStore((s) => s.fitToView)
   const [editing, setEditing] = useState<string | null>(null)
 
@@ -69,7 +78,12 @@ export function ZoomBar() {
           {pct}%
         </button>
       )}
-      <button onClick={fitToView} title="Fit to screen (⌘⇧H)" className="rounded p-1.5 hover:bg-neutral-800">
+      <button
+        onClick={fitToView}
+        disabled={inStack}
+        title="Fit to screen (⌘⇧H)"
+        className="rounded p-1.5 hover:bg-neutral-800 disabled:opacity-40"
+      >
         <Maximize size={14} />
       </button>
     </div>

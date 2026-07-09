@@ -54,6 +54,7 @@ function ThumbCanvas({
   boxW: number
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const gridSize = useCanvasStore((s) => s.grid.size)
 
   useEffect(() => {
     if (!ref.current) return
@@ -68,6 +69,7 @@ function ThumbCanvas({
         width={boxW}
         height={STRIP_THUMB_H}
         bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
+        gridSpacingPx={gridSize * scale}
       />
     </>
   )
@@ -128,8 +130,16 @@ function StripThumb({
         // aspect ratio instead of whatever ends up under the raw drag delta
         // (covers and spreads differ in width, so without an overlay the
         // in-place item visibly stretched/squashed while being dragged).
-        className={`relative touch-none overflow-hidden rounded border bg-white ${
-          active ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-neutral-700 hover:border-neutral-500'
+        // outline, not border: a border is part of the box (border-box
+        // sizing eats it out of the declared width/height), so the guide
+        // overlay canvas — sized to exactly boxW x STRIP_THUMB_H to match —
+        // ended up wider/taller than the actual space left inside the
+        // border, overflowing past the button's own edge and getting
+        // clipped by overflow-hidden. Same bug as PageStack.tsx's thumbnails
+        // (right/bottom bleed guide reads thinner than left/top); an
+        // outline sits outside the box model, so it can't eat into content.
+        className={`relative touch-none overflow-hidden rounded bg-white outline outline-1 -outline-offset-1 ${
+          active ? 'outline-indigo-500 ring-1 ring-indigo-500' : 'outline-neutral-700 hover:outline-neutral-500'
         } ${isDragging ? 'opacity-30' : ''}`}
         style={{ width: boxW, height: STRIP_THUMB_H }}
       >
@@ -277,7 +287,12 @@ export function PageBar() {
                 const g = thumbGeometry(activePage, { width, height })
                 return (
                   <div
-                    className="overflow-hidden rounded border border-indigo-400 bg-white shadow-lg shadow-black/50"
+                    // outline, not border — see StripThumb's own comment on
+                    // this same fix; the guide overlay canvas inside is
+                    // sized to exactly boxW x STRIP_THUMB_H, so a border
+                    // here would eat into that space and clip its right/
+                    // bottom edge the same way.
+                    className="overflow-hidden rounded bg-white shadow-lg shadow-black/50 outline outline-1 -outline-offset-1 outline-indigo-400"
                     style={{ width: g.boxW, height: STRIP_THUMB_H, opacity: 0.9 }}
                   >
                     <ThumbCanvas page={activePage} width={g.width} height={g.height} scale={g.scale} boxW={g.boxW} />
