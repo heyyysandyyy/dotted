@@ -143,6 +143,27 @@ export function PropertiesPanel() {
         onCommit={(v) => updateActive({ angle: v })}
       />
 
+      <div className="space-y-2 border-t border-neutral-800 pt-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Appearance
+        </div>
+        <label className="block text-xs text-neutral-400">
+          <div className="mb-1 flex justify-between">
+            <span>Opacity</span>
+            <span>{Math.round((obj.opacity ?? 1) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round((obj.opacity ?? 1) * 100)}
+            onChange={(e) => updateActive({ opacity: Number(e.target.value) / 100 })}
+            className="w-full accent-indigo-500"
+          />
+        </label>
+      </div>
+
       {isShape(obj) && (
         <div className="space-y-2 border-t border-neutral-800 pt-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
