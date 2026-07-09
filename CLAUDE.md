@@ -57,6 +57,6 @@ checklist of the *active* batch only.
 - [x] UX-021 Crop rotated images (issue #115)
 - [x] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
 - [x] UX-022 Object duplicate + copy/paste (Cmd+D, Cmd+C/V) — distinct from the existing style-only clipboard (Cmd+Alt+C/V, UX-007; issue #148)
-- [ ] UX-023 Layer z-order controls — bring to front/send to back/forward/backward, as shortcuts and in the right-click menu; must reposition any attached effect clones/inner-shadow overlay along with the host (issue #149)
+- [x] UX-023 Layer z-order controls — bring to front/send to back/forward/backward, as shortcuts and in the right-click menu; must reposition any attached effect clones/inner-shadow overlay along with the host (issue #149)
 - [ ] UX-024 Select all (Cmd+A) for canvas objects — currently unhandled, falls through to the browser's native page-text select-all (issue #150)
 - [ ] UX-025 Per-object opacity control — fill/stroke colour already carries alpha via the picker, but there's no whole-object opacity, so images (no fill colour to carry alpha) can't be made translucent at all (issue #151)

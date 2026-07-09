@@ -281,6 +281,16 @@ export interface ObjectsSlice {
   /** Paste the object clipboard; repeated pastes cascade in position. One
    *  undo step per paste (UX-022). */
   pasteObjects: () => Promise<void>
+  /** Bring the active selection to the top of its parent's (canvas root or
+   *  group) stack, preserving relative order within the selection. No-ops
+   *  cleanly (no history step) if nothing actually moved (UX-023). */
+  bringToFront: () => Promise<void>
+  /** Send the active selection to the bottom of its parent's stack (UX-023). */
+  sendToBack: () => Promise<void>
+  /** Move the active selection up one step in its parent's stack (UX-023). */
+  bringForward: () => Promise<void>
+  /** Move the active selection down one step in its parent's stack (UX-023). */
+  sendBackward: () => Promise<void>
   /** Copy the visual style of the (single) selected object (UX-007). */
   copyStyle: () => void
   /** Paste the copied style onto the selected object(s); undoable (UX-007). */
