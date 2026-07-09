@@ -222,7 +222,15 @@ async function renderSilhouette(host: WithId, pad: number): Promise<HTMLCanvasEl
   const el = document.createElement('canvas')
   el.width = w + pad * 2
   el.height = h + pad * 2
-  const sc = new fabric.StaticCanvas(el, { width: el.width, height: el.height })
+  // enableRetinaScaling defaults to true and would otherwise multiply el's
+  // own width/height attributes by devicePixelRatio on this temporary
+  // canvas — buildInnerShadowTexture/syncInnerShadow size everything else
+  // (the work/blurred canvases, the final overlay's pixel dimensions) off
+  // of el.width/el.height directly, so that silent multiplication made the
+  // whole texture (and the FabricImage built from it) devicePixelRatio
+  // times too large on any HiDPI display, bleeding the "inner" shadow out
+  // past the host's own edges instead of clipping inside them.
+  const sc = new fabric.StaticCanvas(el, { width: el.width, height: el.height, enableRetinaScaling: false })
   sc.add(clone)
   sc.renderAll()
   // Deliberately not calling sc.dispose(): unlike bookExport.ts's own
