@@ -62,3 +62,9 @@ checklist of the *active* batch only.
 - [x] UX-025 Per-object opacity control (issue #151) — opacity slider in the Properties Panel, works for shapes/text/images alike; debounced into history, isolated from effect clones/inner-shadow overlay
 - [x] UX-026 Light/dark theme toggle for the editor chrome — every editor component hardcodes dark-only Tailwind neutral classes; migrate to the semantic CSS-variable theme system already in index.css (shadcn boilerplate, never adopted) and add a toggle (issue #159)
 - [x] UX-027 Collapsible panels/sections in the right sidebar — every titled section (Align, Style, Position & size, Appearance, Text, Image, Effects, Layers, History, Background), not just the Layers panel that already had it; collapsed state persists per-section (issue #161)
+- [ ] PHOTO-001 Photo Editor workspace shell — new top-level workspace, separate route/nav tab from Canvas; empty state; no Canvas-specific tools (issue #163)
+- [ ] PHOTO-002 Image upload into Photo Editor — JPG/PNG via file picker + drag-and-drop (issue #164)
+- [ ] PHOTO-003 Edit-from-Canvas entry point — "Edit" on a Canvas image opens Photo Editor with it loaded, retaining position/size/layer order for port-back (issue #165)
+- [ ] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
+- [ ] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
+- [ ] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
