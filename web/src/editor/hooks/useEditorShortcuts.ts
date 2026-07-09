@@ -104,6 +104,24 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Layer z-order (UX-023): Cmd/Ctrl+] forward one step, +Shift+] to the
+      // very front; Cmd/Ctrl+[ backward one step, +Shift+[ to the very back
+      // — standard convention across design tools. Uses e.code (physical
+      // key) rather than e.key since Shift+] produces a different character
+      // ('}') on e.key, same reasoning as the copy/paste-style shortcut below.
+      if (mod && !editing && e.code === 'BracketRight') {
+        e.preventDefault()
+        if (e.shiftKey) useCanvasStore.getState().bringToFront()
+        else useCanvasStore.getState().bringForward()
+        return
+      }
+      if (mod && !editing && e.code === 'BracketLeft') {
+        e.preventDefault()
+        if (e.shiftKey) useCanvasStore.getState().sendToBack()
+        else useCanvasStore.getState().sendBackward()
+        return
+      }
+
       // Copy / paste style (Cmd/Ctrl+Alt+C / V) — use e.code since Alt changes
       // e.key on some layouts (UX-007).
       if (mod && e.altKey && !editing && e.code === 'KeyC') {

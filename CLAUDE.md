@@ -56,3 +56,4 @@ checklist of the *active* batch only.
 - [x] UX-020 Shadow effects (issue #113) — spread control (phase 1, #133), multiple simultaneous effects (phase 2), inner shadow via real raster compositing (phase 3)
 - [x] UX-021 Crop rotated images (issue #115)
 - [x] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
+- [x] UX-023 Layer z-order controls — bring to front/send to back/forward/backward, as shortcuts and in the right-click menu; must reposition any attached effect clones/inner-shadow overlay along with the host (issue #149)
