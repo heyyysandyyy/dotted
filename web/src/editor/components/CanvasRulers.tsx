@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { SIZE_UNITS, type UnitId } from '../constants'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { useThemeStore } from '../store/useThemeStore'
 import { setupHiDPI, useViewportGeometry } from '../viewportGeometry'
 
 /** Ruler gutter thickness in CSS px. */
@@ -10,13 +11,26 @@ const TARGET_MAJOR_PX = 70
 /** Half-thickness of a guide's draggable hit area, in CSS px. */
 const GUIDE_GRAB = 4
 
-const BG = '#202020'
-const LINE = '#3a3a3a'
-const TICK = '#6b6b6b'
-const TICK_MAJOR = '#9a9a9a'
-const LABEL = '#9a9a9a'
+// Guide colours are semantic (blue = guide, pink = active/snapped) and read
+// fine against either ruler background, so they're the one pair that stays
+// constant across themes (UX-026) — everything else here is drawn to a
+// <canvas>, which can't pick up the editor-* CSS custom properties the rest
+// of the chrome uses, so it needs its own light/dark pair.
 const GUIDE = '#3b82f6'
 const GUIDE_ACTIVE = '#ec4899'
+
+interface RulerColors {
+  bg: string
+  line: string
+  tick: string
+  tickMajor: string
+  label: string
+}
+
+const RULER_COLORS: Record<'light' | 'dark', RulerColors> = {
+  dark: { bg: '#202020', line: '#3a3a3a', tick: '#6b6b6b', tickMajor: '#9a9a9a', label: '#9a9a9a' },
+  light: { bg: '#f0f0f0', line: '#d4d4d4', tick: '#a3a3a3', tickMajor: '#525252', label: '#525252' },
+}
 
 type Orientation = 'horizontal' | 'vertical'
 /** An in-progress ruler drag: creating a new guide or moving an existing one. */
@@ -51,12 +65,13 @@ function drawRuler(
   origin: number,
   zoom: number,
   unit: UnitId,
+  colors: RulerColors,
 ) {
   const pxPer = pxPerUnit(unit)
   ctx.clearRect(0, 0, horizontal ? length : RULER, horizontal ? RULER : length)
-  ctx.fillStyle = BG
+  ctx.fillStyle = colors.bg
   ctx.fillRect(0, 0, horizontal ? length : RULER, horizontal ? RULER : length)
-  ctx.fillStyle = LINE
+  ctx.fillStyle = colors.line
   if (horizontal) ctx.fillRect(0, RULER - 1, length, 1)
   else ctx.fillRect(RULER - 1, 0, 1, length)
 
@@ -72,11 +87,11 @@ function drawRuler(
     if (pos > length) break
     const isMajor = k % 5 === 0
     const len = isMajor ? RULER : RULER * 0.4
-    ctx.fillStyle = isMajor ? TICK_MAJOR : TICK
+    ctx.fillStyle = isMajor ? colors.tickMajor : colors.tick
     if (horizontal) ctx.fillRect(pos, RULER - len, 1, len)
     else ctx.fillRect(RULER - len, pos, len, 1)
     if (isMajor) {
-      ctx.fillStyle = LABEL
+      ctx.fillStyle = colors.label
       const label = fmtLabel(coordPx / pxPer, unit)
       if (horizontal) {
         ctx.textAlign = 'left'
@@ -101,6 +116,8 @@ function drawRuler(
  * unaffected; only the ruler strips and guide lines capture pointer events.
  */
 export function CanvasRulers() {
+  const theme = useThemeStore((s) => s.theme)
+  const rulerColors = RULER_COLORS[theme]
   const showRulers = useCanvasStore((s) => s.showRulers)
   const showGuides = useCanvasStore((s) => s.showGuides)
   const rulerUnit = useCanvasStore((s) => s.rulerUnit)
@@ -136,9 +153,13 @@ export function CanvasRulers() {
 
   useEffect(() => {
     if (!showRulers || box.w === 0 || box.h === 0) return
-    if (topRef.current) drawRuler(setupHiDPI(topRef.current, box.w, RULER), true, box.w, originX, zoom, rulerUnit)
-    if (leftRef.current) drawRuler(setupHiDPI(leftRef.current, RULER, box.h), false, box.h, originY, zoom, rulerUnit)
-  }, [showRulers, rulerUnit, zoom, originX, originY, box])
+    if (topRef.current) {
+      drawRuler(setupHiDPI(topRef.current, box.w, RULER), true, box.w, originX, zoom, rulerUnit, rulerColors)
+    }
+    if (leftRef.current) {
+      drawRuler(setupHiDPI(leftRef.current, RULER, box.h), false, box.h, originY, zoom, rulerUnit, rulerColors)
+    }
+  }, [showRulers, rulerUnit, zoom, originX, originY, box, rulerColors])
 
   // Window-level drag for guide create/move; commits on pointer-up.
   useEffect(() => {
@@ -214,7 +235,7 @@ export function CanvasRulers() {
         : { left: originX + drag.pos * zoom + 4, top: RULER + 4 }
     readout = (
       <div
-        className="pointer-events-none absolute rounded bg-neutral-900/90 px-1.5 py-0.5 text-[10px] font-medium text-pink-400"
+        className="pointer-events-none absolute rounded bg-editor-bg/90 px-1.5 py-0.5 text-[10px] font-medium text-pink-400"
         style={style}
       >
         {label}
@@ -235,8 +256,8 @@ export function CanvasRulers() {
         className="pointer-events-auto absolute left-0 top-0 cursor-ew-resize"
       />
       <div
-        className="absolute left-0 top-0 border-b border-r border-neutral-700"
-        style={{ width: RULER, height: RULER, backgroundColor: BG }}
+        className="absolute left-0 top-0 border-b border-r border-editor-strong"
+        style={{ width: RULER, height: RULER, backgroundColor: rulerColors.bg }}
       />
 
       {renderGuides &&
@@ -328,7 +349,7 @@ export function CanvasRulers() {
                 else if (e.key === 'Escape') setEditing(null)
               }}
               title={`Position in ${rulerUnit}`}
-              className="pointer-events-auto absolute w-16 rounded border border-neutral-600 bg-neutral-900 px-1 text-xs text-white outline-none"
+              className="pointer-events-auto absolute w-16 rounded border border-editor-input bg-editor-bg px-1 text-xs text-editor-text-strong outline-none"
               style={style}
             />
           )

@@ -10,7 +10,7 @@ import {
   listProjects,
   migrateLegacyDesign,
 } from '../storage'
-import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
+import { SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText, readShadowEffects } from '../utils'
 import {
   isEffectClone,
@@ -567,10 +567,9 @@ export function CanvasStage() {
   return (
     <div
       ref={measureRef}
-      className={`relative flex-1 overflow-hidden ${
+      className={`relative flex-1 overflow-hidden bg-editor-desk ${
         panCursor === 'grabbing' ? 'cursor-grabbing' : panCursor === 'grab' ? 'cursor-grab' : ''
       }`}
-      style={{ backgroundColor: DARK_SURROUND }}
     >
       {/* Artboard backdrop behind the viewport-sized canvas: the page shadow, and
           a checkerboard when the artboard background is transparent. */}

@@ -139,7 +139,7 @@ function StripThumb({
         // (right/bottom bleed guide reads thinner than left/top); an
         // outline sits outside the box model, so it can't eat into content.
         className={`relative touch-none overflow-hidden rounded bg-white outline outline-1 -outline-offset-1 ${
-          active ? 'outline-indigo-500 ring-1 ring-indigo-500' : 'outline-neutral-700 hover:outline-neutral-500'
+          active ? 'outline-indigo-500 ring-1 ring-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
         } ${isDragging ? 'opacity-30' : ''}`}
         style={{ width: boxW, height: STRIP_THUMB_H }}
       >
@@ -147,7 +147,7 @@ function StripThumb({
         {/* Drag handle affordance — dragging works from anywhere on the
             thumbnail (the listeners above are on the whole button); this is
             just the hover hint, purely decorative. */}
-        <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-neutral-900/60 p-0.5 text-neutral-300 group-hover:block">
+        <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-editor-bg/60 p-0.5 text-editor-text-secondary group-hover:block">
           <GripVertical size={9} />
         </div>
       </button>
@@ -160,7 +160,7 @@ function StripThumb({
         <button
           onClick={onDuplicate}
           title="Duplicate page"
-          className="rounded bg-neutral-900/80 p-0.5 text-neutral-300 hover:text-neutral-100"
+          className="rounded bg-editor-bg/80 p-0.5 text-editor-text-secondary hover:text-editor-text-strong"
         >
           <Copy size={9} />
         </button>
@@ -168,13 +168,13 @@ function StripThumb({
           <button
             onClick={onDelete}
             title="Delete page"
-            className="rounded bg-neutral-900/80 p-0.5 text-neutral-300 hover:text-red-400"
+            className="rounded bg-editor-bg/80 p-0.5 text-editor-text-secondary hover:text-red-400"
           >
             <X size={9} />
           </button>
         )}
       </div>
-      <span className="text-[9px] text-neutral-500">{index + 1}</span>
+      <span className="text-[9px] text-editor-text-subtle">{index + 1}</span>
     </div>
   )
 }
@@ -228,7 +228,7 @@ export function PageBar() {
   }
 
   return (
-    <div className="flex h-20 shrink-0 items-center gap-2 border-t border-neutral-800 bg-neutral-900 px-2">
+    <div className="flex h-20 shrink-0 items-center gap-2 border-t border-editor bg-editor-bg px-2">
       <div className="flex flex-1 items-center gap-2 overflow-x-auto">
         {/* View toggle: single page vs all-pages stack. */}
         <div className="flex items-center gap-0.5">
@@ -237,7 +237,7 @@ export function PageBar() {
             title="Single page"
             aria-pressed={viewMode === 'single'}
             className={`rounded p-1.5 ${
-              viewMode === 'single' ? 'bg-neutral-700 text-indigo-400' : 'text-neutral-400 hover:bg-neutral-800'
+              viewMode === 'single' ? 'bg-editor-surface-2 text-indigo-400' : 'text-editor-text-muted hover:bg-editor-surface'
             }`}
           >
             <Square size={14} />
@@ -247,13 +247,13 @@ export function PageBar() {
             title="All pages"
             aria-pressed={viewMode === 'stack'}
             className={`rounded p-1.5 ${
-              viewMode === 'stack' ? 'bg-neutral-700 text-indigo-400' : 'text-neutral-400 hover:bg-neutral-800'
+              viewMode === 'stack' ? 'bg-editor-surface-2 text-indigo-400' : 'text-editor-text-muted hover:bg-editor-surface'
             }`}
           >
             <LayoutGrid size={14} />
           </button>
         </div>
-        <div className="h-8 w-px shrink-0 bg-neutral-800" />
+        <div className="h-8 w-px shrink-0 bg-editor-surface" />
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -309,7 +309,7 @@ export function PageBar() {
             onClick={addPage}
             title="Add page"
             style={{ height: STRIP_THUMB_H }}
-            className="flex items-center justify-center rounded border border-dashed border-neutral-700 px-3 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+            className="flex items-center justify-center rounded border border-dashed border-editor-strong px-3 text-editor-text-muted hover:border-editor-input hover:text-editor-text"
           >
             <Plus size={14} />
           </button>

@@ -20,7 +20,7 @@ export function StyleTools() {
   if (selection.length === 0) return null
 
   const btn =
-    'flex items-center gap-1 rounded px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800'
+    'flex items-center gap-1 rounded px-2 py-1 text-xs text-editor-text-secondary hover:bg-editor-surface'
 
   const onPainterClick = () => {
     if (painterMode !== 'off') {
@@ -43,8 +43,8 @@ export function StyleTools() {
   }
 
   return (
-    <div className="space-y-2 border-t border-neutral-800 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Style</div>
+    <div className="space-y-2 border-t border-editor p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">Style</div>
       <div className="flex flex-wrap gap-1">
         <button onClick={copyStyle} title="Copy style (Cmd/Ctrl+Alt+C)" className={btn}>
           <Copy size={14} /> Copy
@@ -62,7 +62,7 @@ export function StyleTools() {
           onDoubleClick={onPainterDblClick}
           title="Format painter — click: paste once, double-click: sticky (Esc to exit)"
           aria-pressed={painterMode !== 'off'}
-          className={`${btn} ${painterMode !== 'off' ? 'bg-neutral-800 text-indigo-400' : ''}`}
+          className={`${btn} ${painterMode !== 'off' ? 'bg-editor-surface text-indigo-400' : ''}`}
         >
           <Paintbrush size={14} />
           {painterMode === 'sticky' ? 'Painter (sticky)' : 'Painter'}

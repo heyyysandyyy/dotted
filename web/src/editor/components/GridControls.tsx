@@ -31,15 +31,15 @@ export function GridControls() {
         onClick={() => setOpen((o) => !o)}
         title="Grid"
         aria-pressed={active}
-        className={`rounded-md p-1.5 hover:bg-neutral-800 ${
-          active ? 'bg-neutral-800 text-indigo-400' : 'text-neutral-400'
+        className={`rounded-md p-1.5 hover:bg-editor-surface ${
+          active ? 'bg-editor-surface text-indigo-400' : 'text-editor-text-muted'
         }`}
       >
         <Grid3x3 size={16} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-52 space-y-3 rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-sm text-neutral-200 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1 w-52 space-y-3 rounded-lg border border-editor-strong bg-editor-surface p-3 text-sm text-editor-text shadow-xl">
           <label className="flex items-center justify-between">
             Show grid
             <input
@@ -60,14 +60,14 @@ export function GridControls() {
           </label>
 
           <div>
-            <div className="mb-1 text-xs text-neutral-400">Size</div>
+            <div className="mb-1 text-xs text-editor-text-muted">Size</div>
             <div className="flex flex-wrap items-center gap-1">
               {GRID_PRESETS.map((p) => (
                 <button
                   key={p}
                   onClick={() => setGridSize(p)}
                   className={`rounded px-2 py-1 text-xs ${
-                    grid.size === p ? 'bg-indigo-600 text-white' : 'bg-neutral-700 hover:bg-neutral-600'
+                    grid.size === p ? 'bg-indigo-600 text-white' : 'bg-editor-surface-2 hover:bg-editor-surface-3'
                   }`}
                 >
                   {p}
@@ -79,22 +79,22 @@ export function GridControls() {
                 value={grid.size}
                 onChange={(e) => setGridSize(Number(e.target.value) || 1)}
                 aria-label="Custom grid size"
-                className={`w-14 rounded border bg-neutral-900 px-1 py-1 text-right text-xs text-neutral-100 ${
-                  isCustom ? 'border-indigo-500' : 'border-neutral-600'
+                className={`w-14 rounded border bg-editor-bg px-1 py-1 text-right text-xs text-editor-text-strong ${
+                  isCustom ? 'border-indigo-500' : 'border-editor-input'
                 }`}
               />
             </div>
           </div>
 
           <div>
-            <div className="mb-1 text-xs text-neutral-400">Style</div>
+            <div className="mb-1 text-xs text-editor-text-muted">Style</div>
             <div className="flex gap-1">
               {(['lines', 'dots'] as const).map((st) => (
                 <button
                   key={st}
                   onClick={() => setGridStyle(st)}
                   className={`flex-1 rounded px-2 py-1 text-xs capitalize ${
-                    grid.style === st ? 'bg-indigo-600 text-white' : 'bg-neutral-700 hover:bg-neutral-600'
+                    grid.style === st ? 'bg-indigo-600 text-white' : 'bg-editor-surface-2 hover:bg-editor-surface-3'
                   }`}
                 >
                   {st}

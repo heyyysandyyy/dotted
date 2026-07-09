@@ -29,11 +29,11 @@ export function AlignmentToolbar() {
     { mode: 'bottom', label: 'Align bottom', Icon: AlignEndHorizontal },
   ]
 
-  const btn = 'rounded p-1.5 text-neutral-300 hover:bg-neutral-800'
+  const btn = 'rounded p-1.5 text-editor-text-secondary hover:bg-editor-surface'
 
   return (
     <div className="space-y-2 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
         {selection.length > 1 ? 'Align to selection' : 'Align to canvas'}
       </div>
       <div className="flex flex-wrap gap-1">
