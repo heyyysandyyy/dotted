@@ -60,3 +60,4 @@ checklist of the *active* batch only.
 - [x] UX-023 Layer z-order controls — bring to front/send to back/forward/backward, as shortcuts and in the right-click menu; must reposition any attached effect clones/inner-shadow overlay along with the host (issue #149)
 - [x] UX-024 Select all (Cmd+A) for canvas objects — excludes locked objects and synthetic effect visuals, preempts the browser's native page-text select-all (issue #150)
 - [x] UX-025 Per-object opacity control (issue #151) — opacity slider in the Properties Panel, works for shapes/text/images alike; debounced into history, isolated from effect clones/inner-shadow overlay
+- [x] UX-027 Collapsible panels/sections in the right sidebar — every titled section (Align, Style, Position & size, Appearance, Text, Image, Effects, Layers, History, Background), not just the Layers panel that already had it; collapsed state persists per-section (issue #161)

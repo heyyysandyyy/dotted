@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Copy, ClipboardPaste, Paintbrush } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { CollapsibleSection } from './CollapsibleSection'
 
 /**
  * UX-007: copy/paste style + format painter, shown when objects are selected.
@@ -43,8 +44,7 @@ export function StyleTools() {
   }
 
   return (
-    <div className="space-y-2 border-t border-neutral-800 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Style</div>
+    <CollapsibleSection title="Style" storageKey="copy-paste-style" className="border-t border-neutral-800 p-4">
       <div className="flex flex-wrap gap-1">
         <button onClick={copyStyle} title="Copy style (Cmd/Ctrl+Alt+C)" className={btn}>
           <Copy size={14} /> Copy
@@ -68,6 +68,6 @@ export function StyleTools() {
           {painterMode === 'sticky' ? 'Painter (sticky)' : 'Painter'}
         </button>
       </div>
-    </div>
+    </CollapsibleSection>
   )
 }
