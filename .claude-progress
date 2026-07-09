@@ -1,6 +1,8 @@
-Next up: UX-025 Per-object opacity control (issue #151).
+UX-022 (#148), UX-023 (#149), and UX-025 (#151) are shipped and merged. UX-024
+(#150, select-all) is implemented on this branch/PR — check `gh pr list`
+before assuming it's merged.
 
-UX-022 (issue #148) and UX-023 (issue #149) are already in flight on their own
-branches/PRs — don't pick those up here. BOOK-004 (issue #126) was explicitly
-reverted and deferred by the user pending a rethink; do not resume it without
-the user re-raising it or confirming a scope first.
+No auto-pickable ticket next — every open issue besides BOOK-001 and BOOK-004
+is now shipped. BOOK-004 (issue #126) was explicitly reverted and deferred by
+the user pending a rethink; do not resume it without the user re-raising it or
+confirming a scope first.

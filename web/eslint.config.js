@@ -32,9 +32,11 @@ export default defineConfig([
     // Architecture rule: components must not mutate the Fabric canvas directly —
     // all canvas changes route through useCanvasStore. Block the fabric *value*
     // import in components (type-only imports are fine). CanvasStage owns the
-    // canvas instance and is the sole exception.
+    // canvas instance and is the sole exception. Test files are exempt too —
+    // they build fabric fixtures to exercise components against, same as every
+    // store/*.test.ts and effectsEngine.test.ts already do outside components/.
     files: ['src/editor/components/**/*.{ts,tsx}'],
-    ignores: ['src/editor/components/CanvasStage.tsx'],
+    ignores: ['src/editor/components/CanvasStage.tsx', 'src/editor/components/**/*.test.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',

@@ -191,6 +191,18 @@ describe('effects survive a save/reload round trip (EXTRA_PROPS)', () => {
     expect(reloadedClones[0].left).toBe(300)
     expect(reloadedClones[0].top).toBe(250)
   })
+
+  it("an object's own opacity (UX-025) survives the same round trip without needing to be added to EXTRA_PROPS — it's already one of fabric's own default-serialized properties", async () => {
+    const canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    const rect = new fabric.Rect({ left: 20, top: 20, width: 40, height: 40, fill: '#0f0', opacity: 0.42 })
+    canvas.add(rect)
+
+    const json = canvas.toObject(EXTRA_PROPS)
+    const reloaded = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    await reloaded.loadFromJSON(json)
+
+    expect(reloaded.getObjects()[0].opacity).toBeCloseTo(0.42, 5)
+  })
 })
 
 describe('syncInnerShadow (UX-020 phase 3)', () => {
@@ -284,5 +296,42 @@ describe('syncInnerShadow (UX-020 phase 3)', () => {
     // isEffectClone is the single predicate every exclusion in the app
     // (layers panel, history recording, self-heal) is built on.
     expect(isEffectClone(overlay)).toBe(true)
+  })
+})
+
+describe('host opacity does not cascade to effect visuals (UX-025)', () => {
+  let canvas: fabric.Canvas
+  let host: fabric.Rect & { id?: string }
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    host = new fabric.Rect({ left: 50, top: 50, width: 100, height: 60, fill: '#f00' })
+    ;(host as unknown as { id: string }).id = 'host-1'
+    canvas.add(host)
+  })
+
+  it("an outer-effect clone stays fully opaque when the host's own opacity is lowered", async () => {
+    // Two simultaneous effects so the second one gets a real clone (a single
+    // effect just uses the host's own native shadow — see the phase 1 tests).
+    await syncEffectClones(canvas, host, [dropEffect(), glowEffect()])
+    const clone = canvas.getObjects().find((o) => isEffectClone(o))!
+    host.set({ opacity: 0.3 }) // simulates updateActive({ opacity: 0.3 }) on the host
+    expect(clone.opacity).toBe(1)
+    // Rebuilding the clone (e.g. from a subsequent effect edit) must not pick
+    // up the host's lowered opacity either — buildEffectClone always pins it.
+    await syncEffectClones(canvas, host, [dropEffect(), glowEffect({ blur: 20 })])
+    const rebuilt = canvas.getObjects().find((o) => isEffectClone(o))!
+    expect(rebuilt.opacity).toBe(1)
+  })
+
+  it("the inner-shadow overlay stays fully opaque when the host's own opacity is lowered", async () => {
+    await syncInnerShadow(canvas, host, innerEffect())
+    const overlayBefore = canvas.getObjects().find((o) => (o as unknown as { effectRole?: string }).effectRole === 'inner')!
+    host.set({ opacity: 0.4 })
+    expect(overlayBefore.opacity).toBe(1)
+    // Rebuilding the overlay must not inherit the host's lowered opacity either.
+    await syncInnerShadow(canvas, host, innerEffect({ x: 12 }))
+    const overlayAfter = canvas.getObjects().find((o) => (o as unknown as { effectRole?: string }).effectRole === 'inner')!
+    expect(overlayAfter.opacity).toBe(1)
   })
 })
