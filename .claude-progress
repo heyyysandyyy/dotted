@@ -1,9 +1,8 @@
-UX-025 (issue #151, per-object opacity control) is shipped.
+UX-022 (#148), UX-023 (#149), and UX-025 (#151) are shipped and merged. UX-024
+(#150, select-all) is implemented on this branch/PR — check `gh pr list`
+before assuming it's merged.
 
-Remaining open issues: UX-022 (#148, object duplicate + copy/paste), UX-023
-(#149, layer z-order controls), UX-024 (#150, select-all). UX-022 and UX-024
-already have sibling PRs in flight as of this writing — check `gh pr list`
-before auto-picking either. UX-023 looks unclaimed.
-
-BOOK-004 (issue #126) remains explicitly deferred pending a rethink; do not
-resume it without the user re-raising it or confirming a scope first.
+No auto-pickable ticket next — every open issue besides BOOK-001 and BOOK-004
+is now shipped. BOOK-004 (issue #126) was explicitly reverted and deferred by
+the user pending a rethink; do not resume it without the user re-raising it or
+confirming a scope first.
