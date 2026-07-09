@@ -110,17 +110,23 @@ export function alignDelta(r: Box, target: Box, mode: AlignMode): { dx: number; 
 }
 
 /**
- * Shadow/glow effect config (UX-011; `spread` added in UX-020 phase 1).
- * `kind` disambiguates drop-shadow vs glow. `color` carries the effect
- * opacity via its alpha channel. An object can have more than one of these
- * active at once (UX-020 phase 2) even though fabric has a single native
- * `shadow` slot — every effect past the first, and any effect with
- * `spread` > 0, needs a synthetic clone (see effectsEngine.ts) since canvas
- * 2D can't cast a shadow from a transparent fill, so there's no way to draw
- * a second or bigger shadow on the host object alone.
+ * Shadow/glow/inner-shadow effect config (UX-011; `spread` added in UX-020
+ * phase 1; `inner` kind added in phase 3). `kind` disambiguates drop-shadow,
+ * glow, and inner shadow. `color` carries the effect opacity via its alpha
+ * channel. An object can have more than one of these active at once
+ * (UX-020 phase 2) even though fabric has a single native `shadow` slot —
+ * every effect past the first, and any effect with `spread` > 0, needs a
+ * synthetic clone (see effectsEngine.ts) since canvas 2D can't cast a
+ * shadow from a transparent fill, so there's no way to draw a second or
+ * bigger shadow on the host object alone. Inner shadow is a special case
+ * even among these: canvas 2D shadows are physically incapable of casting
+ * inward at all (a shadow always renders outside the casting shape's own
+ * pixels), so it's never a native-shadow candidate regardless of array
+ * position — it's always a raster-composited overlay (see
+ * effectsEngine.ts's syncInnerShadow) and doesn't use `spread`.
  */
 export interface ShadowEffect {
-  kind: 'drop' | 'glow'
+  kind: 'drop' | 'glow' | 'inner'
   x: number
   y: number
   blur: number
@@ -130,6 +136,7 @@ export interface ShadowEffect {
 
 export const DROP_SHADOW_DEFAULT: ShadowEffect = { kind: 'drop', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.3)' }
 export const GLOW_DEFAULT: ShadowEffect = { kind: 'glow', x: 0, y: 0, blur: 12, spread: 0, color: 'rgba(255,255,255,0.6)' }
+export const INNER_SHADOW_DEFAULT: ShadowEffect = { kind: 'inner', x: 4, y: 4, blur: 8, spread: 0, color: 'rgba(0,0,0,0.5)' }
 
 /** A ShadowEffect's fields as fabric.Shadow constructor options — shared by
  *  the host's own native shadow (objectsSlice.ts) and each synthetic clone's

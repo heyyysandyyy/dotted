@@ -16,11 +16,11 @@ const templatePayloadKey = (id: string) => `dotted:template:${id}`
 
 /** Fabric props persisted beyond the defaults (custom ids/names, lock flags).
  *
- * `effects`/`effectHostId`/`effectSlot` (UX-020 phase 2) are load-bearing:
- * without them, saving/undo-redo (both serialize via this list, see
- * storeHelpers.ts#serializeCanvas and useHistoryStore.ts) would silently
- * drop a host's second active effect and orphan its clone — the clone
- * would reload as a plain object with no `effectHostId` tag, so
+ * `effects`/`effectHostId`/`effectSlot`/`effectRole` (UX-020 phases 2-3) are
+ * load-bearing: without them, saving/undo-redo (both serialize via this
+ * list, see storeHelpers.ts#serializeCanvas and useHistoryStore.ts) would
+ * silently drop a host's second active effect and orphan its clone — the
+ * clone would reload as a plain object with no `effectHostId` tag, so
  * isEffectClone() would stop recognizing it, leaving a permanent, untracked
  * "ghost" shadow/glow shape that never moves again when its (former) host
  * is transformed. Confirmed this exact failure mode by hand before fixing
@@ -38,6 +38,7 @@ export const EXTRA_PROPS = [
   'effects',
   'effectHostId',
   'effectSlot',
+  'effectRole',
 ]
 
 /** Book-aware page kind (UX-015); absent means a plain page at the project's size. */
