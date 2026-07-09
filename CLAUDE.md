@@ -61,3 +61,4 @@ checklist of the *active* batch only.
 - [x] UX-024 Select all (Cmd+A) for canvas objects — excludes locked objects and synthetic effect visuals, preempts the browser's native page-text select-all (issue #150)
 - [x] UX-025 Per-object opacity control (issue #151) — opacity slider in the Properties Panel, works for shapes/text/images alike; debounced into history, isolated from effect clones/inner-shadow overlay
 - [x] UX-026 Light/dark theme toggle for the editor chrome — every editor component hardcodes dark-only Tailwind neutral classes; migrate to the semantic CSS-variable theme system already in index.css (shadcn boilerplate, never adopted) and add a toggle (issue #159)
+- [x] UX-027 Collapsible panels/sections in the right sidebar — every titled section (Align, Style, Position & size, Appearance, Text, Image, Effects, Layers, History, Background), not just the Layers panel that already had it; collapsed state persists per-section (issue #161)

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import type { AlignMode } from '../utils'
+import { CollapsibleSection } from './CollapsibleSection'
 
 /** Align & distribute controls, shown when objects are selected (UX-006). */
 export function AlignmentToolbar() {
@@ -32,10 +33,11 @@ export function AlignmentToolbar() {
   const btn = 'rounded p-1.5 text-editor-text-secondary hover:bg-editor-surface'
 
   return (
-    <div className="space-y-2 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-        {selection.length > 1 ? 'Align to selection' : 'Align to canvas'}
-      </div>
+    <CollapsibleSection
+      title={selection.length > 1 ? 'Align to selection' : 'Align to canvas'}
+      storageKey="align"
+      className="space-y-2 p-4"
+    >
       <div className="flex flex-wrap gap-1">
         {aligns.map(({ mode, label, Icon }) => (
           <button key={mode} onClick={() => alignObjects(mode)} title={label} className={btn}>
@@ -59,6 +61,6 @@ export function AlignmentToolbar() {
           <AlignVerticalDistributeCenter size={16} />
         </button>
       </div>
-    </div>
+    </CollapsibleSection>
   )
 }

@@ -8,6 +8,7 @@ import {
   type ShadowEffect,
 } from '../utils'
 import { ColorField } from './ColorField'
+import { CollapsibleSection } from './CollapsibleSection'
 
 function SliderRow({
   label,
@@ -82,9 +83,7 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
   }
 
   return (
-    <div className="space-y-2 border-t border-editor pt-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">Effects</div>
-
+    <CollapsibleSection title="Effects" storageKey="effects" className="space-y-2 border-t border-editor p-4">
       <EffectToggle label="Drop shadow" on={!!drop} onClick={() => toggle('drop', drop)} />
       {drop && (
         <div className="space-y-2 pl-1 pt-1">
@@ -148,6 +147,6 @@ export function EffectsPanel({ obj }: { obj: fabric.FabricObject }) {
       <p className="text-[11px] leading-snug text-editor-text-subtle">
         Any combination can be on at once; each colour's opacity sets its own strength.
       </p>
-    </div>
+    </CollapsibleSection>
   )
 }

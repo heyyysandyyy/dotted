@@ -7,6 +7,7 @@ import { FillStrokeControl } from './FillStrokeControl'
 import { EffectsPanel } from './EffectsPanel'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
+import { CollapsibleSection } from './CollapsibleSection'
 
 function NumberField({
   label,
@@ -42,10 +43,7 @@ function CanvasBackground() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="space-y-3 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-        Background
-      </div>
+    <CollapsibleSection title="Background" storageKey="background" className="space-y-3 p-4">
       <ColorField
         label="Colour"
         // The native colour input needs a valid hex; show white for transparent.
@@ -81,7 +79,7 @@ function CanvasBackground() {
         Clear the background for a transparent PNG. JPEG and PDF fill
         transparency with white.
       </p>
-    </div>
+    </CollapsibleSection>
   )
 }
 
@@ -119,34 +117,33 @@ export function PropertiesPanel() {
     <div>
       <AlignmentToolbar />
       <StyleTools />
-      <div className="space-y-3 border-t border-editor p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-        Position &amp; size
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField label="X" value={obj.left ?? 0} onCommit={(v) => updateActive({ left: v })} />
-        <NumberField label="Y" value={obj.top ?? 0} onCommit={(v) => updateActive({ top: v })} />
-        <NumberField
-          label="W"
-          value={w}
-          onCommit={(v) => updateActive({ scaleX: Math.max(1, v) / (obj.width || 1) })}
-        />
-        <NumberField
-          label="H"
-          value={h}
-          onCommit={(v) => updateActive({ scaleY: Math.max(1, v) / (obj.height || 1) })}
-        />
-      </div>
-      <NumberField
-        label="Rot"
-        value={obj.angle ?? 0}
-        onCommit={(v) => updateActive({ angle: v })}
-      />
-
-      <div className="space-y-2 border-t border-editor pt-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-          Appearance
+      <CollapsibleSection
+        title="Position & size"
+        storageKey="position-size"
+        className="space-y-3 border-t border-editor p-4"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField label="X" value={obj.left ?? 0} onCommit={(v) => updateActive({ left: v })} />
+          <NumberField label="Y" value={obj.top ?? 0} onCommit={(v) => updateActive({ top: v })} />
+          <NumberField
+            label="W"
+            value={w}
+            onCommit={(v) => updateActive({ scaleX: Math.max(1, v) / (obj.width || 1) })}
+          />
+          <NumberField
+            label="H"
+            value={h}
+            onCommit={(v) => updateActive({ scaleY: Math.max(1, v) / (obj.height || 1) })}
+          />
         </div>
+        <NumberField label="Rot" value={obj.angle ?? 0} onCommit={(v) => updateActive({ angle: v })} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Appearance"
+        storageKey="appearance"
+        className="space-y-2 border-t border-editor p-4"
+      >
         <label className="block text-xs text-editor-text-muted">
           <div className="mb-1 flex justify-between">
             <span>Opacity</span>
@@ -162,27 +159,21 @@ export function PropertiesPanel() {
             className="w-full accent-indigo-500"
           />
         </label>
-      </div>
+      </CollapsibleSection>
 
       {isShape(obj) && (
-        <div className="space-y-2 border-t border-editor pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-            Style
-          </div>
+        <CollapsibleSection title="Style" storageKey="fill-stroke" className="space-y-2 border-t border-editor p-4">
           <FillStrokeControl obj={obj} allowFill={obj.type !== 'line'} />
           <NumberField
             label="SW"
             value={obj.strokeWidth ?? 0}
             onCommit={(v) => updateActive({ strokeWidth: Math.max(0, v) })}
           />
-        </div>
+        </CollapsibleSection>
       )}
 
       {isText(obj) && (
-        <div className="space-y-2 border-t border-editor pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-            Text
-          </div>
+        <CollapsibleSection title="Text" storageKey="text" className="space-y-2 border-t border-editor p-4">
           <label className="block text-xs text-editor-text-muted">
             <div className="mb-1 flex justify-between">
               <span>Line height</span>
@@ -198,14 +189,11 @@ export function PropertiesPanel() {
               className="w-full accent-indigo-500"
             />
           </label>
-        </div>
+        </CollapsibleSection>
       )}
 
       {obj.type === 'image' && (
-        <div className="space-y-2 border-t border-editor pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
-            Image
-          </div>
+        <CollapsibleSection title="Image" storageKey="image" className="space-y-2 border-t border-editor p-4">
           <button
             onClick={enterCrop}
             title="Crop image"
@@ -242,11 +230,10 @@ export function PropertiesPanel() {
             erases more. Click again after changing it to re-tune from the
             original. Best on flat backgrounds, not busy photos.
           </p>
-        </div>
+        </CollapsibleSection>
       )}
 
       <EffectsPanel obj={obj} />
-      </div>
     </div>
   )
 }
