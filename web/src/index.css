@@ -46,9 +46,50 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Editor chrome tokens (UX-026) — the toolbar/panels/modals never adopted
+     * the shadcn tokens above (background/foreground/card/etc., tuned for
+     * form-heavy shadcn components); these are a parallel set sized to this
+     * editor's own denser visual hierarchy, registered as real Tailwind
+     * colour utilities (bg-editor-*, text-editor-*, border-editor-*) so
+     * every component can just swap its old raw neutral-scale class for the
+     * matching editor-* one. Values are defined per-theme below in :root/.dark. */
+    --color-editor-shell: var(--editor-shell);
+    --color-editor-bg: var(--editor-bg);
+    --color-editor-surface: var(--editor-surface);
+    --color-editor-surface-2: var(--editor-surface-2);
+    --color-editor-surface-3: var(--editor-surface-3);
+    --color-editor-desk: var(--editor-desk);
+    --color-editor-border: var(--editor-border);
+    --color-editor-border-strong: var(--editor-border-strong);
+    --color-editor-border-input: var(--editor-border-input);
+    --color-editor-text-strong: var(--editor-text-strong);
+    --color-editor-text: var(--editor-text);
+    --color-editor-text-secondary: var(--editor-text-secondary);
+    --color-editor-text-muted: var(--editor-text-muted);
+    --color-editor-text-subtle: var(--editor-text-subtle);
 }
 
 :root {
+    /* Editor chrome, light theme (UX-026). Named/mapped 1:1 against the raw
+     * Tailwind neutral-scale hex values every component used to hardcode, so
+     * swapping bg-neutral-800 for bg-editor-surface etc. is a mechanical,
+     * verifiable substitution rather than a fresh design pass per component. */
+    --editor-shell: #f5f5f5;         /* neutral-100 — outermost app background */
+    --editor-bg: #ffffff;            /* toolbar / elevated chrome */
+    --editor-surface: #f5f5f5;       /* neutral-100 — panel bg, hover level 1 */
+    --editor-surface-2: #e5e5e5;     /* neutral-200 — secondary button/active toggle bg, hover level 2 */
+    --editor-surface-3: #d4d4d4;     /* neutral-300 — hover on surface-2 */
+    --editor-desk: #e5e5e5;          /* neutral-200 — canvas surround; distinct from the white artboard */
+    --editor-border: #e5e5e5;        /* neutral-200 — subtle divider */
+    --editor-border-strong: #d4d4d4; /* neutral-300 — input border */
+    --editor-border-input: #a3a3a3;  /* neutral-400 — focused input border */
+    --editor-text-strong: #171717;   /* neutral-900 — headings, high emphasis */
+    --editor-text: #262626;          /* neutral-800 — primary body text */
+    --editor-text-secondary: #525252;/* neutral-600 — secondary/readout text */
+    --editor-text-muted: #737373;    /* neutral-500 — icon default, muted label */
+    --editor-text-subtle: #a3a3a3;   /* neutral-400 — least emphasis */
+
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -84,6 +125,24 @@
 }
 
 .dark {
+    /* Editor chrome, dark theme (UX-026) — the exact hex values every
+     * component already hardcoded, so switching them onto these tokens
+     * changes nothing about how dark mode looks today. */
+    --editor-shell: #0a0a0a;         /* neutral-950 */
+    --editor-bg: #171717;            /* neutral-900 — toolbar */
+    --editor-surface: #262626;       /* neutral-800 — panel bg, hover level 1 */
+    --editor-surface-2: #404040;     /* neutral-700 — secondary button/active toggle bg, hover level 2 */
+    --editor-surface-3: #525252;     /* neutral-600 — hover on surface-2 */
+    --editor-desk: #1e1e1e;          /* DARK_SURROUND, unchanged */
+    --editor-border: #262626;        /* neutral-800 */
+    --editor-border-strong: #404040; /* neutral-700 */
+    --editor-border-input: #525252;  /* neutral-600 */
+    --editor-text-strong: #f5f5f5;   /* neutral-100 */
+    --editor-text: #e5e5e5;          /* neutral-200 */
+    --editor-text-secondary: #d4d4d4;/* neutral-300 */
+    --editor-text-muted: #a3a3a3;    /* neutral-400 */
+    --editor-text-subtle: #737373;   /* neutral-500 */
+
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);

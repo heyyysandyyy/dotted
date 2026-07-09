@@ -220,7 +220,7 @@ export function CropOverlay() {
           <div
             key={id}
             onMouseDown={startDrag({ hx, hy })}
-            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-neutral-500 bg-white"
+            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-editor-input bg-white"
             style={{
               left: S.x + (hx < 0 ? 0 : hx > 0 ? S.w : S.w / 2),
               top: S.y + (hy < 0 ? 0 : hy > 0 ? S.h : S.h / 2),
@@ -231,23 +231,23 @@ export function CropOverlay() {
       </div>
 
       {/* Toolbar — stays screen-aligned regardless of the image's rotation. */}
-      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1.5 shadow-xl">
+      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-editor-strong bg-editor-bg px-2 py-1.5 shadow-xl">
         {ASPECTS.map((a) => (
           <button
             key={a.label}
             onClick={() => pickAspect(a.value)}
             className={`rounded px-2 py-1 text-xs ${
-              aspect === a.value ? 'bg-neutral-700 text-white' : 'text-neutral-300 hover:bg-neutral-800'
+              aspect === a.value ? 'bg-editor-surface-2 text-editor-text-strong' : 'text-editor-text-secondary hover:bg-editor-surface'
             }`}
           >
             {a.label}
           </button>
         ))}
-        <div className="mx-1 h-5 w-px bg-neutral-700" />
+        <div className="mx-1 h-5 w-px bg-editor-surface-2" />
         <button
           onClick={() => cancelCrop()}
           title="Cancel (Esc)"
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-editor-text-secondary hover:bg-editor-surface"
         >
           <X size={14} />
           Cancel

@@ -40,13 +40,13 @@ export function BookSetupPanel({ initialPresetId, onCreated }: Props) {
     onCreated()
   }
 
-  const label = 'flex flex-col text-xs text-neutral-400'
+  const label = 'flex flex-col text-xs text-editor-text-muted'
   const input =
-    'mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-neutral-500'
+    'mt-1 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-sm text-editor-text-strong outline-none focus:border-editor-input'
 
   return (
-    <div className="rounded-lg border border-neutral-700 p-4">
-      <div className="mb-2 text-sm font-medium text-neutral-200">Book setup</div>
+    <div className="rounded-lg border border-editor-strong p-4">
+      <div className="mb-2 text-sm font-medium text-editor-text">Book setup</div>
       <div className="mb-4 flex items-end gap-3">
         <label className={label}>
           Size
@@ -87,7 +87,7 @@ export function BookSetupPanel({ initialPresetId, onCreated }: Props) {
         <BookThumb kind="spread" preset={preset} />
       </div>
 
-      <div className="grid grid-cols-4 gap-3 rounded-md bg-neutral-800/60 p-3 text-xs">
+      <div className="grid grid-cols-4 gap-3 rounded-md bg-editor-surface/60 p-3 text-xs">
         <Stat label="Bleed" value="0.125 in" />
         <Stat label="Cut marks" value="Corners + spine" />
         <Stat label="Resolution" value="300 dpi" />
@@ -100,8 +100,8 @@ export function BookSetupPanel({ initialPresetId, onCreated }: Props) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-neutral-500">{label}</div>
-      <div className="font-medium text-neutral-200">{value}</div>
+      <div className="text-editor-text-subtle">{label}</div>
+      <div className="font-medium text-editor-text">{value}</div>
     </div>
   )
 }
@@ -210,7 +210,7 @@ function BookThumb({ kind, preset }: { kind: 'cover' | 'spread'; preset: SizePre
   return (
     <div className="flex flex-col items-center gap-1.5">
       <canvas ref={canvasRef} className="rounded-sm shadow" />
-      <div className="text-xs text-neutral-500">{kind === 'cover' ? 'Cover' : 'Spread'}</div>
+      <div className="text-xs text-editor-text-subtle">{kind === 'cover' ? 'Cover' : 'Spread'}</div>
     </div>
   )
 }

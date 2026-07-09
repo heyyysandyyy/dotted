@@ -32,7 +32,7 @@ function PreviewBox({
   const scale = CARD_W / width
   return (
     <div
-      className="overflow-hidden rounded border border-neutral-700 bg-white"
+      className="overflow-hidden rounded border border-editor-strong bg-white"
       style={{ width: CARD_W, height: Math.round(height * scale) }}
     >
       <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
@@ -44,11 +44,11 @@ function StarterCard({ tpl, onPick }: { tpl: StarterTemplate; onPick: () => void
   return (
     <button
       onClick={onPick}
-      className="flex flex-col items-center gap-2 rounded-lg border border-neutral-700 p-3 text-center transition hover:border-neutral-500 hover:bg-neutral-800"
+      className="flex flex-col items-center gap-2 rounded-lg border border-editor-strong p-3 text-center transition hover:border-editor-input hover:bg-editor-surface"
     >
       <PreviewBox width={tpl.width} height={tpl.height} draw={(el) => renderTemplatePreview(el, tpl)} />
-      <div className="text-sm font-medium text-neutral-200">{tpl.name}</div>
-      <div className="text-xs text-neutral-500">
+      <div className="text-sm font-medium text-editor-text">{tpl.name}</div>
+      <div className="text-xs text-editor-text-subtle">
         {tpl.width} × {tpl.height}
       </div>
     </button>
@@ -65,7 +65,7 @@ function SavedCard({
   onDelete: () => void
 }) {
   return (
-    <div className="group relative flex flex-col items-center gap-2 rounded-lg border border-neutral-700 p-3 text-center transition hover:border-neutral-500 hover:bg-neutral-800">
+    <div className="group relative flex flex-col items-center gap-2 rounded-lg border border-editor-strong p-3 text-center transition hover:border-editor-input hover:bg-editor-surface">
       <button onClick={onPick} className="flex flex-col items-center gap-2">
         <PreviewBox
           width={meta.width}
@@ -76,8 +76,8 @@ function SavedCard({
             return tpl ? renderPreview(el, tpl.pages[0].canvas, meta.width, meta.height) : () => {}
           }}
         />
-        <div className="text-sm font-medium text-neutral-200">{meta.name}</div>
-        <div className="text-xs text-neutral-500">
+        <div className="text-sm font-medium text-editor-text">{meta.name}</div>
+        <div className="text-xs text-editor-text-subtle">
           {meta.width} × {meta.height}
           {meta.pageCount > 1 ? ` · ${meta.pageCount} pages` : ''}
         </div>
@@ -85,7 +85,7 @@ function SavedCard({
       <button
         onClick={onDelete}
         title="Delete template"
-        className="absolute right-2 top-2 rounded p-1 text-neutral-400 opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+        className="absolute right-2 top-2 rounded p-1 text-editor-text-muted opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
       >
         <Trash2 size={14} />
       </button>
@@ -128,7 +128,7 @@ export function TemplatesModal({ open, onClose }: Props) {
       <div className="mb-4 flex justify-end">
         <button
           onClick={saveCurrent}
-          className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-300 hover:border-neutral-500"
+          className="flex items-center gap-1.5 rounded-md border border-editor-strong px-3 py-1.5 text-sm font-medium text-editor-text-secondary hover:border-editor-input"
         >
           <Plus size={15} />
           Save current as template
@@ -137,7 +137,7 @@ export function TemplatesModal({ open, onClose }: Props) {
 
       {saved.length > 0 && (
         <>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
             Your templates
           </div>
           <div className="mb-6 grid grid-cols-3 gap-4">
@@ -156,7 +156,7 @@ export function TemplatesModal({ open, onClose }: Props) {
         </>
       )}
 
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-editor-text-subtle">
         Starter templates
       </div>
       <div className="grid grid-cols-3 gap-4">
@@ -166,7 +166,7 @@ export function TemplatesModal({ open, onClose }: Props) {
       </div>
 
       <div className="mt-4 flex justify-end">
-        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200">
+        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text">
           Cancel
         </button>
       </div>
