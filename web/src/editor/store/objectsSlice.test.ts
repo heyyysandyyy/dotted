@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
-import { isEffectClone } from '../effectsEngine'
-import { DROP_SHADOW_DEFAULT } from '../utils'
+import { isEffectClone, syncEffectClones } from '../effectsEngine'
+import { DROP_SHADOW_DEFAULT, GLOW_DEFAULT } from '../utils'
 
 function matrixOf(obj: fabric.FabricObject): number[] {
   return obj.calcTransformMatrix()
@@ -315,6 +315,121 @@ describe('selectAllObjects (UX-024)', () => {
 
     expect(canvas.getActiveObject()).toBeUndefined()
     expect(useCanvasStore.getState().selection).toEqual([])
+  })
+})
+
+describe('bringToFront / sendToBack / bringForward / sendBackward (UX-023)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    useCanvasStore.setState({ canvas })
+  })
+
+  function rect(label: string) {
+    const r = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 }) as fabric.Rect & { id?: string }
+    r.id = label
+    return r
+  }
+
+  it('bringToFront moves the object to the top of the stack', async () => {
+    const [a, b, c] = [rect('a'), rect('b'), rect('c')]
+    canvas.add(a, b, c)
+    canvas.setActiveObject(a)
+
+    await useCanvasStore.getState().bringToFront()
+
+    expect(canvas.getObjects()).toEqual([b, c, a])
+  })
+
+  it('sendToBack moves the object to the bottom of the stack', async () => {
+    const [a, b, c] = [rect('a'), rect('b'), rect('c')]
+    canvas.add(a, b, c)
+    canvas.setActiveObject(c)
+
+    await useCanvasStore.getState().sendToBack()
+
+    expect(canvas.getObjects()).toEqual([c, a, b])
+  })
+
+  it('bringForward swaps the object up by exactly one step', async () => {
+    const [a, b, c] = [rect('a'), rect('b'), rect('c')]
+    canvas.add(a, b, c)
+    canvas.setActiveObject(a)
+
+    await useCanvasStore.getState().bringForward()
+
+    expect(canvas.getObjects()).toEqual([b, a, c])
+  })
+
+  it('sendBackward swaps the object down by exactly one step', async () => {
+    const [a, b, c] = [rect('a'), rect('b'), rect('c')]
+    canvas.add(a, b, c)
+    canvas.setActiveObject(c)
+
+    await useCanvasStore.getState().sendBackward()
+
+    expect(canvas.getObjects()).toEqual([a, c, b])
+  })
+
+  it('no-ops cleanly at the ends — bringToFront on an already-topmost object leaves the stack untouched', async () => {
+    const [a, b] = [rect('a'), rect('b')]
+    canvas.add(a, b)
+    canvas.setActiveObject(b)
+
+    await useCanvasStore.getState().bringToFront()
+
+    expect(canvas.getObjects()).toEqual([a, b])
+  })
+
+  it("a multi-selection bringToFront preserves the selection's own relative order", async () => {
+    const [a, b, c, d] = [rect('a'), rect('b'), rect('c'), rect('d')]
+    canvas.add(a, b, c, d) // a and c selected, both below their unselected neighbours
+    canvas.setActiveObject(new fabric.ActiveSelection([c, a], { canvas })) // selected out of stack order
+
+    await useCanvasStore.getState().bringToFront()
+
+    const objs = canvas.getObjects()
+    expect(objs.slice(0, 2)).toEqual([b, d]) // unselected, left behind at the bottom
+    // a was below c in the original stack, so it stays below c after the move.
+    expect(objs.slice(2)).toEqual([a, c])
+  })
+
+  it('works on an object nested in a group, not just canvas root', async () => {
+    const [a, b] = [rect('a'), rect('b')]
+    const group = new fabric.Group([a, b])
+    canvas.add(group)
+    // Select the child directly, the way in-place group editing (UX-016) does.
+    canvas.setActiveObject(a)
+
+    await useCanvasStore.getState().bringToFront()
+
+    expect(group.getObjects()).toEqual([b, a])
+    expect(canvas.getObjects()).toEqual([group]) // group's own position on canvas is untouched
+  })
+
+  it("a z-order move rebuilds a second effect's synthetic clone at the object's new position", async () => {
+    const host = rect('host') as fabric.Rect & { id?: string; effects?: unknown }
+    const other = rect('other')
+    host.effects = [DROP_SHADOW_DEFAULT, GLOW_DEFAULT]
+    canvas.add(host, other)
+    // Materialize the initial clone the way setShadowEffect would.
+    await syncEffectClones(canvas, host, [DROP_SHADOW_DEFAULT, GLOW_DEFAULT])
+    expect(canvas.getObjects().filter(isEffectClone)).toHaveLength(1)
+
+    canvas.setActiveObject(host)
+    await useCanvasStore.getState().sendToBack()
+
+    const objs = canvas.getObjects()
+    const hostIndex = objs.indexOf(host)
+    const cloneIndex = objs.findIndex(isEffectClone)
+    // The host+clone pair occupies the very back of the stack together — the
+    // clone (drawn behind the host, per effectsEngine.ts) rebuilds at index
+    // 0 with the host pushed to index 1 immediately above it, not stranded
+    // wherever it happened to be before the move.
+    expect(Math.min(hostIndex, cloneIndex)).toBe(0)
+    expect(cloneIndex).toBe(hostIndex - 1)
+    expect(canvas.getObjects().filter(isEffectClone)).toHaveLength(1) // rebuilt, not duplicated
   })
 })
 
