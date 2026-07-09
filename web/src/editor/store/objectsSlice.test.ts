@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
+import { useHistoryStore } from './useHistoryStore'
 
 function matrixOf(obj: fabric.FabricObject): number[] {
   return obj.calcTransformMatrix()
@@ -244,5 +245,73 @@ describe('enterCrop / applyCrop on a rotated image (UX-021)', () => {
     useCanvasStore.getState().enterCrop()
 
     expect(useCanvasStore.getState().cropAngle).toBeCloseTo(60, 5)
+  })
+})
+
+describe('updateActive opacity (UX-025)', () => {
+  let canvas: fabric.Canvas
+  let rect: fabric.Rect
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, fill: '#f00' })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({
+      canvas,
+      currentProjectId: 'proj-1',
+      pages: [{ id: 'page-1', canvas: {} }],
+      activePageId: 'page-1',
+      width: 400,
+      height: 400,
+    })
+    // Mirror CanvasStage's real wiring (components/CanvasStage.tsx): every
+    // object:modified event schedules a debounced (300ms) history record
+    // carrying whatever historyLabel the firing store action attached.
+    canvas.on('object:modified', (e) => {
+      const label = (e as unknown as { historyLabel?: string }).historyLabel
+      useHistoryStore.getState().scheduleRecord(label)
+    })
+    useHistoryStore.getState().reset() // seeds the baseline snapshot at index 0
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("sets the fabric object's own opacity directly (not a fill/stroke colour alpha) and tags the change 'Changed opacity'", () => {
+    let seenLabel = ''
+    canvas.on('object:modified', (e) => {
+      seenLabel = (e as unknown as { historyLabel?: string }).historyLabel ?? seenLabel
+    })
+
+    useCanvasStore.getState().updateActive({ opacity: 0.35 })
+
+    expect(rect.opacity).toBe(0.35)
+    expect(rect.fill).toBe('#f00') // fill colour untouched — opacity is a separate channel
+    expect(seenLabel).toBe('Changed opacity')
+  })
+
+  it('dragging the slider (several rapid updateActive calls) debounces to exactly one history entry, not one per tick', () => {
+    const baseline = useHistoryStore.getState().stack.length
+    expect(baseline).toBe(1)
+
+    // Simulate a slider drag: several ticks well within the 300ms debounce window.
+    useCanvasStore.getState().updateActive({ opacity: 0.2 })
+    vi.advanceTimersByTime(100)
+    useCanvasStore.getState().updateActive({ opacity: 0.5 })
+    vi.advanceTimersByTime(100)
+    useCanvasStore.getState().updateActive({ opacity: 0.8 })
+
+    // Still within 300ms of the last tick — nothing recorded yet.
+    vi.advanceTimersByTime(250)
+    expect(useHistoryStore.getState().stack.length).toBe(baseline)
+
+    // Past the debounce window measured from the last tick.
+    vi.advanceTimersByTime(100)
+    expect(useHistoryStore.getState().stack.length).toBe(baseline + 1)
+    expect(useHistoryStore.getState().labels.at(-1)).toBe('Changed opacity')
+    expect(rect.opacity).toBe(0.8) // the final value, not an intermediate tick
   })
 })

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type * as fabric from 'fabric'
-import { readStyle, applyStyle, distributeStarts, pageSize } from './storeHelpers'
+import { readStyle, applyStyle, distributeStarts, pageSize, labelForProps } from './storeHelpers'
 
 // Minimal object stub — these helpers only read props, set(), and type.
 const obj = (props: Record<string, unknown>) =>
@@ -29,6 +29,17 @@ describe('applyStyle', () => {
     const ellipse = obj({ type: 'ellipse', fill: '#000', rx: 50 })
     applyStyle(ellipse, { rx: 8, fill: '#fff' })
     expect(ellipse.set).toHaveBeenCalledWith({ fill: '#fff' })
+  })
+})
+
+describe('labelForProps (UX-025)', () => {
+  it('labels an opacity change distinctly from fill/stroke changes', () => {
+    expect(labelForProps({ opacity: 0.5 })).toBe('Changed opacity')
+  })
+  it('does not let opacity get shadowed by another key in the same call', () => {
+    // updateActive is always called with a single prop from the opacity
+    // slider, but guard the precedence order anyway: fill wins if ever combined.
+    expect(labelForProps({ fill: '#000', opacity: 0.5 })).toBe('Changed fill color')
   })
 })
 
