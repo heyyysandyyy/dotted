@@ -127,6 +127,29 @@ export function useEditorShortcuts() {
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
 
+      // Duplicate (Cmd/Ctrl+D) — offset copies, selected in place of the
+      // originals (UX-022).
+      if (mod && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        useCanvasStore.getState().duplicateActive()
+        return
+      }
+
+      // Copy / paste objects (Cmd/Ctrl+C / V) — distinct from copy/paste
+      // *style* above (Cmd/Ctrl+Alt+C/V, UX-007). Reaching here already means
+      // not editing text and not typing in a panel input (the guard above),
+      // so this never fights native copy/paste in a text field (UX-022).
+      if (mod && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault()
+        useCanvasStore.getState().copyObjects()
+        return
+      }
+      if (mod && !e.altKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault()
+        useCanvasStore.getState().pasteObjects()
+        return
+      }
+
       // Eyedropper (I): sample a colour and apply it to the active object's fill.
       if (e.key === 'i' || e.key === 'I') {
         e.preventDefault()
