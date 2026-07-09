@@ -5,6 +5,7 @@ import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffe
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
 import { syncEffectClones, syncInnerShadow, isEffectClone } from '../effectsEngine'
 import { localToScene } from '../cropGeometry'
+import { EXTRA_PROPS } from '../storage'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -82,11 +83,47 @@ async function reorderSelection(
   return changed
 }
 
+const DUPLICATE_OFFSET = 12
+const PASTE_OFFSET = 16
+
+/**
+ * Clone `source` (carrying effects/lock/name/id via EXTRA_PROPS — the same
+ * property list project save/load and the effects engine already rely on),
+ * give the clone a fresh id, offset it by (dx, dy), add it to the canvas, and
+ * rebuild any shadow effects it carries. A duplicated/pasted object's
+ * `effects` metadata survives the clone (EXTRA_PROPS includes it), but the
+ * *rendered* effect — the host's native shadow, any outer-effect clone, the
+ * inner-shadow overlay — are separate real objects/props that setShadowEffect
+ * builds from that metadata on every live edit; a straight clone doesn't
+ * recreate them on its own, so this does the same rebuild here (UX-022).
+ */
+async function cloneOnto(
+  canvas: fabric.Canvas,
+  source: fabric.FabricObject,
+  dx: number,
+  dy: number,
+): Promise<fabric.FabricObject> {
+  const clone = await source.clone(EXTRA_PROPS)
+  const tagged = clone as fabric.FabricObject & { id?: string }
+  tagged.id = crypto.randomUUID()
+  clone.set({ left: (clone.left ?? 0) + dx, top: (clone.top ?? 0) + dy })
+  clone.setCoords()
+  canvas.add(clone)
+  const effects = readShadowEffects(clone)
+  if (effects.length > 0) {
+    await syncEffectClones(canvas, clone, effects.filter((e) => e.kind !== 'inner'))
+    await syncInnerShadow(canvas, clone, effects.find((e) => e.kind === 'inner') ?? null)
+  }
+  return clone
+}
+
 export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice> = (set, get) => ({
   canvas: null,
   selection: [],
   tick: 0,
   clipboardStyle: null,
+  objectClipboard: null,
+  pasteCount: 0,
   painterMode: 'off',
   bgRemoving: false,
   cropImage: null,
@@ -349,6 +386,38 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.discardActiveObject()
     canvas.requestRenderAll()
     set({ selection: [] })
+  },
+
+  duplicateActive: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const clones = await Promise.all(objs.map((o) => cloneOnto(canvas, o, DUPLICATE_OFFSET, DUPLICATE_OFFSET)))
+    reselect(canvas, clones)
+    canvas.requestRenderAll()
+    fireModified(canvas, clones[0], clones.length > 1 ? 'Duplicated objects' : `Duplicated ${kindName(clones[0])}`)
+  },
+
+  copyObjects: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const templates = await Promise.all(objs.map((o) => o.clone(EXTRA_PROPS)))
+    set({ objectClipboard: templates, pasteCount: 0 })
+  },
+
+  pasteObjects: async () => {
+    const { canvas, objectClipboard, pasteCount } = get()
+    if (!canvas || !objectClipboard || objectClipboard.length === 0) return
+    const nextCount = pasteCount + 1
+    const offset = nextCount * PASTE_OFFSET
+    const clones = await Promise.all(objectClipboard.map((t) => cloneOnto(canvas, t, offset, offset)))
+    reselect(canvas, clones)
+    canvas.requestRenderAll()
+    fireModified(canvas, clones[0], clones.length > 1 ? 'Pasted objects' : `Pasted ${kindName(clones[0])}`)
+    set({ pasteCount: nextCount })
   },
 
   bringToFront: async () => {

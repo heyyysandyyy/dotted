@@ -2,15 +2,17 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
 
 /**
- * UX-007: right-click menu over the canvas with Copy/Paste style; UX-023
- * added the z-order actions. Right-clicking selects the object under the
- * cursor first (handled in CanvasStage), so the actions operate on it.
+ * UX-007: right-click menu over the canvas with Copy/Paste style; UX-022
+ * added Duplicate; UX-023 added the z-order actions. Right-clicking selects
+ * the object under the cursor first (handled in CanvasStage), so the
+ * actions operate on it.
  */
 export function ContextMenu() {
   const selection = useCanvasStore((s) => s.selection)
   const clipboardStyle = useCanvasStore((s) => s.clipboardStyle)
   const copyStyle = useCanvasStore((s) => s.copyStyle)
   const pasteStyle = useCanvasStore((s) => s.pasteStyle)
+  const duplicateActive = useCanvasStore((s) => s.duplicateActive)
   const bringToFront = useCanvasStore((s) => s.bringToFront)
   const sendToBack = useCanvasStore((s) => s.sendToBack)
   const bringForward = useCanvasStore((s) => s.bringForward)
@@ -58,6 +60,8 @@ export function ContextMenu() {
       style={{ left: menu.x, top: menu.y }}
       onClick={(e) => e.stopPropagation()}
     >
+      {item('Duplicate', hasSelection, duplicateActive)}
+      <hr className="my-1 border-neutral-700" />
       {item('Bring to front', hasSelection, bringToFront)}
       {item('Bring forward', hasSelection, bringForward)}
       {item('Send backward', hasSelection, sendBackward)}

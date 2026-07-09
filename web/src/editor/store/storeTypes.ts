@@ -201,6 +201,14 @@ export interface ObjectsSlice {
   tick: number
   /** Style copied from an object, for paste-style / format painter (UX-007). */
   clipboardStyle: Record<string, unknown> | null
+  /** Objects copied via Cmd/Ctrl+C, as detached clone templates — re-cloned
+   *  fresh on every paste so repeated Cmd/Ctrl+V doesn't reuse a live object
+   *  reference (UX-022). Distinct from clipboardStyle (UX-007). */
+  objectClipboard: fabric.FabricObject[] | null
+  /** How many times the current objectClipboard has been pasted — cascades
+   *  each paste's offset so repeated Cmd/Ctrl+V doesn't stack copies exactly
+   *  on top of each other. Reset on every fresh copy (UX-022). */
+  pasteCount: number
   /** Format-painter mode (UX-007). */
   painterMode: PainterMode
   /** True while a solid-background removal is processing (UX-010). */
@@ -261,6 +269,18 @@ export interface ObjectsSlice {
   distributeObjects: (axis: 'horizontal' | 'vertical') => void
   /** Delete the active selection. */
   deleteActive: () => void
+  /** Duplicate the active selection (single or multi) — offset copies,
+   *  selected in place of the originals; one undo step (UX-022). Returns a
+   *  promise (cloning is inherently async — fabric.Object#clone always is)
+   *  so tests/callers can await completion; the keyboard shortcut fires it
+   *  without awaiting. */
+  duplicateActive: () => Promise<void>
+  /** Copy the active selection to the object clipboard (UX-022) — distinct
+   *  from copyStyle (UX-007), which copies visual style only. */
+  copyObjects: () => Promise<void>
+  /** Paste the object clipboard; repeated pastes cascade in position. One
+   *  undo step per paste (UX-022). */
+  pasteObjects: () => Promise<void>
   /** Bring the active selection to the top of its parent's (canvas root or
    *  group) stack, preserving relative order within the selection. No-ops
    *  cleanly (no history step) if nothing actually moved (UX-023). */
