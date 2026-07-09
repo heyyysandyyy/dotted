@@ -246,3 +246,72 @@ describe('enterCrop / applyCrop on a rotated image (UX-021)', () => {
     expect(useCanvasStore.getState().cropAngle).toBeCloseTo(60, 5)
   })
 })
+
+describe('selectAllObjects (UX-024)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    // selection is reset explicitly too — it's a singleton store, so a prior
+    // test's leftover selection would otherwise leak into the no-op assertions.
+    useCanvasStore.setState({ canvas, selection: [] })
+  })
+
+  it('selects multiple objects as one active selection', () => {
+    const a = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const b = new fabric.Rect({ left: 50, top: 50, width: 10, height: 10 })
+    const c = new fabric.Rect({ left: 100, top: 100, width: 10, height: 10 })
+    canvas.add(a, b, c)
+
+    useCanvasStore.getState().selectAllObjects()
+
+    const active = canvas.getActiveObject()
+    expect(active?.type).toBe('activeselection')
+    expect(canvas.getActiveObjects()).toEqual([a, b, c])
+    expect(useCanvasStore.getState().selection).toEqual([a, b, c])
+  })
+
+  it('excludes a locked object from the selection', () => {
+    const a = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const locked = new fabric.Rect({ left: 50, top: 50, width: 10, height: 10 })
+    ;(locked as fabric.FabricObject & { locked?: boolean }).locked = true
+    locked.set({ selectable: false, evented: false })
+    canvas.add(a, locked)
+
+    useCanvasStore.getState().selectAllObjects()
+
+    expect(canvas.getActiveObjects()).toEqual([a])
+    expect(useCanvasStore.getState().selection).toEqual([a])
+  })
+
+  it('excludes an effect-clone-tagged object (synthetic shadow/glow visual)', () => {
+    const host = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const clone = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10, selectable: false, evented: false })
+    ;(clone as fabric.FabricObject & { effectHostId?: string }).effectHostId = 'some-host-id'
+    canvas.add(host, clone)
+
+    useCanvasStore.getState().selectAllObjects()
+
+    expect(canvas.getActiveObjects()).toEqual([host])
+    expect(useCanvasStore.getState().selection).toEqual([host])
+  })
+
+  it('is a no-op on an empty canvas', () => {
+    useCanvasStore.getState().selectAllObjects()
+
+    expect(canvas.getActiveObject()).toBeUndefined()
+    expect(useCanvasStore.getState().selection).toEqual([])
+  })
+
+  it('is a no-op when every object present is locked or an effect clone', () => {
+    const locked = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    ;(locked as fabric.FabricObject & { locked?: boolean }).locked = true
+    locked.set({ selectable: false, evented: false })
+    canvas.add(locked)
+
+    useCanvasStore.getState().selectAllObjects()
+
+    expect(canvas.getActiveObject()).toBeUndefined()
+    expect(useCanvasStore.getState().selection).toEqual([])
+  })
+})

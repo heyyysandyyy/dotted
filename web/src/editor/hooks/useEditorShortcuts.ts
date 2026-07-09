@@ -127,6 +127,17 @@ export function useEditorShortcuts() {
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
 
+      // Select all (Cmd/Ctrl+A) — UX-024. Gated by the guard above so native
+      // text select-all still fires while editing text in place or typing in
+      // a panel input; everywhere else this preempts the browser's native
+      // "select all page text" fallback, which otherwise highlights the UI
+      // chrome instead of the canvas.
+      if (mod && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault()
+        useCanvasStore.getState().selectAllObjects()
+        return
+      }
+
       // Eyedropper (I): sample a colour and apply it to the active object's fill.
       if (e.key === 'i' || e.key === 'I') {
         e.preventDefault()

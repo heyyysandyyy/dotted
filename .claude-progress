@@ -1,4 +1,6 @@
-No auto-pickable ticket next — every open issue besides BOOK-004 is now shipped.
-BOOK-004 (issue #126) was explicitly reverted and deferred by the user pending
-a rethink; do not resume it without the user re-raising it or confirming a
-scope first.
+Next up: UX-025 Per-object opacity control (issue #151).
+
+UX-022 (issue #148) and UX-023 (issue #149) are already in flight on their own
+branches/PRs — don't pick those up here. BOOK-004 (issue #126) was explicitly
+reverted and deferred by the user pending a rethink; do not resume it without
+the user re-raising it or confirming a scope first.

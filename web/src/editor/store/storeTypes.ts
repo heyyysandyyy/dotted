@@ -246,6 +246,11 @@ export interface ObjectsSlice {
   updateActive: (props: Partial<fabric.Textbox>) => void
   /** Programmatically select a single object (e.g. from the layers panel). */
   selectObject: (obj: fabric.FabricObject) => void
+  /** Select every selectable object on the canvas as a multi-selection
+   *  (Cmd/Ctrl+A) — excludes synthetic effect visuals (isEffectClone) and
+   *  locked objects, matching the layers panel (UX-024). No-op on an empty
+   *  canvas or when everything present is excluded. */
+  selectAllObjects: () => void
   /** Show or hide an object. */
   setObjectVisible: (obj: fabric.FabricObject, visible: boolean) => void
   /** Lock/unlock an object: locked objects can't be selected or edited on the

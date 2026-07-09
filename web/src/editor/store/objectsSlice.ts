@@ -3,7 +3,7 @@ import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
-import { syncEffectClones, syncInnerShadow } from '../effectsEngine'
+import { syncEffectClones, syncInnerShadow, isEffectClone } from '../effectsEngine'
 import { localToScene } from '../cropGeometry'
 import {
   SHAPE_FILL,
@@ -180,6 +180,18 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.setActiveObject(obj)
     canvas.requestRenderAll()
     set({ selection: [obj] })
+  },
+
+  selectAllObjects: () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas
+      .getObjects()
+      .filter((o) => !isEffectClone(o) && (o as fabric.FabricObject & { locked?: boolean }).locked !== true)
+    if (objs.length === 0) return
+    reselect(canvas, objs)
+    canvas.requestRenderAll()
+    set({ selection: objs })
   },
 
   setObjectVisible: (obj, visible) => {
