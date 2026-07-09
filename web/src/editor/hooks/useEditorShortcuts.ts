@@ -104,6 +104,24 @@ export function useEditorShortcuts() {
         return
       }
 
+      // Layer z-order (UX-023): Cmd/Ctrl+] forward one step, +Shift+] to the
+      // very front; Cmd/Ctrl+[ backward one step, +Shift+[ to the very back
+      // — standard convention across design tools. Uses e.code (physical
+      // key) rather than e.key since Shift+] produces a different character
+      // ('}') on e.key, same reasoning as the copy/paste-style shortcut below.
+      if (mod && !editing && e.code === 'BracketRight') {
+        e.preventDefault()
+        if (e.shiftKey) useCanvasStore.getState().bringToFront()
+        else useCanvasStore.getState().bringForward()
+        return
+      }
+      if (mod && !editing && e.code === 'BracketLeft') {
+        e.preventDefault()
+        if (e.shiftKey) useCanvasStore.getState().sendToBack()
+        else useCanvasStore.getState().sendBackward()
+        return
+      }
+
       // Copy / paste style (Cmd/Ctrl+Alt+C / V) — use e.code since Alt changes
       // e.key on some layouts (UX-007).
       if (mod && e.altKey && !editing && e.code === 'KeyC') {
@@ -126,6 +144,29 @@ export function useEditorShortcuts() {
 
       // Never hijack keys while editing text or typing in a panel input.
       if (editing || isTypingTarget()) return
+
+      // Duplicate (Cmd/Ctrl+D) — offset copies, selected in place of the
+      // originals (UX-022).
+      if (mod && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        useCanvasStore.getState().duplicateActive()
+        return
+      }
+
+      // Copy / paste objects (Cmd/Ctrl+C / V) — distinct from copy/paste
+      // *style* above (Cmd/Ctrl+Alt+C/V, UX-007). Reaching here already means
+      // not editing text and not typing in a panel input (the guard above),
+      // so this never fights native copy/paste in a text field (UX-022).
+      if (mod && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault()
+        useCanvasStore.getState().copyObjects()
+        return
+      }
+      if (mod && !e.altKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault()
+        useCanvasStore.getState().pasteObjects()
+        return
+      }
 
       // Eyedropper (I): sample a colour and apply it to the active object's fill.
       if (e.key === 'i' || e.key === 'I') {

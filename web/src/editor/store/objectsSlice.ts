@@ -3,8 +3,9 @@ import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
-import { syncEffectClones, syncInnerShadow } from '../effectsEngine'
+import { syncEffectClones, syncInnerShadow, isEffectClone } from '../effectsEngine'
 import { localToScene } from '../cropGeometry'
+import { EXTRA_PROPS } from '../storage'
 import {
   SHAPE_FILL,
   SHAPE_STROKE,
@@ -18,11 +19,111 @@ import {
 } from './storeHelpers'
 import type { CanvasState, ObjectsSlice } from './storeTypes'
 
+/** An object's direct parent for stacking purposes — the group it's nested
+ *  in, or canvas root. Fabric's z-order methods (bringObjectToFront etc.)
+ *  operate on whichever collection they're called on, so this is the one
+ *  thing every z-order action (UX-023) needs to resolve first.
+ *
+ *  `obj.group` is also set while the object is merely part of a *transient*
+ *  multi-selection (a fabric.ActiveSelection, `.type === 'activeselection'`)
+ *  — not just a real fabric.Group the user actually created. Treating that
+ *  as the stacking parent would reorder objects within the selection's own
+ *  short-lived internal array instead of the canvas's real z-order, so this
+ *  only follows `.group` for an actual Group. */
+function stackingParent(canvas: fabric.Canvas, obj: fabric.FabricObject): fabric.Canvas | fabric.Group {
+  const g = obj.group as fabric.Group | undefined
+  return g && g.type === 'group' ? g : canvas
+}
+
+/** Rebuild a host's shadow effects (outer-effect clone(s), inner-shadow
+ *  overlay) so they land back at the host's new stacking position — those
+ *  are separate canvas objects a z-order move doesn't touch on its own.
+ *  Mirrors what CanvasStage's object:modified listener already does for a
+ *  single object; called directly here (rather than relying on that
+ *  listener) so it covers *every* object in a multi-selection z-order move,
+ *  not just the one object fireModified is called with for the history
+ *  label (UX-023). */
+async function resyncEffects(canvas: fabric.Canvas, obj: fabric.FabricObject): Promise<void> {
+  if (isEffectClone(obj)) return
+  const effects = readShadowEffects(obj)
+  await syncEffectClones(canvas, obj, effects.filter((e) => e.kind !== 'inner'))
+  await syncInnerShadow(canvas, obj, effects.find((e) => e.kind === 'inner') ?? null)
+}
+
+/**
+ * Apply a single-object fabric stacking move (bringObjectToFront and co.) to
+ * every object in a multi-selection, processed in whichever order keeps
+ * their relative stacking order intact rather than having them fight each
+ * other (UX-023):
+ * - front/backward-by-one moves process top-to-bottom (topmost first), so a
+ *   topmost selected object clears its unselected neighbour before a lower
+ *   one tries to move into the same gap.
+ * - back/forward-by-one... front and back use the opposite order, since
+ *   each successive bringObjectToFront/sendObjectToBack call jumps straight
+ *   to the very top/bottom — processing bottom-to-top for "front" (so the
+ *   originally-topmost object is pushed last and ends up truly on top) and
+ *   top-to-bottom for "back" (so the originally-bottommost ends up truly on
+ *   bottom).
+ * Returns whether anything actually moved, so callers can skip recording a
+ * spurious history step when every object was already at the stack end.
+ */
+async function reorderSelection(
+  canvas: fabric.Canvas,
+  objs: fabric.FabricObject[],
+  move: (parent: fabric.Canvas | fabric.Group, obj: fabric.FabricObject) => boolean,
+  processTopFirst: boolean,
+): Promise<boolean> {
+  if (objs.length === 0) return false
+  const parent = stackingParent(canvas, objs[0])
+  const withIndex = objs.map((o) => ({ o, i: parent.getObjects().indexOf(o) }))
+  withIndex.sort((a, b) => (processTopFirst ? b.i - a.i : a.i - b.i))
+  const changed = withIndex.map(({ o }) => move(parent, o)).some(Boolean)
+  await Promise.all(objs.map((o) => resyncEffects(canvas, o)))
+  canvas.requestRenderAll()
+  return changed
+}
+
+const DUPLICATE_OFFSET = 12
+const PASTE_OFFSET = 16
+
+/**
+ * Clone `source` (carrying effects/lock/name/id via EXTRA_PROPS — the same
+ * property list project save/load and the effects engine already rely on),
+ * give the clone a fresh id, offset it by (dx, dy), add it to the canvas, and
+ * rebuild any shadow effects it carries. A duplicated/pasted object's
+ * `effects` metadata survives the clone (EXTRA_PROPS includes it), but the
+ * *rendered* effect — the host's native shadow, any outer-effect clone, the
+ * inner-shadow overlay — are separate real objects/props that setShadowEffect
+ * builds from that metadata on every live edit; a straight clone doesn't
+ * recreate them on its own, so this does the same rebuild here (UX-022).
+ */
+async function cloneOnto(
+  canvas: fabric.Canvas,
+  source: fabric.FabricObject,
+  dx: number,
+  dy: number,
+): Promise<fabric.FabricObject> {
+  const clone = await source.clone(EXTRA_PROPS)
+  const tagged = clone as fabric.FabricObject & { id?: string }
+  tagged.id = crypto.randomUUID()
+  clone.set({ left: (clone.left ?? 0) + dx, top: (clone.top ?? 0) + dy })
+  clone.setCoords()
+  canvas.add(clone)
+  const effects = readShadowEffects(clone)
+  if (effects.length > 0) {
+    await syncEffectClones(canvas, clone, effects.filter((e) => e.kind !== 'inner'))
+    await syncInnerShadow(canvas, clone, effects.find((e) => e.kind === 'inner') ?? null)
+  }
+  return clone
+}
+
 export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice> = (set, get) => ({
   canvas: null,
   selection: [],
   tick: 0,
   clipboardStyle: null,
+  objectClipboard: null,
+  pasteCount: 0,
   painterMode: 'off',
   bgRemoving: false,
   cropImage: null,
@@ -285,6 +386,78 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     canvas.discardActiveObject()
     canvas.requestRenderAll()
     set({ selection: [] })
+  },
+
+  duplicateActive: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const clones = await Promise.all(objs.map((o) => cloneOnto(canvas, o, DUPLICATE_OFFSET, DUPLICATE_OFFSET)))
+    reselect(canvas, clones)
+    canvas.requestRenderAll()
+    fireModified(canvas, clones[0], clones.length > 1 ? 'Duplicated objects' : `Duplicated ${kindName(clones[0])}`)
+  },
+
+  copyObjects: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const templates = await Promise.all(objs.map((o) => o.clone(EXTRA_PROPS)))
+    set({ objectClipboard: templates, pasteCount: 0 })
+  },
+
+  pasteObjects: async () => {
+    const { canvas, objectClipboard, pasteCount } = get()
+    if (!canvas || !objectClipboard || objectClipboard.length === 0) return
+    const nextCount = pasteCount + 1
+    const offset = nextCount * PASTE_OFFSET
+    const clones = await Promise.all(objectClipboard.map((t) => cloneOnto(canvas, t, offset, offset)))
+    reselect(canvas, clones)
+    canvas.requestRenderAll()
+    fireModified(canvas, clones[0], clones.length > 1 ? 'Pasted objects' : `Pasted ${kindName(clones[0])}`)
+    set({ pasteCount: nextCount })
+  },
+
+  bringToFront: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const changed = await reorderSelection(canvas, objs, (p, o) => p.bringObjectToFront(o), false)
+    if (!changed) return
+    fireModified(canvas, objs[0], objs.length > 1 ? 'Brought selection to front' : 'Brought to front')
+  },
+
+  sendToBack: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const changed = await reorderSelection(canvas, objs, (p, o) => p.sendObjectToBack(o), true)
+    if (!changed) return
+    fireModified(canvas, objs[0], objs.length > 1 ? 'Sent selection to back' : 'Sent to back')
+  },
+
+  bringForward: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const changed = await reorderSelection(canvas, objs, (p, o) => p.bringObjectForward(o), true)
+    if (!changed) return
+    fireModified(canvas, objs[0], objs.length > 1 ? 'Brought selection forward' : 'Brought forward')
+  },
+
+  sendBackward: async () => {
+    const { canvas } = get()
+    if (!canvas) return
+    const objs = canvas.getActiveObjects()
+    if (objs.length === 0) return
+    const changed = await reorderSelection(canvas, objs, (p, o) => p.sendObjectBackwards(o), false)
+    if (!changed) return
+    fireModified(canvas, objs[0], objs.length > 1 ? 'Sent selection backward' : 'Sent backward')
   },
 
   copyStyle: () => {
