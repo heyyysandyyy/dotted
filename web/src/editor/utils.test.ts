@@ -3,6 +3,7 @@ import type * as fabric from 'fabric'
 import {
   isText,
   isShape,
+  isImage,
   layerName,
   kindName,
   toColorString,
@@ -37,6 +38,16 @@ describe('isShape', () => {
   it('is false for text and images', () => {
     expect(isShape(obj('textbox'))).toBe(false)
     expect(isShape(obj('image'))).toBe(false)
+  })
+})
+
+describe('isImage', () => {
+  it('is true only for images', () => {
+    expect(isImage(obj('image'))).toBe(true)
+    expect(isImage(obj('rect'))).toBe(false)
+    expect(isImage(obj('textbox'))).toBe(false)
+    expect(isImage(null)).toBe(false)
+    expect(isImage(undefined)).toBe(false)
   })
 })
 
