@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { EmptyState } from './EmptyState'
 import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
+
+// downscaleDataUrl loads the data URL into a real Image to read its natural
+// size — jsdom never fires Image.onload for actual image bytes, so the fake
+// (non-image) File content these tests upload would hang that step forever.
+// Downscaling itself is covered by lib/downscaleImage.test.ts.
+vi.mock('../../lib/downscaleImage', () => ({
+  downscaleDataUrl: (url: string) => Promise.resolve(url),
+}))
 
 function makeFile(type: string, name = 'photo', content = 'x'): File {
   return new File([content], name, { type })

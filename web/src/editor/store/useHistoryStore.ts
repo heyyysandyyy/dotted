@@ -124,14 +124,26 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     if (get().isRestoring) return
     if (label) set({ pendingLabel: label })
     if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => get().record(), DEBOUNCE_MS)
+    // Reset to null on natural fire too, not just when cancelled — otherwise
+    // debounceTimer keeps holding a stale (already-fired) id forever, and
+    // flushPendingSave's "nothing pending" check would never actually see
+    // nothing pending once a single edit had ever been made.
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null
+      get().record()
+    }, DEBOUNCE_MS)
   },
 
   flushPendingSave: () => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
+    // Only act if an edit actually scheduled a save. Unconditionally calling
+    // record() here corrupted large projects: React StrictMode's dev-only
+    // double-invoke (mount -> cleanup -> mount) can run this cleanup while
+    // the first mount's async openProject()/loadFromJSON is still resolving
+    // — with nothing pending, that used to snapshot the canvas mid-load
+    // (still empty) and persist it, overwriting the real saved data.
+    if (!debounceTimer) return
+    clearTimeout(debounceTimer)
+    debounceTimer = null
     get().record()
   },
 

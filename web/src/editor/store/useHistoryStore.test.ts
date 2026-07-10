@@ -67,4 +67,25 @@ describe('useHistoryStore — flushPendingSave (data-loss fix for route navigati
     vi.advanceTimersByTime(400)
     expect(useHistoryStore.getState().stack.length).toBe(afterFlush)
   })
+
+  it('is a true no-op when nothing is pending — does not overwrite good data with the current (possibly transitional) state', () => {
+    // Establish a real saved baseline first.
+    useHistoryStore.getState().scheduleRecord('Added image')
+    vi.advanceTimersByTime(DEBOUNCE_MS_FOR_TEST)
+    const saved = projectRaw('proj-1')
+    expect(saved).not.toBeNull()
+
+    // Simulate the canvas being in some other transitional state — e.g. mid
+    // reload, before an async project load has finished — with no edit ever
+    // having scheduled a save for it.
+    canvas.clear()
+
+    useHistoryStore.getState().flushPendingSave()
+
+    // Regression: this used to unconditionally record() and persist,
+    // clobbering the real saved data with a snapshot of the empty canvas.
+    expect(projectRaw('proj-1')).toBe(saved)
+  })
 })
+
+const DEBOUNCE_MS_FOR_TEST = 300
