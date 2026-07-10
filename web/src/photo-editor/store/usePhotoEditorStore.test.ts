@@ -50,3 +50,48 @@ describe('usePhotoEditorStore — openFromCanvas (PHOTO-003)', () => {
     expect(usePhotoEditorStore.getState().sourceRef).toBeNull()
   })
 })
+
+describe('usePhotoEditorStore — adjustments (PHOTO-004)', () => {
+  beforeEach(() => {
+    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: { brightness: 0, contrast: 0 } })
+  })
+
+  it('starts neutral', () => {
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+  })
+
+  it('setAdjustment updates just the given key', () => {
+    usePhotoEditorStore.getState().setAdjustment('brightness', 40)
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: 0 })
+
+    usePhotoEditorStore.getState().setAdjustment('contrast', -25)
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: -25 })
+  })
+
+  it('clamps to -100..100', () => {
+    usePhotoEditorStore.getState().setAdjustment('brightness', 500)
+    expect(usePhotoEditorStore.getState().adjustments.brightness).toBe(100)
+
+    usePhotoEditorStore.getState().setAdjustment('brightness', -500)
+    expect(usePhotoEditorStore.getState().adjustments.brightness).toBe(-100)
+  })
+
+  it('resetAdjustment zeroes just that one control', () => {
+    usePhotoEditorStore.getState().setAdjustment('brightness', 40)
+    usePhotoEditorStore.getState().setAdjustment('contrast', -25)
+    usePhotoEditorStore.getState().resetAdjustment('brightness')
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: -25 })
+  })
+
+  it('a fresh setImage resets adjustments back to neutral', () => {
+    usePhotoEditorStore.getState().setAdjustment('brightness', 40)
+    usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+  })
+
+  it('openFromCanvas also resets adjustments back to neutral', () => {
+    usePhotoEditorStore.getState().setAdjustment('contrast', 40)
+    usePhotoEditorStore.getState().openFromCanvas('data:image/png;base64,new', REF)
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+  })
+})
