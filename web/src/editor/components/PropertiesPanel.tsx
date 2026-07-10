@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react'
-import { ImagePlus, Ban, Eraser, Crop } from 'lucide-react'
+import { ImagePlus, Ban, Eraser, Crop, Pencil } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { usePhotoEditorStore } from '../../photo-editor/store/usePhotoEditorStore'
 import { isText, isShape } from '../utils'
+import { buildPhotoEditorHandoff } from '../photoEditorHandoff'
 import { ColorField } from './ColorField'
 import { FillStrokeControl } from './FillStrokeControl'
 import { EffectsPanel } from './EffectsPanel'
@@ -91,6 +94,8 @@ export function PropertiesPanel() {
   const removeImageBackground = useCanvasStore((s) => s.removeImageBackground)
   const bgRemoving = useCanvasStore((s) => s.bgRemoving)
   const enterCrop = useCanvasStore((s) => s.enterCrop)
+  const openFromCanvas = usePhotoEditorStore((s) => s.openFromCanvas)
+  const navigate = useNavigate()
   const [bgTolerance, setBgTolerance] = useState(60)
 
   if (selection.length === 0) {
@@ -194,6 +199,21 @@ export function PropertiesPanel() {
 
       {obj.type === 'image' && (
         <CollapsibleSection title="Image" storageKey="image" className="space-y-2 border-t border-editor p-4">
+          <button
+            onClick={() => {
+              const { canvas, activePageId } = useCanvasStore.getState()
+              if (!canvas) return
+              const handoff = buildPhotoEditorHandoff(canvas, obj, activePageId)
+              if (!handoff) return
+              openFromCanvas(handoff.image, handoff.sourceRef)
+              navigate({ to: '/photo-editor' })
+            }}
+            title="Edit in Photo Editor"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
+          >
+            <Pencil size={14} />
+            Edit in Photo Editor
+          </button>
           <button
             onClick={enterCrop}
             title="Crop image"

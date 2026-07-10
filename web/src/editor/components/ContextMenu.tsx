@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type * as fabric from 'fabric'
 import { useNavigate } from '@tanstack/react-router'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { usePhotoEditorStore } from '../../photo-editor/store/usePhotoEditorStore'
 import { isImage } from '../utils'
+import { buildPhotoEditorHandoff } from '../photoEditorHandoff'
 
 /**
  * UX-007: right-click menu over the canvas with Copy/Paste style; UX-022
@@ -56,18 +56,9 @@ export function ContextMenu() {
   const editInPhotoEditor = () => {
     const { canvas, activePageId } = useCanvasStore.getState()
     if (!canvas || !singleObj) return
-    const img = singleObj as fabric.FabricImage & { id?: string; originalSrc?: string }
-    if (!img.id) return
-    openFromCanvas(img.originalSrc ?? img.getSrc(), {
-      pageId: activePageId,
-      objectId: img.id,
-      left: singleObj.left ?? 0,
-      top: singleObj.top ?? 0,
-      scaleX: singleObj.scaleX ?? 1,
-      scaleY: singleObj.scaleY ?? 1,
-      angle: singleObj.angle ?? 0,
-      zIndex: canvas.getObjects().indexOf(singleObj),
-    })
+    const handoff = buildPhotoEditorHandoff(canvas, singleObj, activePageId)
+    if (!handoff) return
+    openFromCanvas(handoff.image, handoff.sourceRef)
     navigate({ to: '/photo-editor' })
   }
 
