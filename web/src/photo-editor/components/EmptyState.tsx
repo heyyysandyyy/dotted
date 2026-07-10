@@ -3,6 +3,7 @@ import { ImagePlus } from 'lucide-react'
 import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import { validateImageFile } from '../utils/validateImageFile'
 import { readImageFile } from '../utils/readImageFile'
+import { downscaleDataUrl } from '../../lib/downscaleImage'
 
 const ACCEPT = 'image/jpeg,image/png'
 
@@ -34,8 +35,12 @@ export function EmptyState() {
     }
     try {
       const dataUrl = await readImageFile(file)
+      // Reasonable max size handling (issue #164's own AC) — also keeps this
+      // image within budget for the eventual port-back into Canvas's
+      // localStorage-only persistence (PHOTO-006).
+      const finalUrl = await downscaleDataUrl(dataUrl, file.type).catch(() => dataUrl)
       setError(null)
-      setImage(dataUrl)
+      setImage(finalUrl)
     } catch {
       setError('Could not read that file — please try again.')
     }

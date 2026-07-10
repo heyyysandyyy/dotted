@@ -14,6 +14,7 @@ import { LayersPanel } from './components/LayersPanel'
 import { HistoryPanel } from './components/HistoryPanel'
 import { ContextToolbar } from './components/ContextToolbar'
 import { ContextMenu } from './components/ContextMenu'
+import { SaveErrorBanner } from './components/SaveErrorBanner'
 import { useEditorShortcuts } from './hooks/useEditorShortcuts'
 import { useCanvasStore } from './store/useCanvasStore'
 
@@ -42,6 +43,7 @@ export function Editor() {
         onProjects={() => setProjectsOpen(true)}
         onExport={() => setExportOpen(true)}
       />
+      <SaveErrorBanner />
 
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
