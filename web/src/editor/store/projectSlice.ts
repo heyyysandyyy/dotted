@@ -15,6 +15,7 @@ import {
 } from '../storage'
 import { useHistoryStore } from './useHistoryStore'
 import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, pageSize } from './storeHelpers'
+import { downscaleDataUrl } from '../../lib/downscaleImage'
 import type { CanvasState, ProjectSlice } from './storeTypes'
 
 export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice> = (set, get) => ({
@@ -26,6 +27,8 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
   activePageId: '',
   viewMode: 'single',
   backgroundColor: '#ffffff',
+  saveError: null,
+  setSaveError: (saveError) => set({ saveError }),
 
   setDesignName: (designName) => set({ designName }),
 
@@ -256,7 +259,15 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       p.id === activePageId ? { ...p, canvas: serializeCanvas(canvas) } : p,
     )
     set({ pages: synced })
-    saveProject({ id: currentProjectId, name: designName, width, height, pages: synced, activePageId, guides })
+    const ok = saveProject({ id: currentProjectId, name: designName, width, height, pages: synced, activePageId, guides })
+    // saveProject fails soft (e.g. localStorage quota exceeded) — surface it
+    // instead of silently losing the edit, which is exactly what an
+    // unshrunk image upload used to do.
+    set({
+      saveError: ok
+        ? null
+        : "Couldn't save — your browser's storage is full. Free up space (delete unused projects/templates) or the latest changes may be lost.",
+    })
   },
 
   addPage: () => {
@@ -488,16 +499,20 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     reader.onload = () => {
       const dataUrl = reader.result
       if (typeof dataUrl !== 'string') return
-      fabric.FabricImage.fromURL(dataUrl).then((img) => {
-        const { canvas, width, height } = get()
-        if (!canvas) return
-        // Scale to cover the artboard, centred.
-        const scale = Math.max(width / (img.width || 1), height / (img.height || 1))
-        img.set({ originX: 'center', originY: 'center', left: width / 2, top: height / 2, scaleX: scale, scaleY: scale })
-        canvas.backgroundImage = img
-        canvas.requestRenderAll()
-        useHistoryStore.getState().scheduleRecord('Set background image')
-      })
+      // Downscaled first — same quota risk as addImageFromFile (objectsSlice.ts).
+      downscaleDataUrl(dataUrl, file.type)
+        .catch(() => dataUrl)
+        .then((finalUrl) => fabric.FabricImage.fromURL(finalUrl))
+        .then((img) => {
+          const { canvas, width, height } = get()
+          if (!canvas) return
+          // Scale to cover the artboard, centred.
+          const scale = Math.max(width / (img.width || 1), height / (img.height || 1))
+          img.set({ originX: 'center', originY: 'center', left: width / 2, top: height / 2, scaleX: scale, scaleY: scale })
+          canvas.backgroundImage = img
+          canvas.requestRenderAll()
+          useHistoryStore.getState().scheduleRecord('Set background image')
+        })
     }
     reader.readAsDataURL(file)
   },

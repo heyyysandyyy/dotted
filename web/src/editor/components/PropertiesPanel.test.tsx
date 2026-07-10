@@ -1,8 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import * as fabric from 'fabric'
 import { PropertiesPanel } from './PropertiesPanel'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { usePhotoEditorStore } from '../../photo-editor/store/usePhotoEditorStore'
+
+const navigateMock = vi.fn()
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateMock,
+}))
 
 /** Finds the Opacity slider by walking up from its label text to the <label>
  *  wrapper, then down to the range input inside it — mirrors the structural
@@ -74,5 +80,43 @@ describe('PropertiesPanel — opacity slider (UX-025)', () => {
 
     expect(opacitySlider().value).toBe('25')
     expect(screen.getByText('25%')).toBeInTheDocument()
+  })
+})
+
+describe('PropertiesPanel — Edit in Photo Editor (PHOTO-003)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    navigateMock.mockClear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    usePhotoEditorStore.setState({ image: null, sourceRef: null })
+  })
+
+  it('shows the action for a selected image and wires it through to the photo editor store + navigation', () => {
+    const img = new fabric.FabricImage(document.createElement('img'), {
+      left: 5,
+      top: 6,
+    }) as fabric.FabricImage & { id?: string }
+    img.id = 'img-42'
+    canvas.add(img)
+    canvas.setActiveObject(img)
+    useCanvasStore.setState({ canvas, selection: [img], activePageId: 'page-7' })
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByText('Edit in Photo Editor'))
+
+    expect(usePhotoEditorStore.getState().sourceRef).toMatchObject({ pageId: 'page-7', objectId: 'img-42' })
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/photo-editor' })
+  })
+
+  it('does not show for a non-image selection', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+
+    expect(screen.queryByText('Edit in Photo Editor')).not.toBeInTheDocument()
   })
 })

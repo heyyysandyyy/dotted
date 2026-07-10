@@ -57,6 +57,9 @@ export interface ProjectSlice {
   viewMode: ViewMode
   /** Mirror of the artboard's solid background colour ('' when transparent). */
   backgroundColor: string
+  /** Set when the last autosave failed (e.g. localStorage quota exceeded) — null when clean. */
+  saveError: string | null
+  setSaveError: (error: string | null) => void
 
   setDesignName: (name: string) => void
   /** Resize the artboard, preserving existing objects. */
