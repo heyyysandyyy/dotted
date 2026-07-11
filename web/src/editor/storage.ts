@@ -39,6 +39,11 @@ export const EXTRA_PROPS = [
   'effectHostId',
   'effectSlot',
   'effectRole',
+  /** Applied brightness/contrast values (PHOTO-006), stored alongside a
+   *  Photo-Editor-flattened image for a future non-destructive re-edit —
+   *  not read anywhere yet, just carried through save/load so it isn't
+   *  silently dropped the next time this object's page re-serializes. */
+  'edits',
 ]
 
 /** Book-aware page kind (UX-015); absent means a plain page at the project's size. */

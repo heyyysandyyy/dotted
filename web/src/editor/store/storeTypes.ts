@@ -3,6 +3,7 @@ import type { UnitId, SizePreset } from '../constants'
 import type { PageData, Guides } from '../storage'
 import type { StarterTemplate } from '../templates'
 import type { AlignMode, ShadowEffect } from '../utils'
+import type { PhotoEditorSourceRef, PhotoAdjustments } from '../../photo-editor/store/usePhotoEditorStore'
 
 export type ShapeKind = 'rect' | 'roundedRect' | 'ellipse' | 'triangle' | 'line' | 'arrow'
 
@@ -85,6 +86,15 @@ export interface ProjectSlice {
   duplicateProjectById: (id: string) => string | null
   /** Serialize the live canvas into the active page and persist the project. */
   saveCurrentProject: () => void
+  /** PHOTO-006: replace a Canvas image object in place with a Photo-Editor-
+   *  flattened result, by page + object id (no live canvas involved — see
+   *  the implementation's own comment). Returns false if that page/object
+   *  can no longer be found. */
+  portBackFromPhotoEditor: (
+    sourceRef: PhotoEditorSourceRef,
+    newSrc: string,
+    edits: PhotoAdjustments,
+  ) => boolean
   /** Add a blank page after the active one and switch to it. */
   addPage: () => void
   /** Switch to a page by id, persisting the current page first. */
