@@ -66,5 +66,5 @@ checklist of the *active* batch only.
 - [x] PHOTO-002 Image upload into Photo Editor — JPG/PNG via file picker + drag-and-drop (issue #164)
 - [x] PHOTO-003 Edit-from-Canvas entry point — "Edit" on a Canvas image opens Photo Editor with it loaded, retaining position/size/layer order for port-back (issue #165)
 - [x] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
-- [ ] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
+- [x] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
 - [ ] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)

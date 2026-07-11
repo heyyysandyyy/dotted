@@ -1,11 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AdjustmentsPanel } from './AdjustmentsPanel'
 import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
 
 describe('AdjustmentsPanel (PHOTO-004)', () => {
   beforeEach(() => {
-    usePhotoEditorStore.setState({ adjustments: { brightness: 0, contrast: 0 } })
+    // setAdjustment schedules a debounced (real setTimeout) history push
+    // (PHOTO-005) on the module-level timer it shares with every other test
+    // file — fake timers keep that pending callback from firing later,
+    // mid-assertion, in some unrelated test.
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({
+      adjustments: { brightness: 0, contrast: 0 },
+      historyStack: [{ brightness: 0, contrast: 0 }],
+      historyIndex: 0,
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders both Brightness and Contrast controls', () => {
