@@ -3,6 +3,7 @@ import { PhotoEditorTopBar } from './components/PhotoEditorTopBar'
 import { EmptyState } from './components/EmptyState'
 import { AdjustmentsPanel } from './components/AdjustmentsPanel'
 import { cssFilterFor } from './utils/adjustmentFilter'
+import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
 
 /**
  * Photo Editor workspace shell (PHOTO-001). A separate top-level workspace
@@ -15,6 +16,7 @@ import { cssFilterFor } from './utils/adjustmentFilter'
 export function PhotoEditor() {
   const image = usePhotoEditorStore((s) => s.image)
   const adjustments = usePhotoEditorStore((s) => s.adjustments)
+  usePhotoEditorShortcuts()
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-editor-shell">
