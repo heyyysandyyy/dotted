@@ -270,6 +270,37 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     })
   },
 
+  portBackFromPhotoEditor: (sourceRef, newSrc, edits) => {
+    const { pages, currentProjectId, designName, width, height, activePageId, guides } = get()
+    if (!currentProjectId) return false
+    // No live fabric canvas exists here — CanvasStage (and the `canvas` it
+    // owns) is unmounted for the whole time the Photo Editor route is
+    // active, so this patches the serialized page JSON directly rather than
+    // operating on a live object. Only `src` + `edits` change; width/height/
+    // cropX/cropY/left/top/scaleX/scaleY/angle are all left untouched —
+    // PHOTO-003 captured the source from originalSrc ?? getSrc(), the full
+    // underlying image unaffected by crop or display scale, and
+    // flattenImage.ts preserves that image's exact pixel dimensions, so the
+    // replacement fits the existing geometry with nothing to reconcile.
+    let replaced = false
+    const nextPages = pages.map((p) => {
+      if (p.id !== sourceRef.pageId) return p
+      const canvasData = p.canvas as { objects?: Array<Record<string, unknown>> }
+      if (!Array.isArray(canvasData.objects)) return p
+      const nextObjects = canvasData.objects.map((obj) => {
+        if (obj.id !== sourceRef.objectId) return obj
+        replaced = true
+        return { ...obj, src: newSrc, edits }
+      })
+      return { ...p, canvas: { ...canvasData, objects: nextObjects } }
+    })
+    if (!replaced) return false
+    set({ pages: nextPages })
+    const ok = saveProject({ id: currentProjectId, name: designName, width, height, pages: nextPages, activePageId, guides })
+    set({ saveError: ok ? null : "Couldn't save — your browser's storage is full." })
+    return true
+  },
+
   addPage: () => {
     const { canvas, pages, activePageId, width, height } = get()
     if (!canvas) return

@@ -19,7 +19,9 @@ undo+redo), text (add/edit, Google Fonts, alignment + line height), images & sha
 shape library, layers panel), export (PNG/JPEG/PDF/SVG), save (autosave, named projects + list,
 duplicate, JSON backup/restore), colour (canvas background colour/image, opacity picker, custom
 palettes, snap-to-grid + alignment guides), templates (multi-page, duplicate a page, starter
-gallery, save-as-template), plus the fabric.js 5→7 security upgrade.
+gallery, save-as-template), plus the fabric.js 5→7 security upgrade. Photo Editor Mode (Phase 2)
+is also done — its own workspace/route, image upload, edit-from-Canvas with flatten-on-exit
+port-back, brightness/contrast adjustments, and session-scoped undo/redo.
 
 The detailed record (description, acceptance criteria, implementing PR) for every shipped ticket
 lives in its **closed GitHub issue** — `gh issue list --state closed`. This file stays a lean
@@ -67,4 +69,4 @@ checklist of the *active* batch only.
 - [x] PHOTO-003 Edit-from-Canvas entry point — "Edit" on a Canvas image opens Photo Editor with it loaded, retaining position/size/layer order for port-back (issue #165)
 - [x] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
 - [x] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
-- [ ] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
+- [x] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
