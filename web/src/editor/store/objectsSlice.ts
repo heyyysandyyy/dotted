@@ -159,6 +159,8 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       width: 200,
       height: 200,
       fill: '#4f46e5',
+      strokeUniform: true,
+      strokeLineJoin: 'round',
     })
     addObject(rect)
   },
@@ -176,6 +178,11 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       fill: SHAPE_FILL,
       stroke: SHAPE_STROKE,
       strokeWidth: 0,
+      // Miter joins distort under strokeUniform + non-uniform resize (corners
+      // flatten or spike depending on the scale ratio) — round is immune to
+      // both since there's no miter geometry to warp.
+      strokeUniform: true,
+      strokeLineJoin: 'round' as const,
     }
 
     let obj: fabric.FabricObject
@@ -200,6 +207,8 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
           originY: 'center',
           stroke: SHAPE_STROKE,
           strokeWidth: 6,
+          strokeUniform: true,
+          strokeLineJoin: 'round',
         })
         break
       case 'arrow': {

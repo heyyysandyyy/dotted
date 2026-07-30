@@ -14,7 +14,7 @@ import {
   type PageData,
 } from '../storage'
 import { useHistoryStore } from './useHistoryStore'
-import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, pageSize } from './storeHelpers'
+import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, pageSize } from './storeHelpers'
 import { downscaleDataUrl } from '../../lib/downscaleImage'
 import type { CanvasState, ProjectSlice } from './storeTypes'
 
@@ -190,6 +190,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     setCurrentProjectId(id)
     saveProject({ id, name: tpl.name, width: tpl.width, height: tpl.height, pages, activePageId: active.id })
     canvas.loadFromJSON(active.canvas).then(() => {
+      migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
@@ -218,6 +219,8 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     canvas.setDimensions(size)
     setCurrentProjectId(id)
     canvas.loadFromJSON(active.canvas).then(() => {
+      // Backfill old saves onto the current stroke defaults (see stroke fix).
+      migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       // Re-fetch the Google fonts the design uses, then repaint (BUG-001).
       loadCanvasFonts(canvas)
@@ -359,6 +362,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     if (size.width !== width || size.height !== height) canvas.setDimensions(size)
     set({ pages: synced, activePageId: pageId, selection: [], width: size.width, height: size.height })
     canvas.loadFromJSON(target.canvas).then(() => {
+      migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
@@ -479,6 +483,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       }
     }
     return canvas.loadFromJSON(active.canvas).then(() => {
+      migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()
@@ -506,6 +511,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     if (size.width !== width || size.height !== height) canvas.setDimensions(size)
     set({ pages: remaining, activePageId: neighbour.id, selection: [], width: size.width, height: size.height })
     canvas.loadFromJSON(neighbour.canvas).then(() => {
+      migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
       get().syncBackgroundFromCanvas()

@@ -2,6 +2,7 @@ import * as fabric from 'fabric'
 import type { jsPDF } from 'jspdf'
 import type { PageData } from './storage'
 import { slugify } from './exporters'
+import { migrateStrokeDefaults } from './store/storeHelpers'
 
 export type BookExportScope = 'all' | 'cover' | 'spreads'
 
@@ -34,6 +35,7 @@ async function renderPageDataUrl(page: PageData, width: number, height: number):
   const el = document.createElement('canvas')
   const sc = new fabric.StaticCanvas(el, { width, height, backgroundColor: PRINT_FLATTEN_COLOR })
   await sc.loadFromJSON(page.canvas)
+  migrateStrokeDefaults(sc)
   // A transparent page (backgroundColor '') serializes with no `background` key
   // at all, so loadFromJSON restores it as undefined rather than leaving the
   // constructor's default in place — reassert the white flatten in that case.

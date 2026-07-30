@@ -1,4 +1,5 @@
 import * as fabric from 'fabric'
+import { migrateStrokeDefaults } from './store/storeHelpers'
 
 /**
  * Render a page's serialized canvas into a read-only StaticCanvas, used for the
@@ -17,7 +18,9 @@ export function renderPreview(
   const sc = new fabric.StaticCanvas(el, { width, height, backgroundColor: '#ffffff' })
   let disposed = false
   sc.loadFromJSON(json).then(() => {
-    if (!disposed) sc.requestRenderAll()
+    if (disposed) return
+    migrateStrokeDefaults(sc)
+    sc.requestRenderAll()
   })
   return () => {
     disposed = true
