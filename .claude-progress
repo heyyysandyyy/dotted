@@ -1,8 +1,9 @@
-UX-022 (#148), UX-023 (#149), and UX-025 (#151) are shipped and merged. UX-024
-(#150, select-all) is implemented on this branch/PR — check `gh pr list`
-before assuming it's merged.
+UX-028 (shape stroke options) is implemented on branch feat/ux-028-stroke-options,
+PR open — check `gh pr list` before assuming it's merged. It's stacked on top of
+the unmerged fix/shape-stroke-uniform-scale-and-joins branch/PR (strokeUniform +
+strokeLineJoin fix), which must land first.
 
-No auto-pickable ticket next — every open issue besides BOOK-001 and BOOK-004
-is now shipped. BOOK-004 (issue #126) was explicitly reverted and deferred by
-the user pending a rethink; do not resume it without the user re-raising it or
-confirming a scope first.
+No auto-pickable ticket next — every open item besides BOOK-001 and BOOK-004 is
+now shipped or in flight. BOOK-004 (issue #126) was explicitly reverted and
+deferred by the user pending a rethink; do not resume it without the user
+re-raising it or confirming a scope first.

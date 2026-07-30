@@ -70,3 +70,4 @@ checklist of the *active* batch only.
 - [x] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
 - [x] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
 - [x] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
+- [x] UX-028 Shape stroke options — style (solid/dashed/dotted) and alignment (center/inside) controls in the Properties Panel's existing Style section, alongside the already-shipped stroke color/width
