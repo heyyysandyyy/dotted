@@ -83,6 +83,110 @@ describe('PropertiesPanel — opacity slider (UX-025)', () => {
   })
 })
 
+describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    canvas.on('object:modified', () => useCanvasStore.getState().bump())
+  })
+
+  it('only shows stroke controls for a shape, not for text', () => {
+    const text = new fabric.Textbox('Hi', { left: 0, top: 0, width: 100 })
+    canvas.add(text)
+    canvas.setActiveObject(text)
+    useCanvasStore.setState({ canvas, selection: [text] })
+
+    render(<PropertiesPanel />)
+
+    expect(screen.queryByTitle('Dashed')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Inside stroke')).not.toBeInTheDocument()
+  })
+
+  it('shows stroke controls for a shape', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 4 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+
+    expect(screen.getByTitle('Dashed')).toBeInTheDocument()
+    expect(screen.getByTitle('Center stroke')).toBeInTheDocument()
+  })
+
+  it('applying dashed derives a dash array proportional to the current stroke width', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByTitle('Dashed'))
+
+    expect(rect.strokeDashArray).toEqual([18, 12])
+    expect(rect.strokeLineCap).toBe('butt')
+  })
+
+  it('applying dotted uses a round cap and a zero-length leading dash', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByTitle('Dotted'))
+
+    expect(rect.strokeDashArray).toEqual([0, 12])
+    expect(rect.strokeLineCap).toBe('round')
+  })
+
+  it('switching to inside alignment sets paintFirst to stroke; center leaves it fill', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByTitle('Inside stroke'))
+    expect(rect.paintFirst).toBe('stroke')
+
+    fireEvent.click(screen.getByTitle('Center stroke'))
+    expect(rect.paintFirst).toBe('fill')
+  })
+
+  it('setting stroke width to 0 removes the stroke entirely', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+    const swInput = screen.getByDisplayValue('6') as HTMLInputElement
+    fireEvent.change(swInput, { target: { value: '0' } })
+
+    expect(rect.strokeWidth).toBe(0)
+  })
+
+  it('every stroke control change fires object:modified so it lands in undo/redo history', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+    const onModified = vi.fn()
+    canvas.on('object:modified', onModified)
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByTitle('Dashed'))
+    fireEvent.click(screen.getByTitle('Inside stroke'))
+
+    expect(onModified).toHaveBeenCalledTimes(2)
+    for (const call of onModified.mock.calls) {
+      expect((call[0] as { historyLabel?: string }).historyLabel).toBe('Changed stroke')
+    }
+  })
+})
+
 describe('PropertiesPanel — Edit in Photo Editor (PHOTO-003)', () => {
   let canvas: fabric.Canvas
 

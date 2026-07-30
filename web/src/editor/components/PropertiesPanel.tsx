@@ -7,6 +7,7 @@ import { isText, isShape } from '../utils'
 import { buildPhotoEditorHandoff } from '../photoEditorHandoff'
 import { ColorField } from './ColorField'
 import { FillStrokeControl } from './FillStrokeControl'
+import { StrokeStyleControl } from './StrokeStyleControl'
 import { EffectsPanel } from './EffectsPanel'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
@@ -172,8 +173,9 @@ export function PropertiesPanel() {
           <NumberField
             label="SW"
             value={obj.strokeWidth ?? 0}
-            onCommit={(v) => updateActive({ strokeWidth: Math.max(0, v) })}
+            onCommit={(v) => updateActive({ strokeWidth: Math.max(0, Math.min(50, v)) })}
           />
+          <StrokeStyleControl obj={obj} />
         </CollapsibleSection>
       )}
 

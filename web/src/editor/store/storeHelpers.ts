@@ -49,6 +49,52 @@ export function serializeCanvas(canvas: fabric.Canvas): object {
   return canvas.toObject(EXTRA_PROPS)
 }
 
+/** A shape's stroke dash preset (UX-028) — solid/dashed/dotted. There's no
+ *  separate stored "style" field; it's inferred from `strokeDashArray` so
+ *  the Properties Panel can show which preset is active. */
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
+
+/** Infer the active dash preset from an object's current dash array. A
+ *  dotted preset always starts with a 0-length dash (a round-capped dot),
+ *  which no dashed preset ever produces — that's enough to tell them apart
+ *  without needing to match the exact (width-scaled) numbers. */
+export function strokeStyleOf(obj: fabric.FabricObject): StrokeStyle {
+  const arr = obj.strokeDashArray
+  if (!arr || arr.length === 0) return 'solid'
+  return arr[0] === 0 ? 'dotted' : 'dashed'
+}
+
+/** Derive `strokeDashArray`/`strokeLineCap` for a dash preset, scaled to the
+ *  shape's current stroke width so dashed/dotted stay proportional as width
+ *  changes (UX-028). */
+export function strokeDashProps(
+  style: StrokeStyle,
+  strokeWidth: number,
+): { strokeDashArray: number[] | null; strokeLineCap: 'butt' | 'round' } {
+  switch (style) {
+    case 'dashed':
+      return { strokeDashArray: [strokeWidth * 3, strokeWidth * 2], strokeLineCap: 'butt' }
+    case 'dotted':
+      return { strokeDashArray: [0, strokeWidth * 2], strokeLineCap: 'round' }
+    case 'solid':
+      return { strokeDashArray: null, strokeLineCap: 'butt' }
+  }
+}
+
+/** A shape's stroke alignment (UX-028), read off `paintFirst` — the
+ *  mechanism Fabric actually exposes for this. `'stroke'` paints the fill
+ *  over the stroke so it reads as inset; anything else (incl. unset,
+ *  Fabric's own default) straddles the edge, i.e. centered. */
+export type StrokeAlignment = 'center' | 'inside'
+
+export function strokeAlignmentOf(obj: fabric.FabricObject): StrokeAlignment {
+  return obj.paintFirst === 'stroke' ? 'inside' : 'center'
+}
+
+export function paintFirstFor(alignment: StrokeAlignment): 'fill' | 'stroke' {
+  return alignment === 'inside' ? 'stroke' : 'fill'
+}
+
 /**
  * A page's effective artboard size: its own width/height if set (book pages,
  * UX-015 — a cover and its spreads can differ within one project), else the
@@ -88,6 +134,9 @@ const STYLE_KEYS = [
   'fill',
   'stroke',
   'strokeWidth',
+  'strokeDashArray',
+  'strokeLineCap',
+  'paintFirst',
   'opacity',
   'fontFamily',
   'fontSize',
@@ -174,7 +223,14 @@ export function reselect(canvas: fabric.Canvas, objs: fabric.FabricObject[]): vo
 export function labelForProps(props: object): string {
   const keys = Object.keys(props)
   if (keys.includes('fill')) return 'Changed fill color'
-  if (keys.includes('stroke') || keys.includes('strokeWidth')) return 'Changed stroke'
+  if (
+    keys.includes('stroke') ||
+    keys.includes('strokeWidth') ||
+    keys.includes('strokeDashArray') ||
+    keys.includes('strokeLineCap') ||
+    keys.includes('paintFirst')
+  )
+    return 'Changed stroke'
   if (keys.includes('opacity')) return 'Changed opacity'
   if (keys.some((k) => TEXT_PROP_KEYS.includes(k))) return 'Edited text'
   return 'Changed style'

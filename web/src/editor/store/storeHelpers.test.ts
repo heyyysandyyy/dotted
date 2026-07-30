@@ -7,6 +7,10 @@ import {
   pageSize,
   labelForProps,
   migrateStrokeDefaults,
+  strokeStyleOf,
+  strokeDashProps,
+  strokeAlignmentOf,
+  paintFirstFor,
 } from './storeHelpers'
 
 // Minimal object stub — these helpers only read props, set(), and type.
@@ -22,6 +26,10 @@ describe('readStyle', () => {
     expect(readStyle(obj({ type: 'rect', fill: '#000', rx: 8, ry: 8 }))).toMatchObject({ rx: 8, ry: 8 })
     // An ellipse's rx is a radius, not a border radius — don't copy it.
     expect(readStyle(obj({ type: 'ellipse', fill: '#000', rx: 50 })).rx).toBeUndefined()
+  })
+  it('carries dash style and alignment along with copyable stroke style (UX-028)', () => {
+    const r = obj({ type: 'rect', strokeDashArray: [12, 8], strokeLineCap: 'butt', paintFirst: 'stroke' })
+    expect(readStyle(r)).toMatchObject({ strokeDashArray: [12, 8], strokeLineCap: 'butt', paintFirst: 'stroke' })
   })
 })
 
@@ -39,9 +47,55 @@ describe('applyStyle', () => {
   })
 })
 
+describe('strokeStyleOf / strokeDashProps (UX-028)', () => {
+  it('reads solid off a null/absent dash array', () => {
+    expect(strokeStyleOf(obj({ strokeDashArray: null }))).toBe('solid')
+    expect(strokeStyleOf(obj({}))).toBe('solid')
+  })
+  it('reads dotted off a dash array starting with a zero-length dash', () => {
+    expect(strokeStyleOf(obj({ strokeDashArray: [0, 8] }))).toBe('dotted')
+  })
+  it('reads dashed off any other non-empty dash array', () => {
+    expect(strokeStyleOf(obj({ strokeDashArray: [12, 8] }))).toBe('dashed')
+  })
+
+  it('derives solid as a null dash array with a butt cap', () => {
+    expect(strokeDashProps('solid', 4)).toEqual({ strokeDashArray: null, strokeLineCap: 'butt' })
+  })
+  it('scales dashed proportionally to stroke width, butt cap', () => {
+    expect(strokeDashProps('dashed', 4)).toEqual({ strokeDashArray: [12, 8], strokeLineCap: 'butt' })
+    expect(strokeDashProps('dashed', 10)).toEqual({ strokeDashArray: [30, 20], strokeLineCap: 'butt' })
+  })
+  it('scales dotted proportionally to stroke width, round cap', () => {
+    expect(strokeDashProps('dotted', 4)).toEqual({ strokeDashArray: [0, 8], strokeLineCap: 'round' })
+    expect(strokeDashProps('dotted', 10)).toEqual({ strokeDashArray: [0, 20], strokeLineCap: 'round' })
+  })
+})
+
+describe('strokeAlignmentOf / paintFirstFor (UX-028)', () => {
+  it('reads center for Fabric\'s own default (paintFirst unset)', () => {
+    expect(strokeAlignmentOf(obj({}))).toBe('center')
+  })
+  it('reads center when paintFirst is explicitly "fill"', () => {
+    expect(strokeAlignmentOf(obj({ paintFirst: 'fill' }))).toBe('center')
+  })
+  it('reads inside when paintFirst is "stroke"', () => {
+    expect(strokeAlignmentOf(obj({ paintFirst: 'stroke' }))).toBe('inside')
+  })
+  it('maps alignment back to the paintFirst value that produces it', () => {
+    expect(paintFirstFor('center')).toBe('fill')
+    expect(paintFirstFor('inside')).toBe('stroke')
+  })
+})
+
 describe('labelForProps (UX-025)', () => {
   it('labels an opacity change distinctly from fill/stroke changes', () => {
     expect(labelForProps({ opacity: 0.5 })).toBe('Changed opacity')
+  })
+  it('labels dash-style and alignment changes as a stroke change too (UX-028)', () => {
+    expect(labelForProps({ strokeDashArray: [12, 8] })).toBe('Changed stroke')
+    expect(labelForProps({ strokeLineCap: 'round' })).toBe('Changed stroke')
+    expect(labelForProps({ paintFirst: 'stroke' })).toBe('Changed stroke')
   })
   it('does not let opacity get shadowed by another key in the same call', () => {
     // updateActive is always called with a single prop from the opacity
