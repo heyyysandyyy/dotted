@@ -36,6 +36,7 @@ function DashPreview({ style }: { style: StrokeStyle }) {
 const STYLES: { value: StrokeStyle; label: string }[] = [
   { value: 'solid', label: 'Solid' },
   { value: 'dashed', label: 'Dashed' },
+  { value: 'spaced', label: 'Spaced' },
   { value: 'dotted', label: 'Dotted' },
 ]
 

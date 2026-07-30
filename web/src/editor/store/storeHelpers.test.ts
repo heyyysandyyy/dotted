@@ -55,8 +55,11 @@ describe('strokeStyleOf / strokeDashProps (UX-028)', () => {
   it('reads dotted off a dash array starting with a zero-length dash', () => {
     expect(strokeStyleOf(obj({ strokeDashArray: [0, 8] }))).toBe('dotted')
   })
-  it('reads dashed off any other non-empty dash array', () => {
+  it('reads dashed off a dash array whose dash is longer than its gap', () => {
     expect(strokeStyleOf(obj({ strokeDashArray: [12, 8] }))).toBe('dashed')
+  })
+  it('reads spaced off a dash array whose gap is longer than its dash', () => {
+    expect(strokeStyleOf(obj({ strokeDashArray: [12, 20] }))).toBe('spaced')
   })
 
   it('derives solid as a null dash array with a butt cap', () => {
@@ -65,6 +68,10 @@ describe('strokeStyleOf / strokeDashProps (UX-028)', () => {
   it('scales dashed proportionally to stroke width, butt cap', () => {
     expect(strokeDashProps('dashed', 4)).toEqual({ strokeDashArray: [12, 8], strokeLineCap: 'butt' })
     expect(strokeDashProps('dashed', 10)).toEqual({ strokeDashArray: [30, 20], strokeLineCap: 'butt' })
+  })
+  it('scales spaced proportionally to stroke width, wider gap than dash, butt cap', () => {
+    expect(strokeDashProps('spaced', 4)).toEqual({ strokeDashArray: [12, 20], strokeLineCap: 'butt' })
+    expect(strokeDashProps('spaced', 10)).toEqual({ strokeDashArray: [30, 50], strokeLineCap: 'butt' })
   })
   it('scales dotted proportionally to stroke width, round cap', () => {
     expect(strokeDashProps('dotted', 4)).toEqual({ strokeDashArray: [0, 8], strokeLineCap: 'round' })

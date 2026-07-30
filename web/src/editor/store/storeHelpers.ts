@@ -49,24 +49,29 @@ export function serializeCanvas(canvas: fabric.Canvas): object {
   return canvas.toObject(EXTRA_PROPS)
 }
 
-/** A shape's stroke dash preset (UX-028) — solid/dashed/dotted. There's no
- *  separate stored "style" field; it's inferred from `strokeDashArray` so
- *  the Properties Panel can show which preset is active. */
-export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
+/** A shape's stroke dash preset (UX-028) — solid/dashed/dotted/spaced.
+ *  There's no separate stored "style" field; it's inferred from
+ *  `strokeDashArray` so the Properties Panel can show which preset is
+ *  active. */
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted' | 'spaced'
 
 /** Infer the active dash preset from an object's current dash array. A
  *  dotted preset always starts with a 0-length dash (a round-capped dot),
- *  which no dashed preset ever produces — that's enough to tell them apart
- *  without needing to match the exact (width-scaled) numbers. */
+ *  which no dashed/spaced preset ever produces. Between dashed and spaced —
+ *  both non-zero-starting — spaced is the one whose gap (the second value)
+ *  is wider than its dash, dashed the one where the dash is wider than the
+ *  gap; that holds regardless of strokeWidth scaling, so no need to match
+ *  the exact numbers. */
 export function strokeStyleOf(obj: fabric.FabricObject): StrokeStyle {
   const arr = obj.strokeDashArray
   if (!arr || arr.length === 0) return 'solid'
-  return arr[0] === 0 ? 'dotted' : 'dashed'
+  if (arr[0] === 0) return 'dotted'
+  return arr[1] > arr[0] ? 'spaced' : 'dashed'
 }
 
 /** Derive `strokeDashArray`/`strokeLineCap` for a dash preset, scaled to the
- *  shape's current stroke width so dashed/dotted stay proportional as width
- *  changes (UX-028). */
+ *  shape's current stroke width so dashed/dotted/spaced stay proportional as
+ *  width changes (UX-028). */
 export function strokeDashProps(
   style: StrokeStyle,
   strokeWidth: number,
@@ -74,6 +79,8 @@ export function strokeDashProps(
   switch (style) {
     case 'dashed':
       return { strokeDashArray: [strokeWidth * 3, strokeWidth * 2], strokeLineCap: 'butt' }
+    case 'spaced':
+      return { strokeDashArray: [strokeWidth * 3, strokeWidth * 5], strokeLineCap: 'butt' }
     case 'dotted':
       return { strokeDashArray: [0, strokeWidth * 2], strokeLineCap: 'round' }
     case 'solid':

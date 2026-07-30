@@ -128,6 +128,19 @@ describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
     expect(rect.strokeLineCap).toBe('butt')
   })
 
+  it('applying spaced derives a wider-gapped dash array proportional to the current stroke width', () => {
+    const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
+    canvas.add(rect)
+    canvas.setActiveObject(rect)
+    useCanvasStore.setState({ canvas, selection: [rect] })
+
+    render(<PropertiesPanel />)
+    fireEvent.click(screen.getByTitle('Spaced'))
+
+    expect(rect.strokeDashArray).toEqual([18, 30])
+    expect(rect.strokeLineCap).toBe('butt')
+  })
+
   it('applying dotted uses a round cap and a zero-length leading dash', () => {
     const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
     canvas.add(rect)
