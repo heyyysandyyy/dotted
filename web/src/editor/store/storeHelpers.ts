@@ -88,18 +88,76 @@ export function strokeDashProps(
   }
 }
 
-/** A shape's stroke alignment (UX-028), read off `paintFirst` — the
- *  mechanism Fabric actually exposes for this. `'stroke'` paints the fill
- *  over the stroke so it reads as inset; anything else (incl. unset,
- *  Fabric's own default) straddles the edge, i.e. centered. */
+/** A shape's stroke alignment (UX-028). `paintFirst` alone can't produce a
+ *  true inset stroke — a stroke is always centered on the path regardless of
+ *  paint order, so `paintFirst: 'stroke'` only paints the fill over the
+ *  stroke's *inner* half (the half that would need to stay for an inset
+ *  look) and leaves the outer half — the part bulging past the shape's true
+ *  edge — untouched. Confirmed with a pixel-level render check: the visible
+ *  stroke band shrinks from strokeWidth to strokeWidth/2, but its outer edge
+ *  never moves, so it still straddles the boundary same as center, just
+ *  thinner. A real inset stroke needs the stroke to be geometrically
+ *  confined to the shape's own silhouette, which Canvas has no direct
+ *  primitive for — so `applyStrokeAlignment` builds one out of two Fabric
+ *  primitives that do exist: double the internal strokeWidth (so its inner
+ *  half, alone, is the full requested visual weight) and clip the object to
+ *  a clone of its own un-stroked shape (removing the outer half entirely).
+ *  Center alignment is just the untouched, undoubled, unclipped stroke. */
 export type StrokeAlignment = 'center' | 'inside'
 
+/** Read alignment off whether a stroke-inset clip is present, not off
+ *  `paintFirst` (see the module doc above for why that doesn't work). */
 export function strokeAlignmentOf(obj: fabric.FabricObject): StrokeAlignment {
-  return obj.paintFirst === 'stroke' ? 'inside' : 'center'
+  return obj.clipPath ? 'inside' : 'center'
 }
 
-export function paintFirstFor(alignment: StrokeAlignment): 'fill' | 'stroke' {
-  return alignment === 'inside' ? 'stroke' : 'fill'
+/** The stroke width as the user sees/edits it in the Properties Panel —
+ *  half of `obj.strokeWidth` when aligned inside, since inside-alignment
+ *  doubles the internal width so its clipped inner half matches the
+ *  requested visual weight (see the module doc above). Center alignment
+ *  stores the width as-is, so this is the identity there. */
+export function displayStrokeWidth(obj: fabric.FabricObject): number {
+  const w = obj.strokeWidth ?? 0
+  return strokeAlignmentOf(obj) === 'inside' ? w / 2 : w
+}
+
+/**
+ * Derive the `strokeWidth`/`clipPath` pair for a given alignment + the
+ * width as the user sees it (UX-028) — see the module doc above for why
+ * both need to change together. `clipPath` is built from `obj.clone()`
+ * (geometry only: width/height/rx/ry/path data, whatever defines this
+ * particular shape kind) with its own stroke stripped and repositioned to
+ * (0,0)/no rotation/no scale in the host's *local* coordinate space — Fabric
+ * applies the host's own transform to a non-`absolutePositioned` clipPath
+ * automatically, so this stays correctly aligned through drag/resize/rotate
+ * with no manual resync, unlike the effect-clone system (which needs one
+ * because those are separate top-level canvas objects, not an attached
+ * clip). Async because `clone()` is.
+ */
+export async function applyStrokeAlignment(
+  obj: fabric.FabricObject,
+  alignment: StrokeAlignment,
+  displayWidth: number,
+): Promise<{ strokeWidth: number; clipPath: fabric.FabricObject | undefined }> {
+  if (alignment === 'center') {
+    return { strokeWidth: displayWidth, clipPath: undefined }
+  }
+  const clip = await obj.clone()
+  clip.set({
+    left: 0,
+    top: 0,
+    originX: 'center',
+    originY: 'center',
+    angle: 0,
+    scaleX: 1,
+    scaleY: 1,
+    skewX: 0,
+    skewY: 0,
+    stroke: undefined,
+    strokeWidth: 0,
+    shadow: null,
+  })
+  return { strokeWidth: displayWidth * 2, clipPath: clip }
 }
 
 /**
@@ -143,7 +201,6 @@ const STYLE_KEYS = [
   'strokeWidth',
   'strokeDashArray',
   'strokeLineCap',
-  'paintFirst',
   'opacity',
   'fontFamily',
   'fontSize',
@@ -235,7 +292,7 @@ export function labelForProps(props: object): string {
     keys.includes('strokeWidth') ||
     keys.includes('strokeDashArray') ||
     keys.includes('strokeLineCap') ||
-    keys.includes('paintFirst')
+    keys.includes('clipPath')
   )
     return 'Changed stroke'
   if (keys.includes('opacity')) return 'Changed opacity'

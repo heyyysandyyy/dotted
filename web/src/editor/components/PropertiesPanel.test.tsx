@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import * as fabric from 'fabric'
 import { PropertiesPanel } from './PropertiesPanel'
 import { useCanvasStore } from '../store/useCanvasStore'
@@ -154,7 +154,7 @@ describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
     expect(rect.strokeLineCap).toBe('round')
   })
 
-  it('switching to inside alignment sets paintFirst to stroke; center leaves it fill', () => {
+  it('switching to inside alignment clips to the shape\'s own silhouette and doubles the internal stroke width; center clears both', async () => {
     const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
     canvas.add(rect)
     canvas.setActiveObject(rect)
@@ -162,10 +162,15 @@ describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
 
     render(<PropertiesPanel />)
     fireEvent.click(screen.getByTitle('Inside stroke'))
-    expect(rect.paintFirst).toBe('stroke')
+    await waitFor(() => expect(rect.clipPath).toBeDefined())
+    // Doubled internally so the clipped inner half is the full 6px the user
+    // set — but the "SW" field still reads back the un-doubled value.
+    expect(rect.strokeWidth).toBe(12)
+    expect(screen.getByDisplayValue('6')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTitle('Center stroke'))
-    expect(rect.paintFirst).toBe('fill')
+    await waitFor(() => expect(rect.clipPath).toBeUndefined())
+    expect(rect.strokeWidth).toBe(6)
   })
 
   it('setting stroke width to 0 removes the stroke entirely', () => {
@@ -181,7 +186,7 @@ describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
     expect(rect.strokeWidth).toBe(0)
   })
 
-  it('every stroke control change fires object:modified so it lands in undo/redo history', () => {
+  it('every stroke control change fires object:modified so it lands in undo/redo history', async () => {
     const rect = new fabric.Rect({ left: 0, top: 0, width: 50, height: 50, stroke: '#111', strokeWidth: 6 })
     canvas.add(rect)
     canvas.setActiveObject(rect)
@@ -193,7 +198,7 @@ describe('PropertiesPanel — stroke style/alignment (UX-028)', () => {
     fireEvent.click(screen.getByTitle('Dashed'))
     fireEvent.click(screen.getByTitle('Inside stroke'))
 
-    expect(onModified).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(onModified).toHaveBeenCalledTimes(2))
     for (const call of onModified.mock.calls) {
       expect((call[0] as { historyLabel?: string }).historyLabel).toBe('Changed stroke')
     }

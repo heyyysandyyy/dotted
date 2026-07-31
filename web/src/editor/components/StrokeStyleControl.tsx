@@ -4,7 +4,8 @@ import {
   strokeStyleOf,
   strokeDashProps,
   strokeAlignmentOf,
-  paintFirstFor,
+  displayStrokeWidth,
+  applyStrokeAlignment,
   type StrokeStyle,
   type StrokeAlignment,
 } from '../store/storeHelpers'
@@ -49,11 +50,13 @@ const ALIGNMENTS: { value: StrokeAlignment; label: string }[] = [
  *  Panel's Style section alongside the UX-012 fill/stroke colour picker and
  *  the stroke-width field. Neither property has its own dedicated Fabric
  *  "style" field: style is inferred from `strokeDashArray`, alignment from
- *  `paintFirst` (see storeHelpers.ts). */
+ *  whether a stroke-inset `clipPath` is present (see storeHelpers.ts for why
+ *  alignment needs a real clip rather than just a `paintFirst` toggle). */
 export function StrokeStyleControl({ obj }: { obj: fabric.FabricObject }) {
   const updateActive = useCanvasStore((s) => s.updateActive)
   const style = strokeStyleOf(obj)
   const alignment = strokeAlignmentOf(obj)
+  const width = displayStrokeWidth(obj)
 
   return (
     <div className="space-y-2">
@@ -66,9 +69,7 @@ export function StrokeStyleControl({ obj }: { obj: fabric.FabricObject }) {
               type="button"
               title={label}
               className={toggleBtn(style === value)}
-              onClick={() =>
-                updateActive(strokeDashProps(value, obj.strokeWidth ?? 0))
-              }
+              onClick={() => updateActive(strokeDashProps(value, width))}
             >
               <DashPreview style={value} />
             </button>
@@ -84,7 +85,7 @@ export function StrokeStyleControl({ obj }: { obj: fabric.FabricObject }) {
               type="button"
               title={`${label} stroke`}
               className={`${toggleBtn(alignment === value)} px-2 text-[11px]`}
-              onClick={() => updateActive({ paintFirst: paintFirstFor(value) })}
+              onClick={() => applyStrokeAlignment(obj, value, width).then((props) => updateActive(props))}
             >
               {label}
             </button>
