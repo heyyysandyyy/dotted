@@ -122,25 +122,31 @@ export function displayStrokeWidth(obj: fabric.FabricObject): number {
 }
 
 /**
- * Derive the `strokeWidth`/`clipPath` pair for a given alignment + the
- * width as the user sees it (UX-028) — see the module doc above for why
- * both need to change together. `clipPath` is built from `obj.clone()`
- * (geometry only: width/height/rx/ry/path data, whatever defines this
- * particular shape kind) with its own stroke stripped and repositioned to
- * (0,0)/no rotation/no scale in the host's *local* coordinate space — Fabric
- * applies the host's own transform to a non-`absolutePositioned` clipPath
- * automatically, so this stays correctly aligned through drag/resize/rotate
- * with no manual resync, unlike the effect-clone system (which needs one
- * because those are separate top-level canvas objects, not an attached
- * clip). Async because `clone()` is.
+ * Derive the `strokeWidth`/`clipPath`/`paintFirst` triple for a given
+ * alignment + the width as the user sees it (UX-028) — see the module doc
+ * above for why width and clip need to change together. `clipPath` is built
+ * from `obj.clone()` (geometry only: width/height/rx/ry/path data, whatever
+ * defines this particular shape kind) with its own stroke stripped and
+ * repositioned to (0,0)/no rotation/no scale in the host's *local*
+ * coordinate space — Fabric applies the host's own transform to a
+ * non-`absolutePositioned` clipPath automatically, so this stays correctly
+ * aligned through drag/resize/rotate with no manual resync, unlike the
+ * effect-clone system (which needs one because those are separate
+ * top-level canvas objects, not an attached clip). `paintFirst` is always
+ * forced to `'fill'` (Fabric's own default, and the only value either
+ * rendering path here assumes) rather than left alone — an object that was
+ * ever toggled to inside alignment under a prior, broken version of this
+ * mechanism could otherwise carry a stale `'stroke'` value that neither
+ * branch below sets, silently breaking rendering with no visible cause.
+ * Async because `clone()` is.
  */
 export async function applyStrokeAlignment(
   obj: fabric.FabricObject,
   alignment: StrokeAlignment,
   displayWidth: number,
-): Promise<{ strokeWidth: number; clipPath: fabric.FabricObject | undefined }> {
+): Promise<{ strokeWidth: number; clipPath: fabric.FabricObject | undefined; paintFirst: 'fill' }> {
   if (alignment === 'center') {
-    return { strokeWidth: displayWidth, clipPath: undefined }
+    return { strokeWidth: displayWidth, clipPath: undefined, paintFirst: 'fill' }
   }
   const clip = await obj.clone()
   clip.set({
@@ -157,7 +163,7 @@ export async function applyStrokeAlignment(
     strokeWidth: 0,
     shadow: null,
   })
-  return { strokeWidth: displayWidth * 2, clipPath: clip }
+  return { strokeWidth: displayWidth * 2, clipPath: clip, paintFirst: 'fill' }
 }
 
 /**

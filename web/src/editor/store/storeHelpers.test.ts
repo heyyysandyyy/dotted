@@ -101,10 +101,23 @@ describe('strokeAlignmentOf / displayStrokeWidth (UX-028)', () => {
 // just reading props like the helpers above), so it's exercised against
 // real fabric.Rect instances rather than the lightweight stub.
 describe('applyStrokeAlignment (UX-028)', () => {
-  it('center: strokeWidth as given, no clip', async () => {
+  it('center: strokeWidth as given, no clip, paintFirst forced to fill', async () => {
     const rect = new fabric.Rect({ width: 100, height: 80 })
     const result = await applyStrokeAlignment(rect, 'center', 12)
-    expect(result).toEqual({ strokeWidth: 12, clipPath: undefined })
+    expect(result).toEqual({ strokeWidth: 12, clipPath: undefined, paintFirst: 'fill' })
+  })
+
+  it('regression: always forces paintFirst to fill, even starting from a stale "stroke" value left by a prior broken version of this mechanism', async () => {
+    // A shape toggled to "inside" under the old (broken) paintFirst-based
+    // implementation would carry paintFirst: 'stroke' forever, since nothing
+    // else in the app ever touches it. Center silently rendered as only the
+    // stroke's outer half (looked detached from the fill); inside silently
+    // rendered nothing at all (fill painted over the clipped stroke). Both
+    // symptoms were reported against a real shape carrying exactly this
+    // leftover state.
+    const stale = new fabric.Rect({ width: 100, height: 80, paintFirst: 'stroke' })
+    expect((await applyStrokeAlignment(stale, 'center', 12)).paintFirst).toBe('fill')
+    expect((await applyStrokeAlignment(stale, 'inside', 12)).paintFirst).toBe('fill')
   })
 
   it('inside: doubles strokeWidth and builds a clip matching the shape\'s own un-stroked geometry', async () => {
