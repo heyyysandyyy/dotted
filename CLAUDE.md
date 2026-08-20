@@ -19,7 +19,9 @@ undo+redo), text (add/edit, Google Fonts, alignment + line height), images & sha
 shape library, layers panel), export (PNG/JPEG/PDF/SVG), save (autosave, named projects + list,
 duplicate, JSON backup/restore), colour (canvas background colour/image, opacity picker, custom
 palettes, snap-to-grid + alignment guides), templates (multi-page, duplicate a page, starter
-gallery, save-as-template), plus the fabric.js 5→7 security upgrade.
+gallery, save-as-template), plus the fabric.js 5→7 security upgrade. Photo Editor Mode (Phase 2)
+is also done — its own workspace/route, image upload, edit-from-Canvas with flatten-on-exit
+port-back, brightness/contrast adjustments, and session-scoped undo/redo.
 
 The detailed record (description, acceptance criteria, implementing PR) for every shipped ticket
 lives in its **closed GitHub issue** — `gh issue list --state closed`. This file stays a lean
@@ -60,3 +62,11 @@ checklist of the *active* batch only.
 - [x] UX-023 Layer z-order controls — bring to front/send to back/forward/backward, as shortcuts and in the right-click menu; must reposition any attached effect clones/inner-shadow overlay along with the host (issue #149)
 - [x] UX-024 Select all (Cmd+A) for canvas objects — excludes locked objects and synthetic effect visuals, preempts the browser's native page-text select-all (issue #150)
 - [x] UX-025 Per-object opacity control (issue #151) — opacity slider in the Properties Panel, works for shapes/text/images alike; debounced into history, isolated from effect clones/inner-shadow overlay
+- [x] UX-026 Light/dark theme toggle for the editor chrome — every editor component hardcodes dark-only Tailwind neutral classes; migrate to the semantic CSS-variable theme system already in index.css (shadcn boilerplate, never adopted) and add a toggle (issue #159)
+- [x] UX-027 Collapsible panels/sections in the right sidebar — every titled section (Align, Style, Position & size, Appearance, Text, Image, Effects, Layers, History, Background), not just the Layers panel that already had it; collapsed state persists per-section (issue #161)
+- [x] PHOTO-001 Photo Editor workspace shell — new top-level workspace, separate route/nav tab from Canvas; empty state; no Canvas-specific tools (issue #163)
+- [x] PHOTO-002 Image upload into Photo Editor — JPG/PNG via file picker + drag-and-drop (issue #164)
+- [x] PHOTO-003 Edit-from-Canvas entry point — "Edit" on a Canvas image opens Photo Editor with it loaded, retaining position/size/layer order for port-back (issue #165)
+- [x] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
+- [x] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
+- [x] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)

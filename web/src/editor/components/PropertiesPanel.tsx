@@ -1,12 +1,16 @@
 import { useRef, useState } from 'react'
-import { ImagePlus, Ban, Eraser, Crop } from 'lucide-react'
+import { ImagePlus, Ban, Eraser, Crop, Pencil } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { useCanvasStore } from '../store/useCanvasStore'
+import { usePhotoEditorStore } from '../../photo-editor/store/usePhotoEditorStore'
 import { isText, isShape } from '../utils'
+import { buildPhotoEditorHandoff } from '../photoEditorHandoff'
 import { ColorField } from './ColorField'
 import { FillStrokeControl } from './FillStrokeControl'
 import { EffectsPanel } from './EffectsPanel'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
+import { CollapsibleSection } from './CollapsibleSection'
 
 function NumberField({
   label,
@@ -18,7 +22,7 @@ function NumberField({
   onCommit: (v: number) => void
 }) {
   return (
-    <label className="flex items-center justify-between gap-2 text-xs text-neutral-400">
+    <label className="flex items-center justify-between gap-2 text-xs text-editor-text-muted">
       <span className="w-8">{label}</span>
       <input
         type="number"
@@ -27,7 +31,7 @@ function NumberField({
           const v = Number(e.target.value)
           if (!Number.isNaN(v)) onCommit(v)
         }}
-        className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-neutral-100 outline-none focus:border-neutral-500"
+        className="w-full rounded border border-editor-strong bg-editor-surface px-2 py-1 text-right text-editor-text-strong outline-none focus:border-editor-input"
       />
     </label>
   )
@@ -42,10 +46,7 @@ function CanvasBackground() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="space-y-3 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-        Background
-      </div>
+    <CollapsibleSection title="Background" storageKey="background" className="space-y-3 p-4">
       <ColorField
         label="Colour"
         // The native colour input needs a valid hex; show white for transparent.
@@ -54,7 +55,7 @@ function CanvasBackground() {
       />
       <button
         onClick={() => fileInputRef.current?.click()}
-        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
       >
         <ImagePlus size={14} />
         Background image
@@ -72,16 +73,16 @@ function CanvasBackground() {
       />
       <button
         onClick={clearBackground}
-        className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+        className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-muted hover:border-editor-input"
       >
         <Ban size={14} />
         Clear / transparent
       </button>
-      <p className="text-[11px] leading-snug text-neutral-600">
+      <p className="text-[11px] leading-snug text-editor-text-subtle">
         Clear the background for a transparent PNG. JPEG and PDF fill
         transparency with white.
       </p>
-    </div>
+    </CollapsibleSection>
   )
 }
 
@@ -93,6 +94,8 @@ export function PropertiesPanel() {
   const removeImageBackground = useCanvasStore((s) => s.removeImageBackground)
   const bgRemoving = useCanvasStore((s) => s.bgRemoving)
   const enterCrop = useCanvasStore((s) => s.enterCrop)
+  const openFromCanvas = usePhotoEditorStore((s) => s.openFromCanvas)
+  const navigate = useNavigate()
   const [bgTolerance, setBgTolerance] = useState(60)
 
   if (selection.length === 0) {
@@ -104,7 +107,7 @@ export function PropertiesPanel() {
       <div>
         <AlignmentToolbar />
         <StyleTools />
-        <div className="px-4 pb-4 pt-2 text-xs text-neutral-500">
+        <div className="px-4 pb-4 pt-2 text-xs text-editor-text-subtle">
           {selection.length} objects selected
         </div>
       </div>
@@ -119,35 +122,34 @@ export function PropertiesPanel() {
     <div>
       <AlignmentToolbar />
       <StyleTools />
-      <div className="space-y-3 border-t border-neutral-800 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-        Position &amp; size
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField label="X" value={obj.left ?? 0} onCommit={(v) => updateActive({ left: v })} />
-        <NumberField label="Y" value={obj.top ?? 0} onCommit={(v) => updateActive({ top: v })} />
-        <NumberField
-          label="W"
-          value={w}
-          onCommit={(v) => updateActive({ scaleX: Math.max(1, v) / (obj.width || 1) })}
-        />
-        <NumberField
-          label="H"
-          value={h}
-          onCommit={(v) => updateActive({ scaleY: Math.max(1, v) / (obj.height || 1) })}
-        />
-      </div>
-      <NumberField
-        label="Rot"
-        value={obj.angle ?? 0}
-        onCommit={(v) => updateActive({ angle: v })}
-      />
-
-      <div className="space-y-2 border-t border-neutral-800 pt-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          Appearance
+      <CollapsibleSection
+        title="Position & size"
+        storageKey="position-size"
+        className="space-y-3 border-t border-editor p-4"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField label="X" value={obj.left ?? 0} onCommit={(v) => updateActive({ left: v })} />
+          <NumberField label="Y" value={obj.top ?? 0} onCommit={(v) => updateActive({ top: v })} />
+          <NumberField
+            label="W"
+            value={w}
+            onCommit={(v) => updateActive({ scaleX: Math.max(1, v) / (obj.width || 1) })}
+          />
+          <NumberField
+            label="H"
+            value={h}
+            onCommit={(v) => updateActive({ scaleY: Math.max(1, v) / (obj.height || 1) })}
+          />
         </div>
-        <label className="block text-xs text-neutral-400">
+        <NumberField label="Rot" value={obj.angle ?? 0} onCommit={(v) => updateActive({ angle: v })} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Appearance"
+        storageKey="appearance"
+        className="space-y-2 border-t border-editor p-4"
+      >
+        <label className="block text-xs text-editor-text-muted">
           <div className="mb-1 flex justify-between">
             <span>Opacity</span>
             <span>{Math.round((obj.opacity ?? 1) * 100)}%</span>
@@ -162,28 +164,22 @@ export function PropertiesPanel() {
             className="w-full accent-indigo-500"
           />
         </label>
-      </div>
+      </CollapsibleSection>
 
       {isShape(obj) && (
-        <div className="space-y-2 border-t border-neutral-800 pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Style
-          </div>
+        <CollapsibleSection title="Style" storageKey="fill-stroke" className="space-y-2 border-t border-editor p-4">
           <FillStrokeControl obj={obj} allowFill={obj.type !== 'line'} />
           <NumberField
             label="SW"
             value={obj.strokeWidth ?? 0}
             onCommit={(v) => updateActive({ strokeWidth: Math.max(0, v) })}
           />
-        </div>
+        </CollapsibleSection>
       )}
 
       {isText(obj) && (
-        <div className="space-y-2 border-t border-neutral-800 pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Text
-          </div>
-          <label className="block text-xs text-neutral-400">
+        <CollapsibleSection title="Text" storageKey="text" className="space-y-2 border-t border-editor p-4">
+          <label className="block text-xs text-editor-text-muted">
             <div className="mb-1 flex justify-between">
               <span>Line height</span>
               <span>{(obj.lineHeight ?? 1.16).toFixed(2)}</span>
@@ -198,18 +194,30 @@ export function PropertiesPanel() {
               className="w-full accent-indigo-500"
             />
           </label>
-        </div>
+        </CollapsibleSection>
       )}
 
       {obj.type === 'image' && (
-        <div className="space-y-2 border-t border-neutral-800 pt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Image
-          </div>
+        <CollapsibleSection title="Image" storageKey="image" className="space-y-2 border-t border-editor p-4">
+          <button
+            onClick={() => {
+              const { canvas, activePageId } = useCanvasStore.getState()
+              if (!canvas) return
+              const handoff = buildPhotoEditorHandoff(canvas, obj, activePageId)
+              if (!handoff) return
+              openFromCanvas(handoff.image, handoff.sourceRef)
+              navigate({ to: '/photo-editor' })
+            }}
+            title="Edit in Photo Editor"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
+          >
+            <Pencil size={14} />
+            Edit in Photo Editor
+          </button>
           <button
             onClick={enterCrop}
             title="Crop image"
-            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input"
           >
             <Crop size={14} />
             Crop
@@ -217,12 +225,12 @@ export function PropertiesPanel() {
           <button
             onClick={() => removeImageBackground(bgTolerance)}
             disabled={bgRemoving}
-            className="flex w-full items-center justify-center gap-1.5 rounded border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-editor-strong px-2 py-1.5 text-xs text-editor-text-secondary hover:border-editor-input disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Eraser size={14} />
             {bgRemoving ? 'Removing…' : 'Remove background'}
           </button>
-          <label className="block text-[11px] text-neutral-400">
+          <label className="block text-[11px] text-editor-text-muted">
             <div className="mb-1 flex justify-between">
               <span>Tolerance</span>
               <span>{bgTolerance}</span>
@@ -237,16 +245,15 @@ export function PropertiesPanel() {
               className="w-full accent-indigo-500"
             />
           </label>
-          <p className="text-[11px] leading-snug text-neutral-600">
+          <p className="text-[11px] leading-snug text-editor-text-subtle">
             Removes a solid/near-solid background by colour — higher tolerance
             erases more. Click again after changing it to re-tune from the
             original. Best on flat backgrounds, not busy photos.
           </p>
-        </div>
+        </CollapsibleSection>
       )}
 
       <EffectsPanel obj={obj} />
-      </div>
     </div>
   )
 }

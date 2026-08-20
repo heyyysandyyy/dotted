@@ -23,6 +23,11 @@ export function isShape(obj: fabric.FabricObject | undefined | null): boolean {
   return !!obj && !isText(obj) && obj.type !== 'image'
 }
 
+/** True for raster images — gates the PHOTO-003 Edit-in-Photo-Editor action. */
+export function isImage(obj: fabric.FabricObject | undefined | null): boolean {
+  return !!obj && obj.type === 'image'
+}
+
 /** Human-readable name for a canvas object, shown in the layers panel. */
 export function layerName(obj: fabric.FabricObject): string {
   switch (obj.type) {

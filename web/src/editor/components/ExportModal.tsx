@@ -64,13 +64,13 @@ export function ExportModal({ open, onClose }: Props) {
     `rounded-md border px-3 py-1.5 text-sm font-medium ${
       active
         ? 'border-indigo-500 bg-indigo-600 text-white'
-        : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+        : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
     }`
 
   return (
     <Modal title="Export" widthClass="w-[420px]" onClose={onClose}>
       <div className="mb-4">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Format</div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-editor-text-subtle">Format</div>
         <div className="flex gap-2">
           {(['png', 'jpeg', 'pdf', 'svg'] as Format[]).map((f) => (
             <button key={f} onClick={() => setFormat(f)} className={`${chip(format === f)} uppercase`}>
@@ -82,9 +82,9 @@ export function ExportModal({ open, onClose }: Props) {
 
       {format === 'jpeg' && (
         <div className="mb-5">
-          <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-neutral-500">
+          <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-editor-text-subtle">
             <span>Quality</span>
-            <span className="text-neutral-300">{Math.round(quality * 100)}%</span>
+            <span className="text-editor-text-secondary">{Math.round(quality * 100)}%</span>
           </div>
           <input
             type="range"
@@ -102,7 +102,7 @@ export function ExportModal({ open, onClose }: Props) {
           no scale multiplier — but offers which pages to include instead. */}
       {bookPdfExport ? (
         <div className="mb-5">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Pages</div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-editor-text-subtle">Pages</div>
           <div className="flex gap-2">
             {(['all', 'cover', 'spreads'] as BookExportScope[]).map((s) => (
               <button key={s} onClick={() => setBookScope(s)} className={chip(bookScope === s)}>
@@ -115,7 +115,7 @@ export function ExportModal({ open, onClose }: Props) {
         // SVG is vector and resolution-independent, so scale does not apply.
         format !== 'svg' && (
           <div className="mb-5">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">Scale</div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-editor-text-subtle">Scale</div>
             <div className="flex gap-2">
               {[1, 2, 3].map((s) => (
                 <button key={s} onClick={() => setScale(s)} className={chip(scale === s)}>
@@ -128,7 +128,7 @@ export function ExportModal({ open, onClose }: Props) {
       )}
 
       <div className="flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-md px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200">
+        <button onClick={onClose} className="rounded-md px-3 py-2 text-sm text-editor-text-muted hover:text-editor-text">
           Cancel
         </button>
         <button

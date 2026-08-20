@@ -87,26 +87,26 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
   }
 
   const input =
-    'mt-1 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-neutral-500'
+    'mt-1 w-24 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-sm text-editor-text-strong outline-none focus:border-editor-input'
 
   return (
     <Modal title="Resize canvas" widthClass="w-[420px]" onClose={onClose}>
       <div className="flex items-end gap-3">
-        <label className="flex flex-col text-xs text-neutral-400">
+        <label className="flex flex-col text-xs text-editor-text-muted">
           Width
           <input type="number" min={1} value={wStr} onChange={(e) => onWidth(e.target.value)} className={input} />
         </label>
-        <span className="pb-2 text-neutral-500">×</span>
-        <label className="flex flex-col text-xs text-neutral-400">
+        <span className="pb-2 text-editor-text-subtle">×</span>
+        <label className="flex flex-col text-xs text-editor-text-muted">
           Height
           <input type="number" min={1} value={hStr} onChange={(e) => onHeight(e.target.value)} className={input} />
         </label>
-        <label className="flex flex-col text-xs text-neutral-400">
+        <label className="flex flex-col text-xs text-editor-text-muted">
           Units
           <select
             value={unit}
             onChange={(e) => changeUnit(e.target.value as UnitId)}
-            className="mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
+            className="mt-1 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-sm text-editor-text-strong"
           >
             {SIZE_UNITS.map((u) => (
               <option key={u.id} value={u.id}>
@@ -118,24 +118,24 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
       </div>
 
       <div className="mt-3 space-y-2">
-        <label className="flex items-center gap-2 text-sm text-neutral-300">
+        <label className="flex items-center gap-2 text-sm text-editor-text-secondary">
           <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} className="accent-indigo-500" />
           Lock aspect ratio
         </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-300">
+        <label className="flex items-center gap-2 text-sm text-editor-text-secondary">
           <input type="checkbox" checked={scaleContent} onChange={(e) => setScaleContent(e.target.checked)} className="accent-indigo-500" />
           Scale content to fit
         </label>
       </div>
 
       <div className="mt-4">
-        <div className="mb-1 text-xs font-medium text-neutral-500">Presets</div>
+        <div className="mb-1 text-xs font-medium text-editor-text-subtle">Presets</div>
         <div className="flex flex-wrap gap-1">
           {SIZE_PRESETS.filter((p) => p.category !== 'book').map((p) => (
             <button
               key={p.id}
               onClick={() => pickPreset(p.width, p.height)}
-              className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
+              className="rounded border border-editor-strong px-2 py-1 text-xs text-editor-text-secondary hover:border-editor-input"
             >
               {p.label}
             </button>
@@ -150,7 +150,7 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
         }}
         disabled={!hasObjects}
         title="Resize the canvas to exactly wrap all objects"
-        className="mt-4 w-full rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-4 w-full rounded-md border border-editor-strong px-3 py-2 text-sm text-editor-text-secondary hover:border-editor-input disabled:cursor-not-allowed disabled:opacity-40"
       >
         Fit to content
       </button>
@@ -158,7 +158,7 @@ export function ResizeModal({ onClose, prefs, onPrefsChange }: Props) {
       {outOfBounds && <p className="mt-3 text-xs text-amber-500">Some objects are outside the canvas bounds.</p>}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200">
+        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text">
           Cancel
         </button>
         <button

@@ -88,7 +88,7 @@ export function EyedropperOverlay() {
             height={LOUPE}
             className="rounded-full border-2 border-white shadow-lg"
           />
-          <span className="mt-1 rounded bg-neutral-900/90 px-1.5 py-0.5 font-mono text-[11px] text-white">
+          <span className="mt-1 rounded bg-editor-bg/90 px-1.5 py-0.5 font-mono text-[11px] text-editor-text-strong">
             {pos.hex}
           </span>
         </div>

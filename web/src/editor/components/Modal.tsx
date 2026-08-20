@@ -10,9 +10,10 @@ interface Props {
 }
 
 /**
- * Shared dark modal shell matching the editor's popovers: a dimmed backdrop
- * (click to close) and a neutral-900 panel with a titled header + close button
- * and a scrollable body. Used by all the editor modals for a consistent look.
+ * Shared modal shell matching the editor's popovers (UX-026: themed via the
+ * editor-* tokens): a dimmed backdrop (click to close) and a panel with a
+ * titled header + close button and a scrollable body. Used by all the editor
+ * modals for a consistent look.
  */
 export function Modal({ title, onClose, children, widthClass = 'w-[480px]' }: Props) {
   return (
@@ -21,16 +22,16 @@ export function Modal({ title, onClose, children, widthClass = 'w-[480px]' }: Pr
       onClick={onClose}
     >
       <div
-        className={`${widthClass} flex max-h-[88vh] flex-col overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 text-neutral-200 shadow-2xl`}
+        className={`${widthClass} flex max-h-[88vh] flex-col overflow-hidden rounded-xl border border-editor-strong bg-editor-bg text-editor-text shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-neutral-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
+        <div className="flex items-center justify-between border-b border-editor px-5 py-3">
+          <h2 className="text-sm font-semibold text-editor-text-strong">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             title="Close"
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+            className="rounded p-1 text-editor-text-muted hover:bg-editor-surface hover:text-editor-text"
           >
             <X size={16} />
           </button>

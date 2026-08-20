@@ -64,8 +64,6 @@ export type UnitId = (typeof SIZE_UNITS)[number]['id']
 export const DEFAULT_WIDTH = 1080
 export const DEFAULT_HEIGHT = 1080
 
-export const DARK_SURROUND = '#1e1e1e'
-
 /** Canvas zoom range and step (UX-013). 1 = 100%. */
 export const MIN_ZOOM = 0.1
 export const MAX_ZOOM = 8

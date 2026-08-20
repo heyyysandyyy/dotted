@@ -30,12 +30,12 @@ export function ZoomBar() {
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1 pl-2 text-neutral-300">
+    <div className="flex shrink-0 items-center gap-1 pl-2 text-editor-text-secondary">
       <button
         onClick={() => setZoom(zoom - ZOOM_STEP)}
         disabled={zoom <= MIN_ZOOM}
         title="Zoom out (⌘−)"
-        className="rounded p-1.5 hover:bg-neutral-800 disabled:opacity-40"
+        className="rounded p-1.5 hover:bg-editor-surface disabled:opacity-40"
       >
         <Minus size={14} />
       </button>
@@ -52,7 +52,7 @@ export function ZoomBar() {
         onClick={() => setZoom(zoom + ZOOM_STEP)}
         disabled={zoom >= MAX_ZOOM}
         title="Zoom in (⌘+)"
-        className="rounded p-1.5 hover:bg-neutral-800 disabled:opacity-40"
+        className="rounded p-1.5 hover:bg-editor-surface disabled:opacity-40"
       >
         <Plus size={14} />
       </button>
@@ -66,14 +66,14 @@ export function ZoomBar() {
             if (e.key === 'Enter') commit()
             else if (e.key === 'Escape') setEditing(null)
           }}
-          className="w-12 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-center text-xs text-neutral-100 outline-none"
+          className="w-12 rounded border border-editor-strong bg-editor-surface px-1 py-0.5 text-center text-xs text-editor-text-strong outline-none"
         />
       ) : (
         <button
           onClick={() => setEditing(String(pct))}
           onDoubleClick={() => setZoom(1)}
           title="Click to type a zoom · double-click for 100%"
-          className="w-12 rounded px-1 py-0.5 text-center text-xs tabular-nums hover:bg-neutral-800"
+          className="w-12 rounded px-1 py-0.5 text-center text-xs tabular-nums hover:bg-editor-surface"
         >
           {pct}%
         </button>
@@ -82,7 +82,7 @@ export function ZoomBar() {
         onClick={fitToView}
         disabled={inStack}
         title="Fit to screen (⌘⇧H)"
-        className="rounded p-1.5 hover:bg-neutral-800 disabled:opacity-40"
+        className="rounded p-1.5 hover:bg-editor-surface disabled:opacity-40"
       >
         <Maximize size={14} />
       </button>

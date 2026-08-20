@@ -10,7 +10,7 @@ import {
   listProjects,
   migrateLegacyDesign,
 } from '../storage'
-import { DARK_SURROUND, SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
+import { SNAP_MARGIN, MIN_ZOOM, MAX_ZOOM } from '../constants'
 import { kindName, isText, readShadowEffects } from '../utils'
 import {
   isEffectClone,
@@ -205,7 +205,15 @@ export function CanvasStage() {
     if (!id || !loadProject(id)) id = listProjects()[0]?.id ?? null
     if (id) store.openProject(id)
     else store.newProject(width, height)
+    // A change inside the 300ms autosave debounce (scheduleRecord) must not
+    // be lost to a full page close/refresh, or to navigating away from this
+    // route entirely (e.g. to Photo Editor, PHOTO-003) — both tear the
+    // canvas down before the debounce would otherwise fire on its own.
+    const flush = () => useHistoryStore.getState().flushPendingSave()
+    window.addEventListener('beforeunload', flush)
     return () => {
+      window.removeEventListener('beforeunload', flush)
+      flush()
       setCanvas(null)
       canvas.dispose()
     }
@@ -567,10 +575,9 @@ export function CanvasStage() {
   return (
     <div
       ref={measureRef}
-      className={`relative flex-1 overflow-hidden ${
+      className={`relative flex-1 overflow-hidden bg-editor-desk ${
         panCursor === 'grabbing' ? 'cursor-grabbing' : panCursor === 'grab' ? 'cursor-grab' : ''
       }`}
-      style={{ backgroundColor: DARK_SURROUND }}
     >
       {/* Artboard backdrop behind the viewport-sized canvas: the page shadow, and
           a checkerboard when the artboard background is transparent. */}

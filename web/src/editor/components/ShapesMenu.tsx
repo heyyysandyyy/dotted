@@ -43,14 +43,14 @@ export function ShapesMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Shapes"
-        className="flex h-12 w-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] text-neutral-300 hover:bg-neutral-800"
+        className="flex h-12 w-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] text-editor-text-secondary hover:bg-editor-surface"
       >
         <Shapes size={18} />
         Shapes
       </button>
 
       {open && (
-        <div className="absolute left-full top-0 z-50 ml-1 w-40 rounded-lg border border-neutral-700 bg-neutral-800 p-2 shadow-xl">
+        <div className="absolute left-full top-0 z-50 ml-1 w-40 rounded-lg border border-editor-strong bg-editor-surface p-2 shadow-xl">
           <div className="grid grid-cols-3 gap-1">
             {SHAPES.map((s) => (
               <button
@@ -60,7 +60,7 @@ export function ShapesMenu() {
                   addShape(s.kind)
                   setOpen(false)
                 }}
-                className="flex aspect-square items-center justify-center rounded text-neutral-200 hover:bg-neutral-700"
+                className="flex aspect-square items-center justify-center rounded text-editor-text hover:bg-editor-surface-2"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current">
                   {s.svg}

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { usePanelCollapse } from '../hooks/usePanelCollapse'
+import { PanelSectionHeader } from './PanelSectionHeader'
 import {
   DndContext,
   closestCenter,
@@ -133,11 +135,11 @@ function LayerRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, paddingLeft: depth * 16 }}
       className={`flex items-center gap-1 rounded px-1 py-1 text-xs ${
-        selected ? 'bg-indigo-600/30 text-white' : 'text-neutral-300 hover:bg-neutral-800'
+        selected ? 'bg-indigo-600/30 text-editor-text-strong' : 'text-editor-text-secondary hover:bg-editor-surface'
       } ${isDragging ? 'opacity-60' : ''} ${hidden ? 'opacity-40' : ''}`}
     >
       <button
-        className="cursor-grab text-neutral-500 hover:text-neutral-300"
+        className="cursor-grab text-editor-text-subtle hover:text-editor-text-secondary"
         {...attributes}
         {...listeners}
         title="Drag to reorder"
@@ -148,7 +150,7 @@ function LayerRow({
         <button
           onClick={onToggleCollapse}
           title={collapsedHere ? 'Expand group' : 'Collapse group'}
-          className="shrink-0 text-neutral-400 hover:text-neutral-200"
+          className="shrink-0 text-editor-text-muted hover:text-editor-text"
         >
           {collapsedHere ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
@@ -166,7 +168,7 @@ function LayerRow({
             if (e.key === 'Enter') commit()
             else if (e.key === 'Escape') setEditing(false)
           }}
-          className="min-w-0 flex-1 rounded border border-neutral-600 bg-neutral-900 px-1 text-xs text-white outline-none"
+          className="min-w-0 flex-1 rounded border border-editor-input bg-editor-bg px-1 text-xs text-editor-text-strong outline-none"
         />
       ) : (
         <button
@@ -181,14 +183,14 @@ function LayerRow({
       <button
         onClick={() => setObjectLocked(obj, !locked)}
         title={locked ? 'Unlock' : 'Lock'}
-        className={`shrink-0 ${locked ? 'text-indigo-400' : 'text-neutral-500 hover:text-neutral-200'}`}
+        className={`shrink-0 ${locked ? 'text-indigo-400' : 'text-editor-text-subtle hover:text-editor-text'}`}
       >
         {locked ? <Lock size={14} /> : <Unlock size={14} />}
       </button>
       <button
         onClick={() => setObjectVisible(obj, hidden)}
         title={hidden ? 'Show' : 'Hide'}
-        className="shrink-0 text-neutral-400 hover:text-neutral-200"
+        className="shrink-0 text-editor-text-muted hover:text-editor-text"
       >
         {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
       </button>
@@ -203,7 +205,7 @@ export function LayersPanel() {
   const groupSelection = useCanvasStore((s) => s.groupSelection)
   const ungroupSelection = useCanvasStore((s) => s.ungroupSelection)
   const moveLayerObject = useCanvasStore((s) => s.moveLayerObject)
-  const [collapsed, setCollapsed] = useState(false)
+  const [open, toggleOpen] = usePanelCollapse('layers')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const canGroup = selection.length >= 2
   const canUngroup = selection.length === 1 && selection[0]?.type === 'group'
@@ -259,38 +261,37 @@ export function LayersPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 pb-1 pt-3">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-300"
-          title={collapsed ? 'Expand' : 'Collapse'}
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-          Layers
-        </button>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={groupSelection}
-            disabled={!canGroup}
-            title="Group (⌘G)"
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <GroupIcon size={14} />
-          </button>
-          <button
-            onClick={ungroupSelection}
-            disabled={!canUngroup}
-            title="Ungroup (⇧⌘G)"
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <Ungroup size={14} />
-          </button>
-        </div>
+      <div className="px-4 pb-1 pt-3">
+        <PanelSectionHeader
+          title="Layers"
+          open={open}
+          onToggle={toggleOpen}
+          actions={
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={groupSelection}
+                disabled={!canGroup}
+                title="Group (⌘G)"
+                className="rounded p-1 text-editor-text-muted hover:bg-editor-surface hover:text-editor-text disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <GroupIcon size={14} />
+              </button>
+              <button
+                onClick={ungroupSelection}
+                disabled={!canUngroup}
+                title="Ungroup (⇧⌘G)"
+                className="rounded p-1 text-editor-text-muted hover:bg-editor-surface hover:text-editor-text disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <Ungroup size={14} />
+              </button>
+            </div>
+          }
+        />
       </div>
-      {!collapsed && (
+      {open && (
         <div className="flex-1 overflow-y-auto px-2 pb-2">
           {rows.length === 0 ? (
-            <div className="px-2 py-2 text-xs text-neutral-600">No layers yet</div>
+            <div className="px-2 py-2 text-xs text-editor-text-subtle">No layers yet</div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <SortableContext items={rows.map((r) => r.obj.id!)} strategy={verticalListSortingStrategy}>

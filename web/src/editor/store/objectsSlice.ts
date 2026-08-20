@@ -3,6 +3,7 @@ import * as fabric from 'fabric'
 import { getLastFont, loadGoogleFont } from '../fonts'
 import { kindName, alignDelta, readShadowEffects, shadowOptions, type ShadowEffect } from '../utils'
 import { removeSolidBackground, DEFAULT_TOLERANCE } from '../imageBackground'
+import { downscaleDataUrl } from '../../lib/downscaleImage'
 import { syncEffectClones, syncInnerShadow, isEffectClone } from '../effectsEngine'
 import { localToScene } from '../cropGeometry'
 import { EXTRA_PROPS } from '../storage'
@@ -242,24 +243,30 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
       if (typeof dataUrl !== 'string') return
       // Always a base64 data URL, so the image persists in localStorage via
       // the auto-save that addObject triggers (object:added -> history record).
+      // Downscaled first — a real-resolution photo easily exceeds
+      // localStorage's whole-origin quota on its own, and storage.ts's
+      // saveProject fails soft on that, silently dropping the upload.
       // fabric 7: Image is FabricImage and fromURL returns a Promise.
-      fabric.FabricImage.fromURL(dataUrl).then((img) => {
-        const { canvas, width, height } = get()
-        if (!canvas) return
-        const imgW = img.width || 1
-        const imgH = img.height || 1
-        // Fit within 80% of the artboard, preserving aspect ratio.
-        const scale = Math.min((width * 0.8) / imgW, (height * 0.8) / imgH, 1)
-        img.set({
-          originX: 'center',
-          originY: 'center',
-          left: width / 2,
-          top: height / 2,
-          scaleX: scale,
-          scaleY: scale,
+      downscaleDataUrl(dataUrl, file.type)
+        .catch(() => dataUrl)
+        .then((finalUrl) => fabric.FabricImage.fromURL(finalUrl))
+        .then((img) => {
+          const { canvas, width, height } = get()
+          if (!canvas) return
+          const imgW = img.width || 1
+          const imgH = img.height || 1
+          // Fit within 80% of the artboard, preserving aspect ratio.
+          const scale = Math.min((width * 0.8) / imgW, (height * 0.8) / imgH, 1)
+          img.set({
+            originX: 'center',
+            originY: 'center',
+            left: width / 2,
+            top: height / 2,
+            scaleX: scale,
+            scaleY: scale,
+          })
+          get().addObject(img)
         })
-        get().addObject(img)
-      })
     }
     reader.readAsDataURL(file)
   },

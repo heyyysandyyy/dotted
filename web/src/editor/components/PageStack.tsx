@@ -197,7 +197,7 @@ function PagePreview({
           // bug). An outline sits outside the box model entirely, so it
           // can't eat into the content area no matter its width.
           className={`relative overflow-hidden rounded bg-white shadow-lg outline outline-2 -outline-offset-2 ${
-            active ? 'outline-indigo-500' : 'outline-neutral-700 hover:outline-neutral-500'
+            active ? 'outline-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
           }`}
           style={{
             width: thumbWidth,
@@ -223,13 +223,13 @@ function PagePreview({
           />
         </button>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+      <div className="flex items-center gap-1.5 text-xs text-editor-text-muted">
         <span>Page {index + 1}</span>
-        <button onClick={onDuplicate} title="Duplicate page" className="text-neutral-500 hover:text-neutral-200">
+        <button onClick={onDuplicate} title="Duplicate page" className="text-editor-text-subtle hover:text-editor-text">
           <Copy size={12} />
         </button>
         {canDelete && (
-          <button onClick={onDelete} title="Delete page" className="text-neutral-500 hover:text-red-400">
+          <button onClick={onDelete} title="Delete page" className="text-editor-text-subtle hover:text-red-400">
             <X size={12} />
           </button>
         )}
@@ -278,7 +278,7 @@ export function PageStack() {
   return (
     <div
       ref={containerRef}
-      className="flex h-full flex-col items-center gap-4 overflow-auto bg-neutral-950 p-6"
+      className="flex h-full flex-col items-center gap-4 overflow-auto bg-editor-shell p-6"
       style={{ cursor: panCursor ?? undefined }}
     >
       {pages.map((p, i) => (
@@ -299,7 +299,7 @@ export function PageStack() {
       ))}
       <button
         onClick={addPage}
-        className="flex items-center gap-1.5 rounded border border-dashed border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+        className="flex items-center gap-1.5 rounded border border-dashed border-editor-strong px-4 py-2 text-sm text-editor-text-muted hover:border-editor-input hover:text-editor-text"
       >
         <Plus size={16} />
         Add page

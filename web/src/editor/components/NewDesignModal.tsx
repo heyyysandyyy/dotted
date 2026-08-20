@@ -83,11 +83,11 @@ export function NewDesignModal({ open, onClose }: Props) {
   }
 
   const input =
-    'mt-1 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-neutral-500'
+    'mt-1 w-24 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-sm text-editor-text-strong outline-none focus:border-editor-input'
 
   return (
     <Modal title="New design" widthClass="w-[720px]" onClose={onClose}>
-      <h2 className="mb-4 text-lg font-semibold text-neutral-100">What are you creating?</h2>
+      <h2 className="mb-4 text-lg font-semibold text-editor-text-strong">What are you creating?</h2>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {PRESET_FILTERS.map((f) => (
@@ -97,7 +97,7 @@ export function NewDesignModal({ open, onClose }: Props) {
             className={`rounded-full border px-3 py-1 text-sm transition ${
               filter === f
                 ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
             }`}
           >
             {FILTER_LABELS[f]}
@@ -108,7 +108,7 @@ export function NewDesignModal({ open, onClose }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search presets…"
-          className="ml-auto w-40 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-neutral-500"
+          className="ml-auto w-40 rounded-md border border-editor-strong bg-editor-surface px-3 py-1 text-sm text-editor-text-strong outline-none placeholder:text-editor-text-subtle focus:border-editor-input"
         />
       </div>
 
@@ -122,8 +122,8 @@ export function NewDesignModal({ open, onClose }: Props) {
               onClick={() => pickPreset(p)}
               className={`relative flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition ${
                 isSelected
-                  ? 'border-indigo-500 bg-neutral-800'
-                  : 'border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800'
+                  ? 'border-indigo-500 bg-editor-surface'
+                  : 'border-editor-strong hover:border-editor-input hover:bg-editor-surface'
               }`}
             >
               {p.category === 'book' && (
@@ -133,19 +133,19 @@ export function NewDesignModal({ open, onClose }: Props) {
               )}
               <div className="flex h-[72px] w-[72px] items-center justify-center">
                 <div
-                  className="rounded-sm bg-neutral-600"
+                  className="rounded-sm bg-editor-surface-3"
                   style={{ width: p.width * scale, height: p.height * scale }}
                 />
               </div>
-              <div className="text-xs font-medium leading-tight text-neutral-200">{p.label}</div>
-              <div className="text-[11px] text-neutral-500">
+              <div className="text-xs font-medium leading-tight text-editor-text">{p.label}</div>
+              <div className="text-[11px] text-editor-text-subtle">
                 {pxToUnit(p.width, unit)} × {pxToUnit(p.height, unit)} {unit}
               </div>
             </button>
           )
         })}
         {presets.length === 0 && (
-          <div className="col-span-4 py-10 text-center text-sm text-neutral-500">
+          <div className="col-span-4 py-10 text-center text-sm text-editor-text-subtle">
             No presets match “{search}”.
           </div>
         )}
@@ -159,10 +159,10 @@ export function NewDesignModal({ open, onClose }: Props) {
           <BookSetupPanel key={selectedPreset.id} initialPresetId={selectedPreset.id} onCreated={onClose} />
         </div>
       ) : (
-        <div className="mt-5 rounded-lg border border-neutral-700 p-3">
-          <div className="mb-2 text-sm font-medium text-neutral-200">Custom size</div>
+        <div className="mt-5 rounded-lg border border-editor-strong p-3">
+          <div className="mb-2 text-sm font-medium text-editor-text">Custom size</div>
           <div className="flex items-end gap-3">
-            <label className="flex flex-col text-xs text-neutral-400">
+            <label className="flex flex-col text-xs text-editor-text-muted">
               Width
               <input
                 type="number"
@@ -175,8 +175,8 @@ export function NewDesignModal({ open, onClose }: Props) {
                 className={input}
               />
             </label>
-            <span className="pb-2 text-neutral-500">×</span>
-            <label className="flex flex-col text-xs text-neutral-400">
+            <span className="pb-2 text-editor-text-subtle">×</span>
+            <label className="flex flex-col text-xs text-editor-text-muted">
               Height
               <input
                 type="number"
@@ -189,12 +189,12 @@ export function NewDesignModal({ open, onClose }: Props) {
                 className={input}
               />
             </label>
-            <label className="flex flex-col text-xs text-neutral-400">
+            <label className="flex flex-col text-xs text-editor-text-muted">
               Units
               <select
                 value={unit}
                 onChange={(e) => changeUnit(e.target.value as UnitId)}
-                className="mt-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100"
+                className="mt-1 rounded border border-editor-strong bg-editor-surface px-2 py-1 text-sm text-editor-text-strong"
               >
                 {SIZE_UNITS.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -214,7 +214,7 @@ export function NewDesignModal({ open, onClose }: Props) {
       )}
 
       <div className="mt-4 flex justify-end">
-        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-200">
+        <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text">
           Cancel
         </button>
       </div>
