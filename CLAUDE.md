@@ -70,3 +70,10 @@ checklist of the *active* batch only.
 - [x] PHOTO-004 Brightness/contrast adjustment tools — slider + numeric input, live preview, reset per control (issue #166)
 - [x] PHOTO-005 Undo/redo within a Photo Editor session (issue #167)
 - [x] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
+- [ ] PHOTO-007 Tonal and color adjustment tools (large — levels, curves, exposure, highlights/shadows, saturation/vibrance, hue shift, white balance, color balance, black & white conversion, invert; to be phased, tone controls first then color controls, following the PHOTO-004 slider+preview+reset pattern)
+- [ ] PHOTO-008 Sharpen, blur and noise tools — unsharp mask sharpen, gaussian/motion blur, noise reduction, add grain
+- [ ] PHOTO-009 Geometry tools for Photo Editor — crop, straighten, rotate to an arbitrary angle, flip, resize/resample, perspective correction; a separate raster pipeline from Canvas's existing crop tools (UX-009, UX-021)
+- [ ] PHOTO-010 Retouching brushes (large — spot/blemish removal, clone stamp, red-eye removal, dodge/burn; liquify likely split into its own ticket given warp-mesh complexity)
+- [ ] PHOTO-011 Selection and local masking (large, foundational — marquee/lasso/magic wand selection, layer masks, graduated/radial local adjustment brush; unlocks locally-scoped versions of PHOTO-007/008/010 tools, so worth sequencing before those where possible)
+- [ ] PHOTO-012 Filters and preset effects — vignette, duotone/color grading, sepia, preset filter gallery (vintage, warm/cool looks)
+- [ ] PHOTO-013 Non-destructive adjustment stack — before/after toggle, persistent per-tool edit-parameter stack for re-editing; builds directly on PHOTO-006's port-back edit metadata
