@@ -5,8 +5,10 @@ import { useCanvasStore } from '../store/useCanvasStore'
 import { usePhotoEditorStore } from '../../photo-editor/store/usePhotoEditorStore'
 import { isText, isShape } from '../utils'
 import { buildPhotoEditorHandoff } from '../photoEditorHandoff'
+import { displayStrokeWidth, strokeAlignmentOf } from '../store/storeHelpers'
 import { ColorField } from './ColorField'
 import { FillStrokeControl } from './FillStrokeControl'
+import { StrokeStyleControl } from './StrokeStyleControl'
 import { EffectsPanel } from './EffectsPanel'
 import { AlignmentToolbar } from './AlignmentToolbar'
 import { StyleTools } from './StyleTools'
@@ -171,9 +173,14 @@ export function PropertiesPanel() {
           <FillStrokeControl obj={obj} allowFill={obj.type !== 'line'} />
           <NumberField
             label="SW"
-            value={obj.strokeWidth ?? 0}
-            onCommit={(v) => updateActive({ strokeWidth: Math.max(0, v) })}
+            value={displayStrokeWidth(obj)}
+            onCommit={(v) => {
+              const clamped = Math.max(0, Math.min(50, v))
+              const isInside = strokeAlignmentOf(obj) === 'inside'
+              updateActive({ strokeWidth: isInside ? clamped * 2 : clamped })
+            }}
           />
+          <StrokeStyleControl obj={obj} />
         </CollapsibleSection>
       )}
 
