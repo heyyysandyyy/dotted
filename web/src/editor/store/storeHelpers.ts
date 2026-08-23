@@ -2,6 +2,8 @@ import * as fabric from 'fabric'
 import type { ModifiedEvent } from 'fabric'
 import { EXTRA_PROPS, type PageData } from '../storage'
 import { GOOGLE_FONTS, loadGoogleFont } from '../fonts'
+import { isShape } from '../utils'
+import { isEffectClone } from '../effectsEngine'
 
 /** Default name given to a fresh project. */
 export const DEFAULT_NAME = 'Untitled design'
@@ -22,6 +24,24 @@ export function loadCanvasFonts(canvas: fabric.Canvas): void {
     if (typeof family === 'string' && GOOGLE_FONTS.includes(family)) families.add(family)
   }
   families.forEach((family) => loadGoogleFont(family).then(() => canvas.requestRenderAll()))
+}
+
+/**
+ * Backfill `strokeUniform`/`strokeLineJoin` onto shapes saved before those
+ * became the default for newly-added shapes — without this, a design saved
+ * earlier keeps rendering with the old non-uniform stroke and sharp miter
+ * joins forever, even after the app-wide default changed (a shape's corners
+ * flatten or spike once it's been resized non-uniformly). Safe to force
+ * unconditionally on every load: neither property has ever been exposed in
+ * the UI, so no saved value could reflect a deliberate user choice.
+ */
+export function migrateStrokeDefaults(canvas: fabric.StaticCanvas): void {
+  const visit = (obj: fabric.FabricObject) => {
+    if (isEffectClone(obj)) return
+    if (isShape(obj)) obj.set({ strokeUniform: true, strokeLineJoin: 'round' })
+    if (obj.type === 'group') (obj as fabric.Group).getObjects().forEach(visit)
+  }
+  canvas.getObjects().forEach(visit)
 }
 
 /** Serialize the live canvas into a page payload. */
