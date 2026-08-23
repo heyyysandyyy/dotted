@@ -138,8 +138,13 @@ function StripThumb({
         // clipped by overflow-hidden. Same bug as PageStack.tsx's thumbnails
         // (right/bottom bleed guide reads thinner than left/top); an
         // outline sits outside the box model, so it can't eat into content.
-        className={`relative touch-none overflow-hidden rounded bg-white outline outline-1 -outline-offset-1 ${
-          active ? 'outline-indigo-500 ring-1 ring-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
+        // Active state is a colour change only, not an extra `ring` on top —
+        // a ring is a box-shadow, and unlike outline it *is* clipped by this
+        // element's own overflow-hidden, flattening the top/bottom edges
+        // instead of framing the thumbnail (reported bug). Matches
+        // PageStack.tsx's thumbnails, which never had a ring to begin with.
+        className={`relative touch-none overflow-hidden rounded bg-white outline outline-2 -outline-offset-2 ${
+          active ? 'outline-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
         } ${isDragging ? 'opacity-30' : ''}`}
         style={{ width: boxW, height: STRIP_THUMB_H }}
       >
