@@ -29,5 +29,9 @@ module Api
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
     config.middleware.use ActionDispatch::Cookies
+
+    # 8.1.3.1 made :vips the load-time default; pin to mini_magick so boot
+    # doesn't require the native libvips library to be present.
+    config.active_storage.variant_processor = :mini_magick
   end
 end
