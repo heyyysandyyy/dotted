@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import type * as fabric from 'fabric'
-import { readStyle, applyStyle, distributeStarts, pageSize, labelForProps } from './storeHelpers'
+import {
+  readStyle,
+  applyStyle,
+  distributeStarts,
+  pageSize,
+  labelForProps,
+  migrateStrokeDefaults,
+} from './storeHelpers'
 
 // Minimal object stub — these helpers only read props, set(), and type.
 const obj = (props: Record<string, unknown>) =>
@@ -53,6 +60,40 @@ describe('pageSize', () => {
   it('uses the page\'s own size when set (book pages, UX-015)', () => {
     const spread = { id: 'a', canvas: {}, type: 'spread' as const, width: 3600, height: 2700 }
     expect(pageSize(spread, { width: 1800, height: 2700 })).toEqual({ width: 3600, height: 2700 })
+  })
+})
+
+describe('migrateStrokeDefaults', () => {
+  it('backfills strokeUniform/round joins onto a shape saved before that was the default', () => {
+    const rect = obj({ type: 'rect' })
+    const canvas = { getObjects: () => [rect] } as unknown as fabric.StaticCanvas
+    migrateStrokeDefaults(canvas)
+    expect(rect.set).toHaveBeenCalledWith({ strokeUniform: true, strokeLineJoin: 'round' })
+  })
+
+  it('skips text and images — the Style panel never offered them a stroke', () => {
+    const text = obj({ type: 'textbox' })
+    const image = obj({ type: 'image' })
+    const canvas = { getObjects: () => [text, image] } as unknown as fabric.StaticCanvas
+    migrateStrokeDefaults(canvas)
+    expect(text.set).not.toHaveBeenCalled()
+    expect(image.set).not.toHaveBeenCalled()
+  })
+
+  it('leaves effect clones alone — they force strokeWidth 0 on purpose', () => {
+    const clone = obj({ type: 'rect', effectHostId: 'host-1' })
+    const canvas = { getObjects: () => [clone] } as unknown as fabric.StaticCanvas
+    migrateStrokeDefaults(canvas)
+    expect(clone.set).not.toHaveBeenCalled()
+  })
+
+  it('recurses into group children so nested shapes get migrated too', () => {
+    const child = obj({ type: 'triangle' })
+    const group = obj({ type: 'group', getObjects: () => [child] })
+    const canvas = { getObjects: () => [group] } as unknown as fabric.StaticCanvas
+    migrateStrokeDefaults(canvas)
+    expect(group.set).toHaveBeenCalledWith({ strokeUniform: true, strokeLineJoin: 'round' })
+    expect(child.set).toHaveBeenCalledWith({ strokeUniform: true, strokeLineJoin: 'round' })
   })
 })
 

@@ -66,6 +66,8 @@ export const TEMPLATES: StarterTemplate[] = [
         fill: 'rgba(0,0,0,0)',
         stroke: '#111111',
         strokeWidth: 8,
+        strokeUniform: true,
+        strokeLineJoin: 'round',
       }),
       centeredText('BIG\nSALE', {
         left: 540,
