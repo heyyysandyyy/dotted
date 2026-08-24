@@ -196,7 +196,17 @@ function PagePreview({
           // cutting the right-edge bleed guide down to a sliver (reported
           // bug). An outline sits outside the box model entirely, so it
           // can't eat into the content area no matter its width.
-          className={`relative overflow-hidden rounded bg-white shadow-lg outline outline-2 -outline-offset-2 ${
+          // The outline lives on this element, which must NOT also carry
+          // overflow-hidden — and needs a *positive* offset, not negative:
+          // a negative offset pulls the outline inside the box, onto the
+          // same area the canvas paints, and Chromium's canvas compositing
+          // layer painted over it, leaving only bare corner fragments where
+          // the inner wrapper's rounding clipped the canvas back (reported
+          // bug — the active page indicator going fully invisible). A
+          // positive offset draws outside the box so nothing can paint over
+          // it. Content clipping (the canvas + guide overlay) moves to the
+          // inner wrapper below instead.
+          className={`relative rounded shadow-lg outline outline-2 outline-offset-1 ${
             active ? 'outline-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
           }`}
           style={{
@@ -213,14 +223,16 @@ function PagePreview({
             cursor: panCursor ?? undefined,
           }}
         >
-          <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
-          <PageGuideOverlay
-            type={page.type}
-            width={thumbWidth}
-            height={thumbHeight}
-            bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
-            gridSpacingPx={gridSize * scale}
-          />
+          <div className="relative h-full w-full overflow-hidden rounded bg-white">
+            <canvas ref={ref} style={{ transformOrigin: 'top left', transform: `scale(${scale})` }} />
+            <PageGuideOverlay
+              type={page.type}
+              width={thumbWidth}
+              height={thumbHeight}
+              bleedPx={typeof page.bleed === 'number' ? page.bleed * scale : undefined}
+              gridSpacingPx={gridSize * scale}
+            />
+          </div>
         </button>
       </div>
       <div className="flex items-center gap-1.5 text-xs text-editor-text-muted">
