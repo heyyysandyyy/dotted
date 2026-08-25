@@ -34,10 +34,21 @@ export function useAdjustedPreviewCanvas(image: string | null, adjustments: Phot
   }, [image])
 
   useEffect(() => {
-    const img = imgRef.current
-    const canvas = canvasRef.current
-    if (!img || !canvas) return
-    renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)
+    // Coalesced to one redraw per animation frame — a raw <input type=range>
+    // fires `input` far faster than that while dragging, and exposure/
+    // highlights/shadows (unlike brightness/contrast's cheap CSS filter) run
+    // a real getImageData/LUT/putImageData pass, which on a large image (the
+    // Edit-from-Canvas entry point carries the original upload through
+    // uncapped — PHOTO-002's 2000px downscale only applies to a direct
+    // upload) is too slow to redo on every single event without dropping
+    // frames.
+    const rafId = requestAnimationFrame(() => {
+      const img = imgRef.current
+      const canvas = canvasRef.current
+      if (!img || !canvas) return
+      renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)
+    })
+    return () => cancelAnimationFrame(rafId)
   }, [adjustments])
 
   return canvasRef
