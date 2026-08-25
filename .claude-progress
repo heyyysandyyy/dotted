@@ -1,8 +1,13 @@
-UX-022 (#148), UX-023 (#149), and UX-025 (#151) are shipped and merged. UX-024
-(#150, select-all) is implemented on this branch/PR — check `gh pr list`
-before assuming it's merged.
+PHOTO-007's tone-controls phase (exposure, highlights, shadows) is implemented
+on branch feat/PHOTO-007-tone-controls — check `gh pr list` before assuming
+it's merged.
 
-No auto-pickable ticket next — every open issue besides BOOK-001 and BOOK-004
-is now shipped. BOOK-004 (issue #126) was explicitly reverted and deferred by
-the user pending a rethink; do not resume it without the user re-raising it or
-confirming a scope first.
+No auto-pickable next ticket. What's left, all needing a scoping decision
+before starting:
+- PHOTO-007 continued: levels/curves (a histogram + point-based UI, not a
+  slider — different shape of work from the tone-controls phase just done),
+  then the color-controls phase (saturation/vibrance, hue shift, white
+  balance, color balance, black & white conversion, invert).
+- BOOK-001 (page templates system) — large, needs its own phasing/design pass.
+- BOOK-004 (print export modal) — explicitly deferred by the user pending a
+  rethink; don't resume without them re-raising it or confirming a scope.
