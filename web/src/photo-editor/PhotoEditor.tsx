@@ -2,6 +2,7 @@ import { usePhotoEditorStore } from './store/usePhotoEditorStore'
 import { PhotoEditorTopBar } from './components/PhotoEditorTopBar'
 import { EmptyState } from './components/EmptyState'
 import { AdjustmentsPanel } from './components/AdjustmentsPanel'
+import { ColorPanel } from './components/ColorPanel'
 import { useAdjustedPreviewCanvas } from './hooks/useAdjustedPreviewCanvas'
 import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
 
@@ -11,9 +12,11 @@ import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
  * (layout, typography, crop/resize) rendered here at all. Renders the empty
  * state until an image is loaded; PHOTO-002 (direct upload) and PHOTO-003
  * (Edit-from-Canvas) populate usePhotoEditorStore's `image` field. The
- * preview is a <canvas> (not a plain <img>) since PHOTO-007's exposure/
- * highlights/shadows controls need a real pixel pass on top of PHOTO-004's
- * CSS-filter brightness/contrast — see useAdjustedPreviewCanvas.
+ * preview is a <canvas> (not a plain <img>) since PHOTO-007's tone and
+ * colour controls need real pixel passes on top of PHOTO-004's CSS-filter
+ * brightness/contrast — see useAdjustedPreviewCanvas. The sidebar scrolls:
+ * with the colour sections added it can outgrow the viewport even though
+ * every section is collapsible.
  */
 export function PhotoEditor() {
   const image = usePhotoEditorStore((s) => s.image)
@@ -33,8 +36,9 @@ export function PhotoEditor() {
           )}
         </div>
         {image && (
-          <aside className="w-64 shrink-0 border-l border-editor bg-editor-bg">
+          <aside className="w-64 shrink-0 overflow-y-auto border-l border-editor bg-editor-bg">
             <AdjustmentsPanel />
+            <ColorPanel />
           </aside>
         )}
       </div>

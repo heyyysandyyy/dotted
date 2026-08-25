@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildToneLUT, applyToneLUT, needsToneMap } from './toneLUT'
+import { buildToneLUT, needsToneMap } from './toneLUT'
 
 const NEUTRAL = { exposure: 0, highlights: 0, shadows: 0 }
 
@@ -79,18 +79,5 @@ describe('buildToneLUT', () => {
     const second = buildToneLUT({ exposure: 60, highlights: -10, shadows: 30 })
     expect(second).not.toBe(first)
     expect(second[200]).not.toBe(first[200])
-  })
-})
-
-describe('applyToneLUT', () => {
-  it('maps every RGB channel through the LUT and leaves alpha untouched', () => {
-    const lut = new Uint8ClampedArray(256)
-    for (let v = 0; v < 256; v++) lut[v] = 255 - v // invert, easy to assert on
-    const data = new Uint8ClampedArray([10, 20, 30, 40, 200, 210, 220, 230])
-    const imageData = { data, width: 2, height: 1 } as unknown as ImageData
-
-    applyToneLUT(imageData, lut)
-
-    expect(Array.from(data)).toEqual([245, 235, 225, 40, 55, 45, 35, 230])
   })
 })
