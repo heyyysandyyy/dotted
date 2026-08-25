@@ -18,13 +18,23 @@ export interface PhotoEditorSourceRef {
   zIndex: number
 }
 
-/** Brightness/contrast adjustment values (PHOTO-004), each -100..100, 0 = no change. */
+/** Tonal adjustment values (brightness/contrast PHOTO-004; exposure/highlights/
+ *  shadows PHOTO-007's tone-controls phase), each -100..100, 0 = no change. */
 export interface PhotoAdjustments {
   brightness: number
   contrast: number
+  exposure: number
+  highlights: number
+  shadows: number
 }
 
-export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = { brightness: 0, contrast: 0 }
+export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = {
+  brightness: 0,
+  contrast: 0,
+  exposure: 0,
+  highlights: 0,
+  shadows: 0,
+}
 
 const clampAdjustment = (v: number) => Math.max(-100, Math.min(100, v))
 
@@ -35,7 +45,7 @@ const HISTORY_DEBOUNCE_MS = 300
 let historyDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function sameAdjustments(a: PhotoAdjustments, b: PhotoAdjustments): boolean {
-  return a.brightness === b.brightness && a.contrast === b.contrast
+  return (Object.keys(DEFAULT_ADJUSTMENTS) as (keyof PhotoAdjustments)[]).every((key) => a[key] === b[key])
 }
 
 /**

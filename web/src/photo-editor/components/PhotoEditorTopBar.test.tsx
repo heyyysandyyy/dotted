@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { PhotoEditorTopBar } from './PhotoEditorTopBar'
-import { usePhotoEditorStore, type PhotoEditorSourceRef } from '../store/usePhotoEditorStore'
+import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS, type PhotoEditorSourceRef } from '../store/usePhotoEditorStore'
 import { useCanvasStore } from '../../editor/store/useCanvasStore'
 
 // WorkspaceSwitcher (rendered inside PhotoEditorTopBar) calls useLocation,
@@ -34,17 +34,16 @@ const REF: PhotoEditorSourceRef = {
   zIndex: 2,
 }
 
+const BRIGHT_40 = { ...DEFAULT_ADJUSTMENTS, brightness: 40 }
+
 describe('PhotoEditorTopBar — undo/redo (PHOTO-005)', () => {
   beforeEach(() => {
     usePhotoEditorStore.setState({
       image: null,
       sourceRef: null,
-      historyStack: [
-        { brightness: 0, contrast: 0 },
-        { brightness: 40, contrast: 0 },
-      ],
+      historyStack: [DEFAULT_ADJUSTMENTS, BRIGHT_40],
       historyIndex: 1,
-      adjustments: { brightness: 40, contrast: 0 },
+      adjustments: BRIGHT_40,
     })
   })
 
@@ -57,14 +56,14 @@ describe('PhotoEditorTopBar — undo/redo (PHOTO-005)', () => {
   it('clicking undo steps the adjustments back', () => {
     render(<PhotoEditorTopBar />)
     fireEvent.click(screen.getByTitle('Undo (Cmd/Ctrl+Z)'))
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 
   it('both buttons are disabled with no history at all', () => {
     usePhotoEditorStore.setState({
-      historyStack: [{ brightness: 0, contrast: 0 }],
+      historyStack: [DEFAULT_ADJUSTMENTS],
       historyIndex: 0,
-      adjustments: { brightness: 0, contrast: 0 },
+      adjustments: DEFAULT_ADJUSTMENTS,
     })
     render(<PhotoEditorTopBar />)
     expect(screen.getByTitle('Undo (Cmd/Ctrl+Z)')).toBeDisabled()
@@ -78,8 +77,8 @@ describe('PhotoEditorTopBar — Save/Cancel (PHOTO-006)', () => {
     usePhotoEditorStore.setState({
       image: null,
       sourceRef: null,
-      adjustments: { brightness: 0, contrast: 0 },
-      historyStack: [{ brightness: 0, contrast: 0 }],
+      adjustments: DEFAULT_ADJUSTMENTS,
+      historyStack: [DEFAULT_ADJUSTMENTS],
       historyIndex: 0,
     })
   })
@@ -117,17 +116,18 @@ describe('PhotoEditorTopBar — Save/Cancel (PHOTO-006)', () => {
   it('Save flattens, ports back, clears the session, and navigates to Canvas', async () => {
     const portBack = vi.fn(() => true)
     useCanvasStore.setState({ portBackFromPhotoEditor: portBack })
+    const adjustments = { ...DEFAULT_ADJUSTMENTS, brightness: 30, contrast: -10 }
     usePhotoEditorStore.setState({
       image: 'data:image/png;base64,abc',
       sourceRef: REF,
-      adjustments: { brightness: 30, contrast: -10 },
+      adjustments,
     })
     render(<PhotoEditorTopBar />)
 
     fireEvent.click(screen.getByText('Save'))
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: '/' }))
-    expect(portBack).toHaveBeenCalledWith(REF, 'data:image/png;base64,flattened', { brightness: 30, contrast: -10 })
+    expect(portBack).toHaveBeenCalledWith(REF, 'data:image/png;base64,flattened', adjustments)
     expect(usePhotoEditorStore.getState().image).toBeNull()
   })
 
