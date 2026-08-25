@@ -8,7 +8,9 @@ import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
  * exposure/highlights/shadows (PHOTO-007) as a getImageData/LUT/putImageData
  * pass, skipped entirely when all three are neutral. Shared by the live
  * preview canvas and flattenImage's bake (PHOTO-006) so the two can never
- * render differently.
+ * render differently. Returns false (nothing drawn) only if a 2d context
+ * isn't available, so callers that need to report that failure don't have
+ * to fetch their own context just to check.
  */
 export function renderAdjustedImage(
   canvas: HTMLCanvasElement,
@@ -16,11 +18,14 @@ export function renderAdjustedImage(
   width: number,
   height: number,
   adjustments: PhotoAdjustments,
-): void {
-  canvas.width = width
-  canvas.height = height
+): boolean {
+  // Reassigning canvas.width/height resets its backing bitmap even when set
+  // to the same value it already holds — skip that on every redraw tick when
+  // the image's own dimensions (not the adjustments) haven't changed.
+  if (canvas.width !== width) canvas.width = width
+  if (canvas.height !== height) canvas.height = height
   const ctx = canvas.getContext('2d')
-  if (!ctx) return
+  if (!ctx) return false
   ctx.filter = cssFilterFor(adjustments)
   ctx.drawImage(source, 0, 0, width, height)
   if (needsToneMap(adjustments)) {
@@ -28,4 +33,5 @@ export function renderAdjustedImage(
     applyToneLUT(imageData, buildToneLUT(adjustments))
     ctx.putImageData(imageData, 0, 0)
   }
+  return true
 }

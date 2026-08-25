@@ -24,12 +24,31 @@ describe('renderAdjustedImage', () => {
     const ctx = fakeCanvasContext()
     const source = {} as CanvasImageSource
 
-    renderAdjustedImage(canvas, source, 100, 50, { ...DEFAULT_ADJUSTMENTS, brightness: 40 })
+    const ok = renderAdjustedImage(canvas, source, 100, 50, { ...DEFAULT_ADJUSTMENTS, brightness: 40 })
 
+    expect(ok).toBe(true)
     expect(canvas.width).toBe(100)
     expect(canvas.height).toBe(50)
     expect(ctx.filter).toBe('brightness(1.4) contrast(1)')
     expect(ctx.drawImage).toHaveBeenCalledWith(source, 0, 0, 100, 50)
+  })
+
+  it('does not reset the canvas backing bitmap by reassigning width/height when they already match', () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 100
+    canvas.height = 50
+    fakeCanvasContext()
+    let widthSets = 0
+    Object.defineProperty(canvas, 'width', {
+      get: () => 100,
+      set: () => {
+        widthSets++
+      },
+    })
+
+    renderAdjustedImage(canvas, {} as CanvasImageSource, 100, 50, DEFAULT_ADJUSTMENTS)
+
+    expect(widthSets).toBe(0)
   })
 
   it('skips the getImageData/putImageData tone pass when exposure/highlights/shadows are all neutral', () => {
@@ -52,10 +71,14 @@ describe('renderAdjustedImage', () => {
     expect(ctx.putImageData).toHaveBeenCalled()
   })
 
-  it('does nothing (no throw) when 2d context is unavailable', () => {
+  it('returns false (no throw) when 2d context is unavailable, so callers can report the failure', () => {
     const canvas = document.createElement('canvas')
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
 
-    expect(() => renderAdjustedImage(canvas, {} as CanvasImageSource, 10, 10, DEFAULT_ADJUSTMENTS)).not.toThrow()
+    let ok: boolean | undefined
+    expect(() => {
+      ok = renderAdjustedImage(canvas, {} as CanvasImageSource, 10, 10, DEFAULT_ADJUSTMENTS)
+    }).not.toThrow()
+    expect(ok).toBe(false)
   })
 })

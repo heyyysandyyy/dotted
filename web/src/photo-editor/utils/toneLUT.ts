@@ -36,17 +36,32 @@ export function needsToneMap({ exposure, highlights, shadows }: ToneAdjustments)
  * control points instead of a formula, so applyToneLUT below is already the
  * mechanism that phase needs too.
  */
+// Reuses the last table when the three inputs repeat — e.g. dragging
+// Brightness/Contrast (which don't feed this LUT at all) still re-renders
+// the preview on every tick, and rebuilding an unchanged 256-entry table on
+// each of those ticks is pure waste.
+let cachedKey = ''
+let cachedLUT: Uint8ClampedArray | null = null
+
 export function buildToneLUT({ exposure, highlights, shadows }: ToneAdjustments): Uint8ClampedArray {
-  const exposureFactor = Math.pow(2, exposure / 100)
+  const key = `${exposure},${highlights},${shadows}`
+  if (key === cachedKey && cachedLUT) return cachedLUT
+
+  // (2^(exposure/100))^(1/GAMMA), the gamma-decode/re-encode round trip
+  // exposure alone needs, collapses algebraically to a single multiplier —
+  // v's own gamma decode and exposed's re-encode cancel out exactly, so
+  // "exposed" is just v scaled, not a per-pixel pow.
+  const exposureMultiplier = Math.pow(2, exposure / (100 * GAMMA))
   const lut = new Uint8ClampedArray(256)
   for (let v = 0; v < 256; v++) {
-    const linear = Math.pow(v / 255, GAMMA) * exposureFactor
-    const exposed = Math.pow(Math.max(linear, 0), 1 / GAMMA) * 255
+    const exposed = v * exposureMultiplier
     const shadowWeight = clamp01(1 - exposed / 128)
     const highlightWeight = clamp01((exposed - 128) / 127)
     const delta = (shadows / 100) * shadowWeight * TONE_STRENGTH + (highlights / 100) * highlightWeight * TONE_STRENGTH
     lut[v] = exposed + delta
   }
+  cachedKey = key
+  cachedLUT = lut
   return lut
 }
 

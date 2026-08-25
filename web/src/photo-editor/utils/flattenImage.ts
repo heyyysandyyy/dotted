@@ -16,12 +16,10 @@ export function flattenImage(imageSrc: string, adjustments: PhotoAdjustments): P
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
+      if (!renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)) {
         reject(new Error('Could not flatten image'))
         return
       }
-      renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)
       const sourceMime = imageSrc.match(/^data:([^;]+);/)?.[1] ?? 'image/png'
       const outputMime = sourceMime === 'image/png' ? 'image/png' : 'image/jpeg'
       resolve(canvas.toDataURL(outputMime, outputMime === 'image/jpeg' ? 0.9 : undefined))

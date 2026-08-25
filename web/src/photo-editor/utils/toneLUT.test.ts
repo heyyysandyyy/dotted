@@ -67,6 +67,19 @@ describe('buildToneLUT', () => {
       expect(lut[v]).toBeLessThanOrEqual(255)
     }
   })
+
+  it('reuses the same table for repeated inputs instead of rebuilding it', () => {
+    const first = buildToneLUT({ exposure: 20, highlights: -10, shadows: 30 })
+    const second = buildToneLUT({ exposure: 20, highlights: -10, shadows: 30 })
+    expect(second).toBe(first)
+  })
+
+  it('rebuilds when any of the three inputs changes', () => {
+    const first = buildToneLUT({ exposure: 20, highlights: -10, shadows: 30 })
+    const second = buildToneLUT({ exposure: 60, highlights: -10, shadows: 30 })
+    expect(second).not.toBe(first)
+    expect(second[200]).not.toBe(first[200])
+  })
 })
 
 describe('applyToneLUT', () => {

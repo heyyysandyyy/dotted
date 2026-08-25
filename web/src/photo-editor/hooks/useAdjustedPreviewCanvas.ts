@@ -13,6 +13,12 @@ export function useAdjustedPreviewCanvas(image: string | null, adjustments: Phot
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
+  const draw = (forAdjustments: PhotoAdjustments) => {
+    const img = imgRef.current
+    const canvas = canvasRef.current
+    if (img && canvas) renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, forAdjustments)
+  }
+
   useEffect(() => {
     imgRef.current = null
     if (!image) return
@@ -21,8 +27,7 @@ export function useAdjustedPreviewCanvas(image: string | null, adjustments: Phot
     img.onload = () => {
       if (cancelled) return
       imgRef.current = img
-      const canvas = canvasRef.current
-      if (canvas) renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)
+      draw(adjustments)
     }
     img.src = image
     return () => {
@@ -42,12 +47,7 @@ export function useAdjustedPreviewCanvas(image: string | null, adjustments: Phot
     // uncapped — PHOTO-002's 2000px downscale only applies to a direct
     // upload) is too slow to redo on every single event without dropping
     // frames.
-    const rafId = requestAnimationFrame(() => {
-      const img = imgRef.current
-      const canvas = canvasRef.current
-      if (!img || !canvas) return
-      renderAdjustedImage(canvas, img, img.naturalWidth, img.naturalHeight, adjustments)
-    })
+    const rafId = requestAnimationFrame(() => draw(adjustments))
     return () => cancelAnimationFrame(rafId)
   }, [adjustments])
 
