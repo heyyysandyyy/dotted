@@ -2,7 +2,7 @@ import { usePhotoEditorStore } from './store/usePhotoEditorStore'
 import { PhotoEditorTopBar } from './components/PhotoEditorTopBar'
 import { EmptyState } from './components/EmptyState'
 import { AdjustmentsPanel } from './components/AdjustmentsPanel'
-import { cssFilterFor } from './utils/adjustmentFilter'
+import { useAdjustedPreviewCanvas } from './hooks/useAdjustedPreviewCanvas'
 import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
 
 /**
@@ -10,12 +10,15 @@ import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
  * from Canvas — its own route, its own top bar, no Canvas toolbars/panels
  * (layout, typography, crop/resize) rendered here at all. Renders the empty
  * state until an image is loaded; PHOTO-002 (direct upload) and PHOTO-003
- * (Edit-from-Canvas) populate usePhotoEditorStore's `image` field, and
- * PHOTO-004 adds the adjustments panel + live CSS-filter preview once one is.
+ * (Edit-from-Canvas) populate usePhotoEditorStore's `image` field. The
+ * preview is a <canvas> (not a plain <img>) since PHOTO-007's exposure/
+ * highlights/shadows controls need a real pixel pass on top of PHOTO-004's
+ * CSS-filter brightness/contrast — see useAdjustedPreviewCanvas.
  */
 export function PhotoEditor() {
   const image = usePhotoEditorStore((s) => s.image)
   const adjustments = usePhotoEditorStore((s) => s.adjustments)
+  const canvasRef = useAdjustedPreviewCanvas(image, adjustments)
   usePhotoEditorShortcuts()
 
   return (
@@ -24,12 +27,7 @@ export function PhotoEditor() {
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-hidden p-6">
           {image ? (
-            <img
-              src={image}
-              alt=""
-              style={{ filter: cssFilterFor(adjustments) }}
-              className="mx-auto max-h-full max-w-full object-contain"
-            />
+            <canvas ref={canvasRef} className="mx-auto max-h-full max-w-full object-contain" />
           ) : (
             <EmptyState />
           )}

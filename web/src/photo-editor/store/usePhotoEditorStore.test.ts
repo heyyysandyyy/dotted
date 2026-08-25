@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { usePhotoEditorStore, type PhotoEditorSourceRef } from './usePhotoEditorStore'
+import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS, type PhotoEditorSourceRef } from './usePhotoEditorStore'
 
-const NEUTRAL_HISTORY = { historyStack: [{ brightness: 0, contrast: 0 }], historyIndex: 0 }
+const NEUTRAL_HISTORY = { historyStack: [DEFAULT_ADJUSTMENTS], historyIndex: 0 }
 
 const REF: PhotoEditorSourceRef = {
   pageId: 'page-1',
@@ -53,13 +53,13 @@ describe('usePhotoEditorStore — openFromCanvas (PHOTO-003)', () => {
   })
 })
 
-describe('usePhotoEditorStore — adjustments (PHOTO-004)', () => {
+describe('usePhotoEditorStore — adjustments (PHOTO-004 + PHOTO-007 tone controls)', () => {
   beforeEach(() => {
     // setAdjustment schedules a debounced (real setTimeout) history push
     // (PHOTO-005) on a module-level timer — fake timers keep that pending
     // callback from firing later, mid-assertion, in some other test.
     vi.useFakeTimers()
-    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: { brightness: 0, contrast: 0 }, ...NEUTRAL_HISTORY })
+    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
   })
 
   afterEach(() => {
@@ -67,15 +67,27 @@ describe('usePhotoEditorStore — adjustments (PHOTO-004)', () => {
   })
 
   it('starts neutral', () => {
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 
   it('setAdjustment updates just the given key', () => {
     usePhotoEditorStore.getState().setAdjustment('brightness', 40)
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, brightness: 40 })
 
     usePhotoEditorStore.getState().setAdjustment('contrast', -25)
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: -25 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, brightness: 40, contrast: -25 })
+  })
+
+  it('setAdjustment works for the PHOTO-007 tone controls too', () => {
+    usePhotoEditorStore.getState().setAdjustment('exposure', 20)
+    usePhotoEditorStore.getState().setAdjustment('highlights', -15)
+    usePhotoEditorStore.getState().setAdjustment('shadows', 35)
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({
+      ...DEFAULT_ADJUSTMENTS,
+      exposure: 20,
+      highlights: -15,
+      shadows: 35,
+    })
   })
 
   it('clamps to -100..100', () => {
@@ -90,19 +102,19 @@ describe('usePhotoEditorStore — adjustments (PHOTO-004)', () => {
     usePhotoEditorStore.getState().setAdjustment('brightness', 40)
     usePhotoEditorStore.getState().setAdjustment('contrast', -25)
     usePhotoEditorStore.getState().resetAdjustment('brightness')
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: -25 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, contrast: -25 })
   })
 
   it('a fresh setImage resets adjustments back to neutral', () => {
     usePhotoEditorStore.getState().setAdjustment('brightness', 40)
     usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 
   it('openFromCanvas also resets adjustments back to neutral', () => {
     usePhotoEditorStore.getState().setAdjustment('contrast', 40)
     usePhotoEditorStore.getState().openFromCanvas('data:image/png;base64,new', REF)
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 })
 
@@ -111,7 +123,7 @@ const HISTORY_DEBOUNCE_MS = 300
 describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: { brightness: 0, contrast: 0 }, ...NEUTRAL_HISTORY })
+    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
   })
 
   afterEach(() => {
@@ -135,8 +147,8 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
 
     expect(usePhotoEditorStore.getState().historyStack).toEqual([
-      { brightness: 0, contrast: 0 },
-      { brightness: 40, contrast: 0 },
+      DEFAULT_ADJUSTMENTS,
+      { ...DEFAULT_ADJUSTMENTS, brightness: 40 },
     ])
   })
 
@@ -148,7 +160,7 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
 
     usePhotoEditorStore.getState().undo()
 
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, brightness: 40 })
   })
 
   it('redo re-applies the step undo just backed out of', () => {
@@ -158,12 +170,12 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
 
     usePhotoEditorStore.getState().redo()
 
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, brightness: 40 })
   })
 
   it('undo at the start of history is a no-op', () => {
     usePhotoEditorStore.getState().undo()
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 0, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
     expect(usePhotoEditorStore.getState().historyIndex).toBe(0)
   })
 
@@ -171,7 +183,7 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     usePhotoEditorStore.getState().setAdjustment('brightness', 40)
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
     usePhotoEditorStore.getState().redo()
-    expect(usePhotoEditorStore.getState().adjustments).toEqual({ brightness: 40, contrast: 0 })
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({ ...DEFAULT_ADJUSTMENTS, brightness: 40 })
   })
 
   it('a new edit after undo drops the redo branch', () => {
@@ -185,9 +197,9 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
 
     expect(usePhotoEditorStore.getState().historyStack).toEqual([
-      { brightness: 0, contrast: 0 },
-      { brightness: 40, contrast: 0 },
-      { brightness: 15, contrast: 0 },
+      DEFAULT_ADJUSTMENTS,
+      { ...DEFAULT_ADJUSTMENTS, brightness: 40 },
+      { ...DEFAULT_ADJUSTMENTS, brightness: 15 },
     ])
     usePhotoEditorStore.getState().redo() // nothing to redo — the 80 branch is gone
     expect(usePhotoEditorStore.getState().adjustments.brightness).toBe(15)
@@ -198,7 +210,7 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
     usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
 
-    expect(usePhotoEditorStore.getState().historyStack).toEqual([{ brightness: 0, contrast: 0 }])
+    expect(usePhotoEditorStore.getState().historyStack).toEqual([DEFAULT_ADJUSTMENTS])
     expect(usePhotoEditorStore.getState().historyIndex).toBe(0)
   })
 
@@ -207,6 +219,6 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
 
-    expect(usePhotoEditorStore.getState().historyStack).toEqual([{ brightness: 0, contrast: 0 }])
+    expect(usePhotoEditorStore.getState().historyStack).toEqual([DEFAULT_ADJUSTMENTS])
   })
 })

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
+import { DEFAULT_ADJUSTMENTS } from '../../photo-editor/store/usePhotoEditorStore'
 
 describe('saveCurrentProject — saveError surfacing (data-loss fix)', () => {
   let canvas: fabric.Canvas
@@ -91,22 +92,21 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
   })
 
   it('replaces src and adds edits on the matching object, leaving its geometry untouched', () => {
-    const ok = useCanvasStore
-      .getState()
-      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', { brightness: 20, contrast: -10 })
+    const edits = { ...DEFAULT_ADJUSTMENTS, brightness: 20, contrast: -10 }
+    const ok = useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', edits)
 
     expect(ok).toBe(true)
     const page = useCanvasStore.getState().pages.find((p) => p.id === 'page-1')!
     const objects = (page.canvas as { objects: Array<Record<string, unknown>> }).objects
     const img = objects.find((o) => o.id === 'img-1')!
     expect(img.src).toBe('data:image/png;base64,flattened')
-    expect(img.edits).toEqual({ brightness: 20, contrast: -10 })
+    expect(img.edits).toEqual(edits)
     // Everything about its placement on the page is exactly as it was.
     expect(img).toMatchObject({ left: 5, top: 6, width: 200, height: 150, scaleX: 1, scaleY: 1, angle: 0, cropX: 10, cropY: 12 })
   })
 
   it('leaves other objects and other pages completely untouched', () => {
-    useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+    useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
 
     const pages = useCanvasStore.getState().pages
     const page1Objects = (pages[0].canvas as { objects: Array<Record<string, unknown>> }).objects
@@ -115,7 +115,7 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
   })
 
   it('persists the change to localStorage', () => {
-    useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+    useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
     const raw = localStorage.getItem('dotted:project:proj-1')
     expect(raw).toContain('data:image/png;base64,flattened')
   })
@@ -124,7 +124,7 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     const before = useCanvasStore.getState().pages
     const ok = useCanvasStore
       .getState()
-      .portBackFromPhotoEditor({ ...SOURCE_REF, pageId: 'gone' }, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+      .portBackFromPhotoEditor({ ...SOURCE_REF, pageId: 'gone' }, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
     expect(ok).toBe(false)
     expect(useCanvasStore.getState().pages).toBe(before)
   })
@@ -133,7 +133,7 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     const before = useCanvasStore.getState().pages
     const ok = useCanvasStore
       .getState()
-      .portBackFromPhotoEditor({ ...SOURCE_REF, objectId: 'gone' }, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+      .portBackFromPhotoEditor({ ...SOURCE_REF, objectId: 'gone' }, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
     expect(ok).toBe(false)
     expect(useCanvasStore.getState().pages).toBe(before)
   })
@@ -142,7 +142,7 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     useCanvasStore.setState({ currentProjectId: null })
     const ok = useCanvasStore
       .getState()
-      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
     expect(ok).toBe(false)
   })
 
@@ -153,7 +153,7 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
 
     const ok = useCanvasStore
       .getState()
-      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', { brightness: 0, contrast: 0 })
+      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
 
     expect(ok).toBe(true)
     expect(useCanvasStore.getState().saveError).toMatch(/storage is full/)
