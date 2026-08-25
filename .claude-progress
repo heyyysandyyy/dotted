@@ -1,13 +1,20 @@
-PHOTO-007's tone-controls phase (exposure, highlights, shadows) is implemented
-on branch feat/PHOTO-007-tone-controls — check `gh pr list` before assuming
-it's merged.
+PHOTO-007's color-controls phase (saturation/vibrance, hue shift, white
+balance, color balance, black & white, invert) is implemented on branch
+feat/PHOTO-007-color-controls — check `gh pr list` before assuming it's
+merged.
 
 No auto-pickable next ticket. What's left, all needing a scoping decision
 before starting:
-- PHOTO-007 continued: levels/curves (a histogram + point-based UI, not a
-  slider — different shape of work from the tone-controls phase just done),
-  then the color-controls phase (saturation/vibrance, hue shift, white
-  balance, color balance, black & white conversion, invert).
+- PHOTO-007 continued: levels/curves only — a histogram + point-based curve
+  UI, a different shape of work from the two slider phases already shipped.
+  channelLUT.ts's per-channel LUT trio is already the mechanism that phase
+  needs; it just builds its table from control points instead of a formula.
+- PHOTO-008 (sharpen/blur/noise) — the natural next photo ticket if the
+  levels/curves UI isn't wanted yet; a convolution pipeline, not a LUT one.
 - BOOK-001 (page templates system) — large, needs its own phasing/design pass.
 - BOOK-004 (print export modal) — explicitly deferred by the user pending a
   rethink; don't resume without them re-raising it or confirming a scope.
+
+Note for PHOTO-013: PhotoAdjustments has now grown twice, and it's persisted
+as photoEdits by portBackFromPhotoEditor. Merge stored edits over
+DEFAULT_ADJUSTMENTS rather than trusting a stored object to hold every field.
