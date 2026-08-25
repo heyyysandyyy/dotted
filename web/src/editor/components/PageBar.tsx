@@ -143,17 +143,29 @@ function StripThumb({
         // element's own overflow-hidden, flattening the top/bottom edges
         // instead of framing the thumbnail (reported bug). Matches
         // PageStack.tsx's thumbnails, which never had a ring to begin with.
-        className={`relative touch-none overflow-hidden rounded bg-white outline outline-2 -outline-offset-2 ${
+        // A *negative* outline-offset (pulling the outline inside the box,
+        // over the same area ThumbCanvas paints) went fully invisible in
+        // Chromium — the canvas's own compositing layer painted over the
+        // inset outline band, leaving only bare corner fragments where the
+        // inner wrapper's rounding clipped the canvas back (reported bug:
+        // active indicator missing, not just clipped top/bottom). A
+        // positive offset draws outside the box instead, so it can never be
+        // painted over by this element's own content; the outline stays on
+        // this element (not the overflow-hidden inner wrapper below) so it
+        // isn't clipped either.
+        className={`relative touch-none rounded outline outline-2 outline-offset-1 ${
           active ? 'outline-indigo-500' : 'outline-editor-border-strong hover:outline-editor-border-input'
         } ${isDragging ? 'opacity-30' : ''}`}
         style={{ width: boxW, height: STRIP_THUMB_H }}
       >
-        <ThumbCanvas page={page} width={width} height={height} scale={scale} boxW={boxW} />
-        {/* Drag handle affordance — dragging works from anywhere on the
-            thumbnail (the listeners above are on the whole button); this is
-            just the hover hint, purely decorative. */}
-        <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-editor-bg/60 p-0.5 text-editor-text-secondary group-hover:block">
-          <GripVertical size={9} />
+        <div className="relative h-full w-full overflow-hidden rounded bg-white">
+          <ThumbCanvas page={page} width={width} height={height} scale={scale} boxW={boxW} />
+          {/* Drag handle affordance — dragging works from anywhere on the
+              thumbnail (the listeners above are on the whole button); this is
+              just the hover hint, purely decorative. */}
+          <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-editor-bg/60 p-0.5 text-editor-text-secondary group-hover:block">
+            <GripVertical size={9} />
+          </div>
         </div>
       </button>
       {/* Sibling of the thumbnail button, not a descendant — nesting <button>
@@ -234,7 +246,17 @@ export function PageBar() {
 
   return (
     <div className="flex h-20 shrink-0 items-center gap-2 border-t border-editor bg-editor-bg px-2">
-      <div className="flex flex-1 items-center gap-2 overflow-x-auto">
+      {/* py-1: overflow-x-auto forces overflow-y to auto too (CSS
+          overflow-x/-y coupling), which clips at this row's own padding
+          edge — the thumbnail column's height already matches this row's
+          content height exactly, so a thumbnail sits flush against that
+          edge with zero clearance. The active outline's positive offset
+          (see StripThumb) pokes 3px past the thumbnail's own top edge, and
+          without this padding that got clipped off (reported bug: outline
+          missing only along the top). Bottom/left/right never needed this —
+          the page-number label below leaves room under the thumbnail, and
+          gap-2 leaves room on the sides. */}
+      <div className="flex flex-1 items-center gap-2 overflow-x-auto py-1">
         {/* View toggle: single page vs all-pages stack. */}
         <div className="flex items-center gap-0.5">
           <button
@@ -296,11 +318,17 @@ export function PageBar() {
                     // this same fix; the guide overlay canvas inside is
                     // sized to exactly boxW x STRIP_THUMB_H, so a border
                     // here would eat into that space and clip its right/
-                    // bottom edge the same way.
-                    className="overflow-hidden rounded bg-white shadow-lg shadow-black/50 outline outline-1 -outline-offset-1 outline-indigo-400"
+                    // bottom edge the same way. The outline sits on this
+                    // outer element, which stays free of overflow-hidden,
+                    // with a positive offset so it draws outside the box
+                    // instead of over the canvas — see StripThumb's comment
+                    // on the invisible-outline bug a negative offset causes.
+                    className="rounded shadow-lg shadow-black/50 outline outline-1 outline-offset-1 outline-indigo-400"
                     style={{ width: g.boxW, height: STRIP_THUMB_H, opacity: 0.9 }}
                   >
-                    <ThumbCanvas page={activePage} width={g.width} height={g.height} scale={g.scale} boxW={g.boxW} />
+                    <div className="h-full w-full overflow-hidden rounded bg-white">
+                      <ThumbCanvas page={activePage} width={g.width} height={g.height} scale={g.scale} boxW={g.boxW} />
+                    </div>
                   </div>
                 )
               })()}
