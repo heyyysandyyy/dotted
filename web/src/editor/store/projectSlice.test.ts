@@ -268,3 +268,56 @@ describe('saveAsTemplate — product pages (PROD-001)', () => {
     expect(pages[0].product).toEqual(productGuideSpec(pin))
   })
 })
+
+describe('newProductProject — multi-up sheets (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  const pin = findProductTemplate('pin-2-25')!
+
+  it('sizes the page to the paper and stores the grid it ganged up in', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'letter', count: 6 })
+
+    const { pages, width, height } = useCanvasStore.getState()
+    expect({ width, height }).toEqual({ width: 2550, height: 3300 })
+    expect(pages[0].product?.sheet).toEqual({
+      sheetId: 'letter',
+      label: 'US Letter',
+      columns: 2,
+      rows: 3,
+      count: 6,
+    })
+    // The product's own geometry is unchanged by ganging it up.
+    expect(pages[0].product?.diameterPx).toBe(675)
+  })
+
+  it('clamps a count the paper can’t hold', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'letter', count: 40 })
+    expect(useCanvasStore.getState().pages[0].product?.sheet?.count).toBe(6)
+  })
+
+  it('falls back to a single artboard when the product can’t be ganged up at all', () => {
+    useCanvasStore.getState().newProductProject({ ...pin, diameterIn: 20 }, { sheetId: 'letter', count: 4 })
+
+    const { pages, width } = useCanvasStore.getState()
+    expect(pages[0].product?.sheet).toBeUndefined()
+    expect(width).toBe(20 * 300 + 150)
+  })
+
+  it('keeps the sheet layout through add-page and duplicate-page', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'a4', count: 8 })
+
+    useCanvasStore.getState().addPage()
+    useCanvasStore.getState().duplicatePage(useCanvasStore.getState().pages[0].id)
+
+    for (const page of useCanvasStore.getState().pages) {
+      expect(page.product?.sheet?.count).toBe(8)
+      expect(page.width).toBe(2480)
+    }
+  })
+})

@@ -1,3 +1,4 @@
+import { cellSizePx } from './products'
 import type { ProductGuideSpec } from './products'
 
 /**
@@ -41,11 +42,45 @@ export interface ProductGuideBox {
 }
 
 /**
- * Draw the wrap/bleed tint (punched clear inside the trim circle), the dashed
- * trim circle, and the dashed safe-zone circle, all concentric on the
- * artboard's centre.
+ * Where each product sits inside `box`, in the caller's pixel space.
  *
- * No-ops when the trim circle would have no radius on screen — a zoomed-out
+ * A single product is centred on the artboard; a multi-up sheet lays its grid
+ * out cell by cell and centres the whole block, which is why only the grid's
+ * shape needs storing (products.ts) — the positions follow from it and the
+ * page size, identically for every caller.
+ */
+export function productCellCentres(
+  box: ProductGuideBox,
+  spec: ProductGuideSpec,
+  scale: number,
+): { x: number; y: number }[] {
+  const cell = cellSizePx(spec) * scale
+  const columns = spec.sheet?.columns ?? 1
+  const rows = spec.sheet?.rows ?? 1
+  const count = spec.sheet?.count ?? 1
+  const originX = box.x + (box.width - columns * cell) / 2
+  const originY = box.y + (box.height - rows * cell) / 2
+  return Array.from({ length: count }, (_, i) => ({
+    x: originX + ((i % columns) + 0.5) * cell,
+    y: originY + (Math.floor(i / columns) + 0.5) * cell,
+  }))
+}
+
+/** Add one full circle as its own subpath. The moveTo matters: without it,
+ *  arc() joins the previous subpath's end to this circle's start with a
+ *  straight line, which strokes as a web of chords across the sheet. */
+function circleSubpath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+  ctx.moveTo(x + radius, y)
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
+}
+
+/**
+ * Draw the wrap/bleed tint (punched clear inside every trim circle), the
+ * dashed trim circles, and the dashed safe-zone circles — one set per product
+ * on the page, whether that's a single pin on its own artboard or a full
+ * sheet of them.
+ *
+ * No-ops when the trim circles would have no radius on screen — a zoomed-out
  * thumbnail can scale a 450px pin down past the point where any of this is
  * meaningful.
  */
@@ -56,19 +91,19 @@ export function drawProductGuides(
   scale: number,
   style: ProductGuideStyle = DEFAULT_PRODUCT_GUIDE_STYLE,
 ): void {
-  const centreX = box.x + box.width / 2
-  const centreY = box.y + box.height / 2
   const trimRadius = (spec.diameterPx / 2) * scale
   if (trimRadius <= 0) return
   const safeRadius = Math.max(0, spec.diameterPx / 2 - spec.safeZonePx) * scale
+  const centres = productCellCentres(box, spec, scale)
 
-  // Tint the whole artboard, then clear the trim circle out of it, so only
-  // the corners and the wrap margin around the circle read as tinted.
+  // Tint the whole artboard, then clear every trim circle out of it, so only
+  // the waste around and between the products reads as tinted. The circles go
+  // into one path: a clip takes the union of its subpaths.
   ctx.save()
   ctx.fillStyle = style.bleedTint
   ctx.fillRect(box.x, box.y, box.width, box.height)
   ctx.beginPath()
-  ctx.arc(centreX, centreY, trimRadius, 0, Math.PI * 2)
+  for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, trimRadius)
   ctx.clip()
   ctx.clearRect(box.x, box.y, box.width, box.height)
   ctx.restore()
@@ -78,14 +113,14 @@ export function drawProductGuides(
   ctx.strokeStyle = style.trimColor
   ctx.setLineDash(style.dash)
   ctx.beginPath()
-  ctx.arc(centreX, centreY, trimRadius, 0, Math.PI * 2)
+  for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, trimRadius)
   ctx.stroke()
 
   if (safeRadius > 0) {
     ctx.strokeStyle = style.safeColor
     ctx.setLineDash(style.safeDash)
     ctx.beginPath()
-    ctx.arc(centreX, centreY, safeRadius, 0, Math.PI * 2)
+    for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, safeRadius)
     ctx.stroke()
   }
 

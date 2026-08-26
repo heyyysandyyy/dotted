@@ -13,7 +13,7 @@ import {
   EMPTY_GUIDES,
   type PageData,
 } from '../storage'
-import { productCanvasSize, productGuideSpec } from '../products'
+import { buildSheetLayout, productArtboardSize, productGuideSpec } from '../products'
 import { useHistoryStore } from './useHistoryStore'
 import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, pageSize } from './storeHelpers'
 import { downscaleDataUrl } from '../../lib/downscaleImage'
@@ -134,11 +134,15 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     useHistoryStore.getState().reset()
   },
 
-  newProductProject: (template) => {
+  newProductProject: (template, sheet) => {
     const { canvas } = get()
     const id = crypto.randomUUID()
     const pageId = crypto.randomUUID()
-    const size = productCanvasSize(template)
+    // A sheet the product doesn't fit on resolves to null, and the design
+    // falls back to a single product on its own artboard rather than a page
+    // with an empty grid on it.
+    const layout = sheet ? buildSheetLayout(template, sheet) : null
+    const size = productArtboardSize(template, layout)
     if (canvas) {
       canvas.clear()
       canvas.backgroundColor = '#ffffff'
@@ -153,7 +157,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
         id: pageId,
         canvas: canvas ? serializeCanvas(canvas) : { objects: [] },
         ...size,
-        product: productGuideSpec(template),
+        product: productGuideSpec(template, layout),
       },
     ]
     set({

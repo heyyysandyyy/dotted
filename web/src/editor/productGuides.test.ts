@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { drawProductGuides } from './productGuides'
-import { findProductTemplate, productCanvasSize, productGuideSpec } from './products'
+import { drawProductGuides, productCellCentres } from './productGuides'
+import { buildSheetLayout, findProductTemplate, productCanvasSize, productGuideSpec } from './products'
 
 function mockCtx() {
   return {
@@ -10,6 +10,7 @@ function mockCtx() {
     clearRect: vi.fn(),
     clip: vi.fn(),
     beginPath: vi.fn(),
+    moveTo: vi.fn(),
     arc: vi.fn(),
     stroke: vi.fn(),
     setLineDash: vi.fn(),
@@ -93,5 +94,111 @@ describe('drawProductGuides (PROD-001)', () => {
 
     const lastDash = vi.mocked(ctx.setLineDash).mock.calls.at(-1)
     expect(lastDash).toEqual([[]])
+  })
+})
+
+describe('productCellCentres (PROD-001 multi-up)', () => {
+  it('centres a single product on the artboard', () => {
+    expect(productCellCentres({ x: 0, y: 0, width: 825, height: 825 }, SPEC, 1)).toEqual([
+      { x: 412.5, y: 412.5 },
+    ])
+  })
+
+  it('lays a grid out cell by cell and centres the whole block on the sheet', () => {
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 6 })!
+    const spec = productGuideSpec(PIN, layout)
+    const sheet = { x: 0, y: 0, width: 2550, height: 3300 }
+
+    const centres = productCellCentres(sheet, spec, 1)
+
+    expect(centres).toHaveLength(6)
+    // 2 columns x 3 rows of 825px cells = 1650 x 2475, centred on 2550 x 3300.
+    expect(centres[0]).toEqual({ x: 450 + 412.5, y: 412.5 + 412.5 })
+    expect(centres[1].x - centres[0].x).toBe(825)
+    expect(centres[2].y - centres[0].y).toBe(825)
+    // Symmetric: the last cell's centre mirrors the first about the sheet.
+    expect(centres[5].x).toBe(sheet.width - centres[0].x)
+    expect(centres[5].y).toBe(sheet.height - centres[0].y)
+  })
+
+  it('stops at the count, leaving a partial last row', () => {
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 5 })!
+    const centres = productCellCentres(
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(PIN, layout),
+      1,
+    )
+
+    expect(centres).toHaveLength(5)
+    // Three rows, the last holding one cell in the first column.
+    expect(centres[4].x).toBe(centres[0].x)
+    expect(centres[4].y - centres[0].y).toBe(1650)
+  })
+
+  it('scales cell spacing with everything else', () => {
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 4 })!
+    const centres = productCellCentres(
+      { x: 0, y: 0, width: 255, height: 330 },
+      productGuideSpec(PIN, layout),
+      0.1,
+    )
+
+    expect(centres[1].x - centres[0].x).toBeCloseTo(82.5)
+  })
+})
+
+describe('drawProductGuides — multi-up sheets (PROD-001)', () => {
+  it('draws a trim and safe-zone circle for every product on the sheet, in two strokes', () => {
+    const ctx = mockCtx()
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 6 })!
+
+    drawProductGuides(
+      ctx,
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(PIN, layout),
+      1,
+    )
+
+    // 6 clip circles + 6 trim + 6 safe zone.
+    expect(ctx.arc).toHaveBeenCalledTimes(18)
+    // Batched into one path per kind rather than one stroke per circle.
+    expect(ctx.stroke).toHaveBeenCalledTimes(2)
+  })
+
+  it('starts every circle as its own subpath, so the sheet isn’t strung together with chords', () => {
+    const ctx = mockCtx()
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 6 })!
+
+    drawProductGuides(
+      ctx,
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(PIN, layout),
+      1,
+    )
+
+    expect(ctx.moveTo).toHaveBeenCalledTimes(18)
+  })
+
+  it('clears every trim circle out of the tint, not just the first', () => {
+    const ctx = mockCtx()
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 4 })!
+
+    drawProductGuides(
+      ctx,
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(PIN, layout),
+      1,
+    )
+
+    // One clip, one clearRect — the clip takes the union of its four subpaths.
+    expect(ctx.clip).toHaveBeenCalledTimes(1)
+    expect(ctx.clearRect).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(ctx.arc).mock.calls.slice(0, 4).map((c) => [c[0], c[1]])).toEqual(
+      productCellCentres(
+        { x: 0, y: 0, width: 2550, height: 3300 },
+        productGuideSpec(PIN, layout),
+        1,
+      ).map((c) => [c.x, c.y]),
+    )
   })
 })

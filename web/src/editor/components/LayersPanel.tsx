@@ -225,8 +225,11 @@ function GuideLayerRow({ spec }: { spec: ProductGuideSpec }) {
       <span className="shrink-0">
         <CircleDashed size={14} />
       </span>
-      <span className="min-w-0 flex-1 truncate text-left" title={`${spec.label} trim, bleed and safe-zone guides — never exported`}>
-        {spec.label} guides
+      <span
+        className="min-w-0 flex-1 truncate text-left"
+        title={`${spec.label} trim, bleed and safe-zone guides — never exported`}
+      >
+        {spec.sheet ? `${spec.sheet.count} × ${spec.label} guides` : `${spec.label} guides`}
       </span>
       <span className="shrink-0 text-editor-text-subtle" title="Guides can't be selected or moved">
         <Lock size={14} />

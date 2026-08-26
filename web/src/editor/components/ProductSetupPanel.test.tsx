@@ -54,7 +54,7 @@ describe('ProductSetupPanel (PROD-001)', () => {
     fireEvent.click(screen.getByText('2.25″'))
     fireEvent.click(screen.getByText('Create 2.25″ pin'))
 
-    expect(newProductProject).toHaveBeenCalledWith(findProductTemplate('pin-2-25'))
+    expect(newProductProject).toHaveBeenCalledWith(findProductTemplate('pin-2-25'), undefined)
     expect(onCreated).toHaveBeenCalled()
   })
 
@@ -78,5 +78,81 @@ describe('ProductSetupPanel (PROD-001)', () => {
   it('falls back to the first template for an id that no longer exists', () => {
     render(<ProductSetupPanel initialTemplateId="pin-42" onCreated={() => {}} />)
     expect(screen.getByText('Create 1″ pin')).toBeInTheDocument()
+  })
+})
+
+describe('ProductSetupPanel — several per page (PROD-001)', () => {
+  const newProductProject = vi.fn()
+
+  beforeEach(() => {
+    newProductProject.mockClear()
+    useCanvasStore.setState({ newProductProject })
+  })
+
+  it('starts on one per artboard, with no paper or count to answer for', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={() => {}} />)
+
+    expect(screen.getByText('One per artboard')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('Paper')).not.toBeInTheDocument()
+    expect(stat('Products')).toBe('1')
+  })
+
+  it('fills the sheet by default and says how many fit where', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={() => {}} />)
+
+    fireEvent.click(screen.getByText('Several per page'))
+
+    expect(screen.getByLabelText('Per page')).toHaveValue(6)
+    expect(screen.getByText(/Up to 6 fit on US Letter/)).toBeInTheDocument()
+    expect(screen.getByText(/2 across × 3 down/)).toBeInTheDocument()
+    expect(stat('Canvas')).toBe('2550 × 3300 px')
+    expect(stat('Products')).toBe('6')
+  })
+
+  it('re-fills for the new paper rather than holding onto the old count', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Several per page'))
+
+    fireEvent.change(screen.getByLabelText('Paper'), { target: { value: 'a4' } })
+
+    expect(screen.getByLabelText('Per page')).toHaveValue(8)
+    expect(stat('Canvas')).toBe('2480 × 3508 px')
+  })
+
+  it('takes a smaller count and creates the sheet with it', () => {
+    const onCreated = vi.fn()
+    render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={onCreated} />)
+    fireEvent.click(screen.getByText('Several per page'))
+
+    fireEvent.change(screen.getByLabelText('Per page'), { target: { value: '4' } })
+    expect(screen.getByText('Create sheet of 4')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Create sheet of 4'))
+
+    expect(newProductProject).toHaveBeenCalledWith(findProductTemplate('pin-2-25'), {
+      sheetId: 'letter',
+      count: 4,
+    })
+    expect(onCreated).toHaveBeenCalled()
+  })
+
+  it('never offers more than the paper holds', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Several per page'))
+
+    fireEvent.change(screen.getByLabelText('Per page'), { target: { value: '99' } })
+
+    expect(screen.getByLabelText('Per page')).toHaveValue(6)
+    expect(screen.getByText('Create sheet of 6')).toBeInTheDocument()
+  })
+
+  it('switching back to one per artboard drops the sheet from what gets created', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-1" onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Several per page'))
+    fireEvent.click(screen.getByText('One per artboard'))
+
+    fireEvent.click(screen.getByText('Create 1″ pin'))
+
+    expect(newProductProject).toHaveBeenCalledWith(findProductTemplate('pin-1'), undefined)
   })
 })

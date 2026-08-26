@@ -2,11 +2,16 @@ import { describe, it, expect } from 'vitest'
 import {
   PRODUCT_TEMPLATES,
   PRODUCT_DPI,
+  buildSheetLayout,
+  cellSizePx,
   findProductTemplate,
+  productArtboardSize,
   productCanvasSize,
   productGuideSpec,
   productsInCategory,
   pxToInches,
+  sheetCapacity,
+  sheetSizePx,
 } from './products'
 
 describe('PRODUCT_TEMPLATES (PROD-001)', () => {
@@ -79,5 +84,62 @@ describe('pxToInches', () => {
     expect(pxToInches(75, 300)).toBe('0.25 in')
     expect(pxToInches(300, 300)).toBe('1 in')
     expect(pxToInches(37.5, 300)).toBe('0.125 in')
+  })
+})
+
+describe('multi-up sheets (PROD-001)', () => {
+  const pin = findProductTemplate('pin-2-25')!
+
+  it('sizes each paper at the product’s own print resolution', () => {
+    expect(sheetSizePx('letter', 300)).toEqual({ width: 2550, height: 3300 })
+    expect(sheetSizePx('a4', 300)).toEqual({ width: 2480, height: 3508 })
+  })
+
+  it('fits as many whole cells as the paper allows once its margin is taken off', () => {
+    // 2.75in cells on 8.5x11in with a 0.25in margin all round: 8in / 2.75 = 2
+    // across, 10.5in / 2.75 = 3 down.
+    expect(sheetCapacity(pin, 'letter')).toEqual({ columns: 2, rows: 3, max: 6 })
+    // A4 is narrower but taller, so the same pin gets an extra row.
+    expect(sheetCapacity(pin, 'a4')).toEqual({ columns: 2, rows: 4, max: 8 })
+    expect(sheetCapacity(findProductTemplate('pin-1')!, 'letter').max).toBe(35)
+  })
+
+  it('builds a grid only as tall as the count reaches', () => {
+    expect(buildSheetLayout(pin, { sheetId: 'letter', count: 3 })).toEqual({
+      sheetId: 'letter',
+      label: 'US Letter',
+      columns: 2,
+      rows: 2,
+      count: 3,
+    })
+  })
+
+  it('clamps the count to what fits, and to at least one', () => {
+    expect(buildSheetLayout(pin, { sheetId: 'letter', count: 99 })?.count).toBe(6)
+    expect(buildSheetLayout(pin, { sheetId: 'letter', count: 0 })?.count).toBe(1)
+  })
+
+  it('reports no layout at all for a product too big to gang up', () => {
+    const oversized = { ...pin, diameterIn: 20 }
+    expect(sheetCapacity(oversized, 'letter').max).toBe(0)
+    expect(buildSheetLayout(oversized, { sheetId: 'letter', count: 2 })).toBeNull()
+  })
+
+  it('makes the artboard the paper when ganging up, and the product itself otherwise', () => {
+    const layout = buildSheetLayout(pin, { sheetId: 'letter', count: 6 })
+    expect(productArtboardSize(pin, layout)).toEqual({ width: 2550, height: 3300 })
+    expect(productArtboardSize(pin, null)).toEqual({ width: 825, height: 825 })
+  })
+
+  it('carries the layout on the guide spec, leaving a single product without one', () => {
+    const layout = buildSheetLayout(pin, { sheetId: 'a4', count: 8 })
+    expect(productGuideSpec(pin, layout).sheet).toEqual(layout)
+    expect(productGuideSpec(pin).sheet).toBeUndefined()
+  })
+
+  it('keeps the cell size the product’s own artboard, sheet or not', () => {
+    const layout = buildSheetLayout(pin, { sheetId: 'letter', count: 6 })
+    expect(cellSizePx(productGuideSpec(pin, layout))).toBe(825)
+    expect(cellSizePx(productGuideSpec(pin))).toBe(825)
   })
 })

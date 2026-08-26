@@ -2,7 +2,7 @@ import type * as fabric from 'fabric'
 import type { UnitId, SizePreset } from '../constants'
 import type { PageData, Guides } from '../storage'
 import type { StarterTemplate } from '../templates'
-import type { PresetTemplate } from '../products'
+import type { PresetTemplate, ProductSheetChoice } from '../products'
 import type { AlignMode, ShadowEffect } from '../utils'
 import type { PhotoEditorSourceRef, PhotoAdjustments } from '../../photo-editor/store/usePhotoEditorStore'
 
@@ -73,9 +73,10 @@ export interface ProjectSlice {
   /** Start a book project: one cover page + pageCount/2 spread pages, all
    *  book-typed with bleed baked into their size (UX-015). */
   newBookProject: (preset: SizePreset, pageCount: number) => void
-  /** Start a print-product project (PROD-001): one page sized at the
-   *  template's trim + bleed, carrying the guide geometry for that product. */
-  newProductProject: (template: PresetTemplate) => void
+  /** Start a print-product project (PROD-001): one page carrying that
+   *  product's guide geometry, sized at its trim + bleed — or, when a sheet
+   *  is asked for, at that paper size with a grid of them ganged up on it. */
+  newProductProject: (template: PresetTemplate, sheet?: ProductSheetChoice) => void
   /** Save the current design as a reusable template (TPL-004). */
   saveAsTemplate: (name: string) => boolean
   /** Start a new project from a user-saved template by id (TPL-004). */

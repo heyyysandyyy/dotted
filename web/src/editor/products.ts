@@ -48,6 +48,24 @@ export interface PresetTemplate {
 /** Print resolution every product template is built at. */
 export const PRODUCT_DPI = 300
 
+/** Paper a multi-up sheet can be laid out on. Inches, because that's what the
+ *  products are described in; A4 is its millimetre size converted once here. */
+export const SHEET_SIZES = [
+  { id: 'letter', label: 'US Letter', widthIn: 8.5, heightIn: 11 },
+  { id: 'a4', label: 'A4', widthIn: 210 / 25.4, heightIn: 297 / 25.4 },
+] as const
+export type SheetId = (typeof SHEET_SIZES)[number]['id']
+
+/** Unprintable margin kept clear on every edge of a sheet. Home and office
+ *  printers can't reach the paper's edge, and a pin whose bleed lands in that
+ *  band comes out with a white crescent — so it's taken off the usable area
+ *  before working out how many fit. */
+export const SHEET_MARGIN_IN = 0.25
+
+export function findSheet(id: SheetId) {
+  return SHEET_SIZES.find((s) => s.id === id) ?? SHEET_SIZES[0]
+}
+
 const pin = (diameterIn: number, label: string): PresetTemplate => ({
   id: `pin-${String(diameterIn).replace('.', '-')}`,
   category: 'pin',
@@ -109,6 +127,29 @@ export function productCanvasSize(template: PresetTemplate): { width: number; he
  * (PROD-002 extends this list), and the drawing code never has to look a
  * preset up. The id rides along for display and future re-templating.
  */
+/**
+ * How many of a product are ganged up on one sheet, and in what grid.
+ *
+ * Only the shape of the grid is stored, not the cell positions: the grid is
+ * always centred in the artboard, so every consumer can recompute the same
+ * positions from this plus the page size (see productCellCentres). Absent
+ * means one product on its own artboard.
+ */
+export interface ProductSheetLayout {
+  sheetId: SheetId
+  label: string
+  columns: number
+  rows: number
+  /** How many cells are actually in use — the last row can be partial. */
+  count: number
+}
+
+/** What the setup panel hands to the store: a sheet and how many to put on it. */
+export interface ProductSheetChoice {
+  sheetId: SheetId
+  count: number
+}
+
 export interface ProductGuideSpec {
   templateId: string
   label: string
@@ -120,9 +161,71 @@ export interface ProductGuideSpec {
   /** Safe-zone inset inside the trim, in px. */
   safeZonePx: number
   dpi: number
+  /** Multi-up layout (absent for a single product on its own artboard). */
+  sheet?: ProductSheetLayout
 }
 
-export function productGuideSpec(template: PresetTemplate): ProductGuideSpec {
+/** A sheet's size in px at a template's print resolution. */
+export function sheetSizePx(sheetId: SheetId, dpi: number): { width: number; height: number } {
+  const sheet = findSheet(sheetId)
+  return { width: Math.round(sheet.widthIn * dpi), height: Math.round(sheet.heightIn * dpi) }
+}
+
+/**
+ * How many of a product fit on a sheet, as a grid. Cells sit edge to edge:
+ * each one already carries its own bleed, so the space between two trim
+ * circles is two bleeds wide — enough to cut both — and adding a gutter on top
+ * would only cost yield.
+ */
+export function sheetCapacity(
+  template: PresetTemplate,
+  sheetId: SheetId,
+): { columns: number; rows: number; max: number } {
+  const cell = productCanvasSize(template).width
+  const sheet = sheetSizePx(sheetId, template.dpi)
+  const margin = Math.round(SHEET_MARGIN_IN * template.dpi)
+  const columns = Math.max(0, Math.floor((sheet.width - margin * 2) / cell))
+  const rows = Math.max(0, Math.floor((sheet.height - margin * 2) / cell))
+  return { columns, rows, max: columns * rows }
+}
+
+/**
+ * Resolve a sheet choice into the layout stored on the page, clamping the
+ * count to what actually fits. Returns null when the product doesn't fit on
+ * that sheet at all, so callers fall back to a single-product artboard rather
+ * than creating a page with a zero-column grid.
+ */
+export function buildSheetLayout(
+  template: PresetTemplate,
+  choice: ProductSheetChoice,
+): ProductSheetLayout | null {
+  const { columns, max } = sheetCapacity(template, choice.sheetId)
+  if (max <= 0) return null
+  const count = Math.max(1, Math.min(Math.round(choice.count) || 1, max))
+  return {
+    sheetId: choice.sheetId,
+    label: findSheet(choice.sheetId).label,
+    columns,
+    // Only as many rows as the count actually reaches, so the grid centres on
+    // what's there instead of leaving a blank band where unused rows would be.
+    rows: Math.ceil(count / columns),
+    count,
+  }
+}
+
+/** The page size for a product design: the sheet when ganging up, otherwise
+ *  the product's own square artboard. */
+export function productArtboardSize(
+  template: PresetTemplate,
+  layout: ProductSheetLayout | null,
+): { width: number; height: number } {
+  return layout ? sheetSizePx(layout.sheetId, template.dpi) : productCanvasSize(template)
+}
+
+export function productGuideSpec(
+  template: PresetTemplate,
+  layout: ProductSheetLayout | null = null,
+): ProductGuideSpec {
   const diameterPx = Math.round(template.diameterIn * template.dpi)
   return {
     templateId: template.id,
@@ -140,7 +243,13 @@ export function productGuideSpec(template: PresetTemplate): ProductGuideSpec {
     // pixel and make the panel report it back as "0.127 in".
     safeZonePx: template.safeZoneIn * template.dpi,
     dpi: template.dpi,
+    ...(layout ? { sheet: layout } : {}),
   }
+}
+
+/** One product's square cell — the trim circle plus its bleed margin. */
+export function cellSizePx(spec: ProductGuideSpec): number {
+  return spec.diameterPx + spec.bleedPx * 2
 }
 
 /** Format a px length back to inches for display (e.g. "0.25 in"). */
