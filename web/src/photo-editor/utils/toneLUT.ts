@@ -33,8 +33,9 @@ export function needsToneMap({ exposure, highlights, shadows }: ToneAdjustments)
  * independently to R/G/B rather than off a true combined luminance — a
  * deliberate simplification that keeps this a plain per-channel LUT, the
  * same shape Levels/Curves (PHOTO-007's follow-up phase) will build from
- * control points instead of a formula, so applyToneLUT below is already the
- * mechanism that phase needs too.
+ * control points instead of a formula. channelLUT.ts folds this table
+ * together with the white-balance/colour-balance per-channel terms and does
+ * the actual pixel pass, so this file stays pure curve maths.
  */
 // Reuses the last table when the three inputs repeat — e.g. dragging
 // Brightness/Contrast (which don't feed this LUT at all) still re-renders
@@ -63,14 +64,4 @@ export function buildToneLUT({ exposure, highlights, shadows }: ToneAdjustments)
   cachedKey = key
   cachedLUT = lut
   return lut
-}
-
-/** Applies a buildToneLUT() table to an ImageData's RGB channels in place — alpha untouched. */
-export function applyToneLUT(imageData: ImageData, lut: Uint8ClampedArray): void {
-  const data = imageData.data
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = lut[data[i]]
-    data[i + 1] = lut[data[i + 1]]
-    data[i + 2] = lut[data[i + 2]]
-  }
 }

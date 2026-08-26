@@ -1,16 +1,26 @@
 import { cssFilterFor } from './adjustmentFilter'
-import { buildToneLUT, applyToneLUT, needsToneMap } from './toneLUT'
+import { buildChannelLUTs, applyChannelLUTs, needsChannelLUTs } from './channelLUT'
+import { applyColorPass, needsColorPass } from './colorPass'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
 /**
  * Draws `source` onto `canvas` at (width, height) with every adjustment
- * applied — brightness/contrast (PHOTO-004) as a cheap CSS filter, plus
- * exposure/highlights/shadows (PHOTO-007) as a getImageData/LUT/putImageData
- * pass, skipped entirely when all three are neutral. Shared by the live
- * preview canvas and flattenImage's bake (PHOTO-006) so the two can never
- * render differently. Returns false (nothing drawn) only if a 2d context
- * isn't available, so callers that need to report that failure don't have
- * to fetch their own context just to check.
+ * applied, in three stages:
+ *
+ * 1. brightness/contrast (PHOTO-004) as a cheap, GPU-composited CSS filter
+ * 2. the per-channel LUT trio (channelLUT.ts) — exposure/highlights/shadows
+ *    plus white balance and colour balance
+ * 3. the cross-channel colour pass (colorPass.ts) — hue, saturation,
+ *    vibrance, black & white, invert
+ *
+ * Stages 2 and 3 share one getImageData/putImageData round trip, and it's
+ * skipped entirely when both report they'd be no-ops — which is the common
+ * case while only the CSS-filter controls are being dragged.
+ *
+ * Shared by the live preview canvas and flattenImage's bake (PHOTO-006) so
+ * the two can never render differently. Returns false (nothing drawn) only
+ * if a 2d context isn't available, so callers that need to report that
+ * failure don't have to fetch their own context just to check.
  */
 export function renderAdjustedImage(
   canvas: HTMLCanvasElement,
@@ -28,9 +38,13 @@ export function renderAdjustedImage(
   if (!ctx) return false
   ctx.filter = cssFilterFor(adjustments)
   ctx.drawImage(source, 0, 0, width, height)
-  if (needsToneMap(adjustments)) {
+
+  const channels = needsChannelLUTs(adjustments)
+  const color = needsColorPass(adjustments)
+  if (channels || color) {
     const imageData = ctx.getImageData(0, 0, width, height)
-    applyToneLUT(imageData, buildToneLUT(adjustments))
+    if (channels) applyChannelLUTs(imageData, buildChannelLUTs(adjustments))
+    if (color) applyColorPass(imageData, adjustments)
     ctx.putImageData(imageData, 0, 0)
   }
   return true

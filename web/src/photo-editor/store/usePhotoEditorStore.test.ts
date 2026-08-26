@@ -118,6 +118,89 @@ describe('usePhotoEditorStore — adjustments (PHOTO-004 + PHOTO-007 tone contro
   })
 })
 
+describe('usePhotoEditorStore — colour adjustments (PHOTO-007 colour controls)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('sets each colour slider independently', () => {
+    usePhotoEditorStore.getState().setAdjustment('saturation', 40)
+    usePhotoEditorStore.getState().setAdjustment('vibrance', -20)
+    usePhotoEditorStore.getState().setAdjustment('hue', 75)
+    usePhotoEditorStore.getState().setAdjustment('temperature', -35)
+    usePhotoEditorStore.getState().setAdjustment('tint', 15)
+    usePhotoEditorStore.getState().setAdjustment('redBalance', 10)
+    usePhotoEditorStore.getState().setAdjustment('greenBalance', -10)
+    usePhotoEditorStore.getState().setAdjustment('blueBalance', 5)
+
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({
+      ...DEFAULT_ADJUSTMENTS,
+      saturation: 40,
+      vibrance: -20,
+      hue: 75,
+      temperature: -35,
+      tint: 15,
+      redBalance: 10,
+      greenBalance: -10,
+      blueBalance: 5,
+    })
+  })
+
+  it('clamps colour sliders to -100..100 like every other adjustment', () => {
+    usePhotoEditorStore.getState().setAdjustment('hue', 900)
+    expect(usePhotoEditorStore.getState().adjustments.hue).toBe(100)
+
+    usePhotoEditorStore.getState().setAdjustment('temperature', -900)
+    expect(usePhotoEditorStore.getState().adjustments.temperature).toBe(-100)
+  })
+
+  it('setToggle flips black & white and invert without touching anything else', () => {
+    usePhotoEditorStore.getState().setAdjustment('saturation', 30)
+    usePhotoEditorStore.getState().setToggle('blackAndWhite', true)
+    usePhotoEditorStore.getState().setToggle('invert', true)
+    expect(usePhotoEditorStore.getState().adjustments).toEqual({
+      ...DEFAULT_ADJUSTMENTS,
+      saturation: 30,
+      blackAndWhite: true,
+      invert: true,
+    })
+
+    usePhotoEditorStore.getState().setToggle('blackAndWhite', false)
+    expect(usePhotoEditorStore.getState().adjustments.blackAndWhite).toBe(false)
+    expect(usePhotoEditorStore.getState().adjustments.invert).toBe(true)
+  })
+
+  it('resetAdjustment returns a toggle to its default, not to 0', () => {
+    usePhotoEditorStore.getState().setToggle('invert', true)
+    usePhotoEditorStore.getState().resetAdjustment('invert')
+    expect(usePhotoEditorStore.getState().adjustments.invert).toBe(false)
+  })
+
+  it('a toggle is undoable on the same debounced path as a slider', () => {
+    usePhotoEditorStore.getState().setToggle('blackAndWhite', true)
+    vi.advanceTimersByTime(300)
+    expect(usePhotoEditorStore.getState().historyStack).toHaveLength(2)
+
+    usePhotoEditorStore.getState().undo()
+    expect(usePhotoEditorStore.getState().adjustments.blackAndWhite).toBe(false)
+
+    usePhotoEditorStore.getState().redo()
+    expect(usePhotoEditorStore.getState().adjustments.blackAndWhite).toBe(true)
+  })
+
+  it('a new image resets the colour controls too', () => {
+    usePhotoEditorStore.getState().setAdjustment('saturation', 50)
+    usePhotoEditorStore.getState().setToggle('invert', true)
+    usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
+  })
+})
+
 const HISTORY_DEBOUNCE_MS = 300
 
 describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
