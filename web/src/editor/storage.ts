@@ -1,3 +1,5 @@
+import type { ProductGuideSpec } from './products'
+
 /** Legacy single-design key (SAV-001). Read once for migration, then dropped. */
 export const CURRENT_DESIGN_KEY = 'dotted:currentDesign'
 /** Index of project metadata (newest first). */
@@ -60,6 +62,11 @@ export interface PageData {
   height?: number
   /** Bleed margin in px, book pages only (UX-015). */
   bleed?: number
+  /** Circular trim/bleed/safe-zone geometry, print-product pages only
+   *  (PROD-001). Kept on the page rather than the project so it rides along
+   *  through every save, load, duplicate and reorder path unchanged — the
+   *  same reason book pages carry their own size and bleed. */
+  product?: ProductGuideSpec
 }
 
 /** Manual ruler guides (UX-004), in canvas px. Horizontal guides are stored by

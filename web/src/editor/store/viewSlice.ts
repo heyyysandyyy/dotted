@@ -18,6 +18,7 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
   snapGuides: true,
   activeGuides: { horizontal: [], vertical: [] },
   spreadView: 'sideBySide',
+  showProductGuides: true,
 
   // Manual zoom leaves fit-mode; a manual zoom recenters (pan reset) unless the
   // caller pans afterwards (scroll-wheel zoom sets pan itself).
@@ -42,6 +43,8 @@ export const createViewSlice: StateCreator<CanvasState, [], [], ViewSlice> = (se
     }),
 
   toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
+
+  toggleProductGuides: () => set((s) => ({ showProductGuides: !s.showProductGuides })),
 
   setRulerUnit: (rulerUnit) => set({ rulerUnit }),
 

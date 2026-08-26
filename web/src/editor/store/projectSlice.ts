@@ -13,6 +13,7 @@ import {
   EMPTY_GUIDES,
   type PageData,
 } from '../storage'
+import { productCanvasSize, productGuideSpec } from '../products'
 import { useHistoryStore } from './useHistoryStore'
 import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, pageSize } from './storeHelpers'
 import { downscaleDataUrl } from '../../lib/downscaleImage'
@@ -133,6 +134,43 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     useHistoryStore.getState().reset()
   },
 
+  newProductProject: (template) => {
+    const { canvas } = get()
+    const id = crypto.randomUUID()
+    const pageId = crypto.randomUUID()
+    const size = productCanvasSize(template)
+    if (canvas) {
+      canvas.clear()
+      canvas.backgroundColor = '#ffffff'
+      canvas.setDimensions(size)
+      canvas.requestRenderAll()
+    }
+    // The guide geometry rides on the page, not on the project: pages are
+    // what every save/load/duplicate path carries through untouched, and a
+    // product project can hold several designs for the same product.
+    const pages: PageData[] = [
+      {
+        id: pageId,
+        canvas: canvas ? serializeCanvas(canvas) : { objects: [] },
+        ...size,
+        product: productGuideSpec(template),
+      },
+    ]
+    set({
+      ...size,
+      selection: [],
+      designName: DEFAULT_NAME,
+      currentProjectId: id,
+      pages,
+      activePageId: pageId,
+      backgroundColor: '#ffffff',
+      guides: EMPTY_GUIDES,
+    })
+    setCurrentProjectId(id)
+    saveProject({ id, name: DEFAULT_NAME, ...size, pages, activePageId: pageId, guides: EMPTY_GUIDES })
+    useHistoryStore.getState().reset()
+  },
+
   newProjectFromTemplate: (tpl) => {
     // Start a blank project at the template's size, then drop in its objects.
     get().newProject(tpl.width, tpl.height)
@@ -156,6 +194,10 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     const snapPages = pages.map((p) => ({
       id: p.id,
       canvas: structuredClone(p.id === activePageId ? serializeCanvas(canvas) : p.canvas),
+      // A product page's guide geometry (PROD-001) is part of what makes it
+      // that product — a pin design saved as a template and reopened has to
+      // come back with its trim circle, not as a bare 825px square.
+      ...(p.product ? { product: p.product } : {}),
     }))
     return saveTemplate({
       id: crypto.randomUUID(),
@@ -175,6 +217,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     const pages: PageData[] = tpl.pages.map((p) => ({
       id: crypto.randomUUID(),
       canvas: structuredClone(p.canvas),
+      ...(p.product ? { product: p.product } : {}),
     }))
     const active = pages[0]
     set({
@@ -318,6 +361,11 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     // project (a cover has no sibling to size a new page from otherwise).
     const active = synced.find((p) => p.id === activePageId)
     const spreadTemplate = active?.type === 'spread' ? active : synced.find((p) => p.type === 'spread')
+    // Product projects (PROD-001) do the same thing for the same reason: a
+    // second page of a pin design is another pin, so it inherits the active
+    // page's size and guide geometry instead of becoming a generic page with
+    // no trim circle to design against.
+    const productTemplate = active?.product ? active : synced.find((p) => p.product)
     const newSize =
       spreadTemplate && typeof spreadTemplate.width === 'number' && typeof spreadTemplate.height === 'number'
         ? {
@@ -326,7 +374,15 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
             height: spreadTemplate.height,
             bleed: spreadTemplate.bleed,
           }
-        : {}
+        : productTemplate &&
+            typeof productTemplate.width === 'number' &&
+            typeof productTemplate.height === 'number'
+          ? {
+              width: productTemplate.width,
+              height: productTemplate.height,
+              product: productTemplate.product,
+            }
+          : {}
 
     const newPageId = crypto.randomUUID()
     canvas.clear()

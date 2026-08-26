@@ -44,8 +44,11 @@ export const BOOK_PRESETS = SIZE_PRESETS.filter((p) => p.category === 'book')
  *  resolution (300dpi, unlike the 96dpi screen scale other presets use). */
 export const BOOK_BLEED_PX = 38
 
-/** Filter pills shown above the preset grid; 'all' clears the category filter. */
-export const PRESET_FILTERS = ['all', 'social', 'print', 'book', 'presentation', 'video'] as const
+/** Filter pills shown above the preset grid; 'all' clears the category filter.
+ *  'product' has no SIZE_PRESETS behind it — it selects the print-product
+ *  templates (products.ts), which are described in inches at print dpi rather
+ *  than in screen px. */
+export const PRESET_FILTERS = ['all', 'social', 'print', 'product', 'book', 'presentation', 'video'] as const
 export type PresetFilter = (typeof PRESET_FILTERS)[number]
 
 /**
