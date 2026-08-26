@@ -65,10 +65,15 @@ describe('ProductGuides — printing (PROD-001)', () => {
     )
   })
 
-  it('is hidden from a browser print of the editor page, not just from exports', () => {
+  it('keeps the tint and safe zone off paper, and puts the cut line on it', () => {
     setUpPage(SPEC)
     const { container } = render(<ProductGuides />)
 
-    expect(container.querySelector('div')).toHaveClass('print:hidden')
+    const [screen, print] = Array.from(container.querySelectorAll('canvas'))
+    // The screen layer (bleed tint + safe zone) drops out of a print…
+    expect(screen).toHaveClass('print:hidden')
+    // …and a cut-line-only layer, hidden on screen, takes its place.
+    expect(print).toHaveClass('hidden')
+    expect(print).toHaveClass('print:block')
   })
 })

@@ -24,6 +24,26 @@ export interface ProductGuideStyle {
   safeDash: [number, number]
 }
 
+/**
+ * The trim circle as it goes to paper (PROD-001).
+ *
+ * Sized in artboard px and scaled with the artwork, unlike the on-screen
+ * style above whose px are screen px so guides stay hair-thin at any zoom: a
+ * cut line printed at 300dpi, or exported at 2×, has to keep its proportions
+ * or it lands as an invisible thread on a 2550px sheet.
+ *
+ * Only the trim circle is in here. The bleed tint would print over the
+ * artwork, and the safe zone is a design aid — it frames what stays visible,
+ * so a line around it on the finished product is exactly what nobody wants.
+ */
+export const PRINT_CUT_LINE_STYLE = {
+  color: '#000000',
+  /** Stroke width in artboard px (~0.007in at 300dpi). */
+  widthPx: 2,
+  /** [dash, gap] in artboard px (~0.08in / 0.05in at 300dpi). */
+  dash: [24, 16] as [number, number],
+}
+
 export const DEFAULT_PRODUCT_GUIDE_STYLE: ProductGuideStyle = {
   // Same pink tint the book bleed guides use (pageGuides.ts), so "this area
   // gets lost" means one thing across the whole editor.
@@ -72,6 +92,58 @@ export function productCellCentres(
 function circleSubpath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
   ctx.moveTo(x + radius, y)
   ctx.arc(x, y, radius, 0, Math.PI * 2)
+}
+
+/**
+ * Draw only the cut line: one dashed trim circle per product, and nothing
+ * else. This is the guide that's *meant* to reach paper — it's where the
+ * product gets cut out — so it's what the exporters composite into a PNG/
+ * JPEG/PDF and what a browser print of the editor page shows.
+ *
+ * Leaves the context as it found it (save/restore), since callers here are
+ * compositing onto a finished export raster rather than a scratch overlay.
+ */
+export function drawProductCutLines(
+  ctx: CanvasRenderingContext2D,
+  box: ProductGuideBox,
+  spec: ProductGuideSpec,
+  scale: number,
+  style = PRINT_CUT_LINE_STYLE,
+): void {
+  const trimRadius = (spec.diameterPx / 2) * scale
+  if (trimRadius <= 0) return
+
+  ctx.save()
+  ctx.strokeStyle = style.color
+  ctx.lineWidth = Math.max(1, style.widthPx * scale)
+  ctx.setLineDash(style.dash.map((d) => Math.max(1, d * scale)))
+  ctx.beginPath()
+  for (const centre of productCellCentres(box, spec, scale)) {
+    circleSubpath(ctx, centre.x, centre.y, trimRadius)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * The same cut line as SVG markup, for the one export that isn't a raster.
+ * Drawn at artboard scale, to be appended inside the `<svg>` fabric produced
+ * so the circles land in the artboard's own coordinate system.
+ */
+export function productCutLinesSVG(
+  spec: ProductGuideSpec,
+  size: { width: number; height: number },
+  style = PRINT_CUT_LINE_STYLE,
+): string {
+  const trimRadius = spec.diameterPx / 2
+  if (trimRadius <= 0) return ''
+  const circles = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
+    .map((c) => `<circle cx="${c.x}" cy="${c.y}" r="${trimRadius}" />`)
+    .join('')
+  return (
+    `<g fill="none" stroke="${style.color}" stroke-width="${style.widthPx}" ` +
+    `stroke-dasharray="${style.dash.join(' ')}">${circles}</g>`
+  )
 }
 
 /**

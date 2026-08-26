@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { setupHiDPI, useViewportGeometry } from '../viewportGeometry'
-import { drawProductGuides } from '../productGuides'
+import { drawProductCutLines, drawProductGuides } from '../productGuides'
 
 /**
  * Trim/bleed/safe-zone guides for a print-product page (PROD-001): the
@@ -19,29 +19,36 @@ export function ProductGuides() {
   const active = !!spec && showProductGuides
   const { rootRef, box, width, height, zoom, originX, originY } = useViewportGeometry(active)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const printCanvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const el = canvasRef.current
-    if (!active || !el || box.w === 0 || box.h === 0 || !spec) return
+    const printEl = printCanvasRef.current
+    if (!active || !el || !printEl || box.w === 0 || box.h === 0 || !spec) return
+    const artboard = { x: originX, y: originY, width: width * zoom, height: height * zoom }
+
     const ctx = setupHiDPI(el, box.w, box.h)
     ctx.clearRect(0, 0, box.w, box.h)
-    drawProductGuides(
-      ctx,
-      { x: originX, y: originY, width: width * zoom, height: height * zoom },
-      spec,
-      zoom,
-    )
+    drawProductGuides(ctx, artboard, spec, zoom)
+
+    // Painted even though it's display:none — a hidden canvas still keeps its
+    // bitmap, so the print stylesheet has something to reveal rather than a
+    // blank element it would have to trigger a repaint for.
+    const printCtx = setupHiDPI(printEl, box.w, box.h)
+    printCtx.clearRect(0, 0, box.w, box.h)
+    drawProductCutLines(printCtx, artboard, spec, zoom)
   }, [active, spec, box, width, height, zoom, originX, originY])
 
   if (!active) return null
 
   return (
-    // print:hidden matters as much as living outside the fabric canvas: no
-    // export can reach these circles, but the overlay is still a DOM element,
-    // and printing the editor page itself (⌘P) would otherwise put the trim
-    // and safe-zone rings on paper.
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5] print:hidden">
-      <canvas ref={canvasRef} className="absolute left-0 top-0" />
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5]">
+      {/* On screen: bleed tint, cut line and safe zone. On paper: the cut line
+          alone — the bleed tint would print over the artwork and the safe zone
+          frames what has to stay visible, so a ring around it is the last
+          thing wanted on a finished pin. */}
+      <canvas ref={canvasRef} className="absolute left-0 top-0 print:hidden" />
+      <canvas ref={printCanvasRef} className="absolute left-0 top-0 hidden print:block" />
     </div>
   )
 }

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { drawProductGuides, productCellCentres } from './productGuides'
+import {
+  drawProductCutLines,
+  drawProductGuides,
+  productCellCentres,
+  productCutLinesSVG,
+  PRINT_CUT_LINE_STYLE,
+} from './productGuides'
 import { buildSheetLayout, findProductTemplate, productCanvasSize, productGuideSpec } from './products'
 
 function mockCtx() {
@@ -200,5 +206,84 @@ describe('drawProductGuides — multi-up sheets (PROD-001)', () => {
         1,
       ).map((c) => [c.x, c.y]),
     )
+  })
+})
+
+describe('drawProductCutLines (PROD-001 print output)', () => {
+  it('strokes the trim circles and nothing else — no tint, no safe zone', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: SIZE.width, height: SIZE.height }, SPEC, 1)
+
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    expect(ctx.clip).not.toHaveBeenCalled()
+    expect(ctx.clearRect).not.toHaveBeenCalled()
+    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(ctx.arc).mock.calls).toEqual([
+      [SIZE.width / 2, SIZE.height / 2, SPEC.diameterPx / 2, 0, Math.PI * 2],
+    ])
+  })
+
+  it('draws one per product across a sheet', () => {
+    const ctx = mockCtx()
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 6 })!
+
+    drawProductCutLines(
+      ctx,
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(PIN, layout),
+      1,
+    )
+
+    expect(ctx.arc).toHaveBeenCalledTimes(6)
+    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+  })
+
+  it('scales its stroke and dashes with the artwork, unlike the screen guides', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: 1650, height: 1650 }, SPEC, 2)
+
+    expect(ctx.lineWidth).toBe(PRINT_CUT_LINE_STYLE.widthPx * 2)
+    expect(vi.mocked(ctx.setLineDash).mock.calls[0][0]).toEqual(
+      PRINT_CUT_LINE_STYLE.dash.map((d) => d * 2),
+    )
+  })
+
+  it('never leaves a dash pattern or colour behind on the export canvas', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: SIZE.width, height: SIZE.height }, SPEC, 1)
+
+    expect(ctx.save).toHaveBeenCalledTimes(1)
+    expect(ctx.restore).toHaveBeenCalledTimes(1)
+  })
+
+  it('draws nothing when the trim circle has no radius', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: 0, height: 0 }, SPEC, 0)
+
+    expect(ctx.stroke).not.toHaveBeenCalled()
+  })
+})
+
+describe('productCutLinesSVG (PROD-001 vector export)', () => {
+  it('emits one dashed circle per product, at artboard coordinates', () => {
+    const layout = buildSheetLayout(PIN, { sheetId: 'letter', count: 4 })!
+    const markup = productCutLinesSVG(productGuideSpec(PIN, layout), { width: 2550, height: 3300 })
+
+    expect(markup.match(/<circle /g)).toHaveLength(4)
+    expect(markup).toContain(`r="${SPEC.diameterPx / 2}"`)
+    expect(markup).toContain('stroke-dasharray="24 16"')
+    expect(markup).toContain('fill="none"')
+  })
+
+  it('carries the cut line only — the safe-zone radius appears nowhere in it', () => {
+    const markup = productCutLinesSVG(SPEC, SIZE)
+    const safeRadius = SPEC.diameterPx / 2 - SPEC.safeZonePx
+
+    expect(markup.match(/<circle /g)).toHaveLength(1)
+    expect(markup).not.toContain(`r="${safeRadius}"`)
+  })
+
+  it('is empty for a spec with no radius, rather than a stray empty group', () => {
+    expect(productCutLinesSVG({ ...SPEC, diameterPx: 0 }, SIZE)).toBe('')
   })
 })

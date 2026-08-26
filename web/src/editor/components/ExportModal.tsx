@@ -25,6 +25,12 @@ export function ExportModal({ open, onClose }: Props) {
   // assigned to a plain page — those signal "not a book page" via an absent
   // `type` — so this stays correct even if that changes.)
   const isBook = useCanvasStore((s) => s.pages.some((p) => p.type === 'cover' || p.type === 'spread'))
+  // A print-product page (PROD-001) exports with its cut line composited in —
+  // the line the product is cut out on, which is no use to anyone if it only
+  // ever exists on screen. The bleed tint and safe-zone circle stay behind.
+  // Independent of the layers panel's guide toggle, which is about on-screen
+  // clutter, the same way a book PDF always carries its cut marks.
+  const cutLines = useCanvasStore((s) => s.pages.find((p) => p.id === s.activePageId)?.product ?? null)
   const [format, setFormat] = useState<Format>('png')
   const [scale, setScale] = useState(1)
   const [quality, setQuality] = useState(DEFAULT_JPEG_QUALITY)
@@ -47,16 +53,16 @@ export function ExportModal({ open, onClose }: Props) {
       return
     }
     if (!canvas) return
-    if (format === 'png') exportPNG(canvas, designName, scale)
-    else if (format === 'jpeg') exportJPEG(canvas, designName, scale, quality)
+    if (format === 'png') exportPNG(canvas, designName, scale, cutLines)
+    else if (format === 'jpeg') exportJPEG(canvas, designName, scale, quality, cutLines)
     // PDF export is async (jsPDF is lazy-loaded); surface load/render failures
     // instead of leaving an unhandled rejection.
     else if (format === 'pdf') {
-      exportPDF(canvas, designName, scale).catch((err) => {
+      exportPDF(canvas, designName, scale, cutLines).catch((err) => {
         console.error('PDF export failed', err)
       })
     }
-    else if (format === 'svg') exportSVG(canvas, designName)
+    else if (format === 'svg') exportSVG(canvas, designName, cutLines)
     onClose()
   }
 
