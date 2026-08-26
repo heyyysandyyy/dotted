@@ -1,9 +1,19 @@
 import { buildToneLUT, needsToneMap } from './toneLUT'
+import { buildLevelsCurveLUTs, needsLevelsCurves } from './levelsCurves'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
 type ChannelAdjustments = Pick<
   PhotoAdjustments,
-  'exposure' | 'highlights' | 'shadows' | 'temperature' | 'tint' | 'redBalance' | 'greenBalance' | 'blueBalance'
+  | 'exposure'
+  | 'highlights'
+  | 'shadows'
+  | 'temperature'
+  | 'tint'
+  | 'redBalance'
+  | 'greenBalance'
+  | 'blueBalance'
+  | 'levels'
+  | 'curves'
 >
 
 /** One 256-entry input-byte -> output-byte table per colour channel. */
@@ -24,7 +34,8 @@ const WHITE_BALANCE_STRENGTH = 0.3
 const COLOR_BALANCE_STRENGTH = 64
 
 /** True when any per-channel term would move a pixel — exposure/highlights/
- *  shadows (toneLUT.ts) or white balance / colour balance. */
+ *  shadows (toneLUT.ts), white balance / colour balance, or levels/curves
+ *  (levelsCurves.ts). */
 export function needsChannelLUTs(a: ChannelAdjustments): boolean {
   return (
     needsToneMap(a) ||
@@ -32,7 +43,8 @@ export function needsChannelLUTs(a: ChannelAdjustments): boolean {
     a.tint !== 0 ||
     a.redBalance !== 0 ||
     a.greenBalance !== 0 ||
-    a.blueBalance !== 0
+    a.blueBalance !== 0 ||
+    needsLevelsCurves(a)
   )
 }
 
@@ -42,6 +54,10 @@ export function needsChannelLUTs(a: ChannelAdjustments): boolean {
 // 256-entry tables on each of those ticks is pure waste.
 let cachedKey = ''
 let cachedLUTs: ChannelLUTs | null = null
+
+function clampByte(v: number): number {
+  return Math.max(0, Math.min(255, Math.round(v)))
+}
 
 /**
  * Folds every *per-channel* adjustment into one R/G/B table trio, so the
@@ -53,6 +69,9 @@ let cachedLUTs: ChannelLUTs | null = null
  * - temperature — warm (+) gains red and cuts blue, cool (-) the reverse
  * - tint — magenta (+) cuts green, green (-) gains it
  * - red/green/blue balance — a flat additive shift on that one channel
+ * - levels and curves (levelsCurves.ts) — folded in last, so the curve a
+ *   user draws maps the tone/white-balance result they can actually see,
+ *   the same way a Levels/Curves layer sits above the adjustments below it
  *
  * Cross-channel work (hue, saturation, vibrance, black & white, invert)
  * can't be expressed this way and lives in colorPass.ts instead.
@@ -67,7 +86,13 @@ export function buildChannelLUTs(a: ChannelAdjustments): ChannelLUTs {
     a.redBalance,
     a.greenBalance,
     a.blueBalance,
-  ].join(',')
+    // Serialized rather than listed: levels is a triple and each curve is a
+    // variable-length point list, so there's no fixed set of numbers to
+    // join. Both are small enough (a handful of points) that stringifying
+    // them per call is far cheaper than the rebuild it avoids.
+    JSON.stringify(a.levels),
+    JSON.stringify(a.curves),
+  ].join('|')
   if (key === cachedKey && cachedLUTs) return cachedLUTs
 
   const tone = buildToneLUT(a)
@@ -78,6 +103,10 @@ export function buildChannelLUTs(a: ChannelAdjustments): ChannelLUTs {
   const gShift = (a.greenBalance / 100) * COLOR_BALANCE_STRENGTH
   const bShift = (a.blueBalance / 100) * COLOR_BALANCE_STRENGTH
 
+  // Null when levels and all four curves are neutral, which keeps the
+  // common case one multiply-add per entry instead of a second lookup.
+  const levelsCurves = needsLevelsCurves(a) ? buildLevelsCurveLUTs(a) : null
+
   const luts: ChannelLUTs = {
     r: new Uint8ClampedArray(256),
     g: new Uint8ClampedArray(256),
@@ -85,9 +114,15 @@ export function buildChannelLUTs(a: ChannelAdjustments): ChannelLUTs {
   }
   for (let v = 0; v < 256; v++) {
     const base = tone[v]
-    luts.r[v] = base * rGain + rShift
-    luts.g[v] = base * gGain + gShift
-    luts.b[v] = base * bGain + bShift
+    const r = base * rGain + rShift
+    const g = base * gGain + gShift
+    const b = base * bGain + bShift
+    // Rounded and clamped before the lookup: the gains and shifts above can
+    // land outside 0..255 (and between two entries), and only the final
+    // write to a Uint8ClampedArray does that for free.
+    luts.r[v] = levelsCurves ? levelsCurves.r[clampByte(r)] : r
+    luts.g[v] = levelsCurves ? levelsCurves.g[clampByte(g)] : g
+    luts.b[v] = levelsCurves ? levelsCurves.b[clampByte(b)] : b
   }
 
   cachedKey = key

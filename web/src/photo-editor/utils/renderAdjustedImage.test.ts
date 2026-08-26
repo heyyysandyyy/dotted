@@ -71,6 +71,19 @@ describe('renderAdjustedImage', () => {
     expect(ctx.putImageData).toHaveBeenCalled()
   })
 
+  it('runs the pixel pass for a levels or curves edit, which no CSS filter can express', () => {
+    const canvas = document.createElement('canvas')
+    const ctx = fakeCanvasContext()
+
+    renderAdjustedImage(canvas, {} as CanvasImageSource, 10, 10, {
+      ...DEFAULT_ADJUSTMENTS,
+      levels: { black: 24, white: 255, gamma: 1 },
+    })
+
+    expect(ctx.getImageData).toHaveBeenCalledWith(0, 0, 10, 10)
+    expect(ctx.putImageData).toHaveBeenCalled()
+  })
+
   it('returns false (no throw) when 2d context is unavailable, so callers can report the failure', () => {
     const canvas = document.createElement('canvas')
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)

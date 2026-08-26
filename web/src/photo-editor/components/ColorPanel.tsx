@@ -35,8 +35,8 @@ const TOGGLES: { key: ToggleAdjustmentKey; label: string }[] = [
 /** The colour-controls phase of PHOTO-007 — saturation/vibrance, hue shift,
  *  white balance, colour balance, black & white conversion and invert, all
  *  following PHOTO-004's slider + live preview + per-control reset pattern.
- *  Sits below AdjustmentsPanel's tonal controls; levels and curves (a
- *  histogram + point-based UI) remain a separate follow-up phase. */
+ *  Sits below AdjustmentsPanel's tonal controls and the histogram-backed
+ *  Levels and Curves sections. */
 export function ColorPanel() {
   const adjustments = usePhotoEditorStore((s) => s.adjustments)
   const setAdjustment = usePhotoEditorStore((s) => s.setAdjustment)

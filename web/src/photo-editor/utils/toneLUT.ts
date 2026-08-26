@@ -32,8 +32,8 @@ export function needsToneMap({ exposure, highlights, shadows }: ToneAdjustments)
  * as a stand-in for luminance) into one per-channel pass. Applied
  * independently to R/G/B rather than off a true combined luminance — a
  * deliberate simplification that keeps this a plain per-channel LUT, the
- * same shape Levels/Curves (PHOTO-007's follow-up phase) will build from
- * control points instead of a formula. channelLUT.ts folds this table
+ * same shape levelsCurves.ts builds from control points instead of a
+ * formula. channelLUT.ts folds this table
  * together with the white-balance/colour-balance per-channel terms and does
  * the actual pixel pass, so this file stays pure curve maths.
  */

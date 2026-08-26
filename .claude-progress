@@ -1,20 +1,24 @@
-PHOTO-007's color-controls phase (saturation/vibrance, hue shift, white
-balance, color balance, black & white, invert) is implemented on branch
-feat/PHOTO-007-color-controls — check `gh pr list` before assuming it's
-merged.
+PHOTO-007 is complete — its final phase (levels, curves, histogram) is
+implemented on branch feat/PHOTO-007-levels-curves; check `gh pr list`
+before assuming it's merged.
 
-No auto-pickable next ticket. What's left, all needing a scoping decision
-before starting:
-- PHOTO-007 continued: levels/curves only — a histogram + point-based curve
-  UI, a different shape of work from the two slider phases already shipped.
-  channelLUT.ts's per-channel LUT trio is already the mechanism that phase
-  needs; it just builds its table from control points instead of a formula.
-- PHOTO-008 (sharpen/blur/noise) — the natural next photo ticket if the
-  levels/curves UI isn't wanted yet; a convolution pipeline, not a LUT one.
-- BOOK-001 (page templates system) — large, needs its own phasing/design pass.
+Next ticket: PHOTO-008 (sharpen, blur and noise — unsharp mask, gaussian
+and motion blur, noise reduction, add grain). It's a convolution pipeline,
+not a LUT one: none of the existing photo-editor utils (toneLUT,
+channelLUT, levelsCurves, colorPass) apply, since every one of them is a
+per-pixel or per-channel map with no neighbourhood. Expect a separate
+kernel/convolution util, and expect it to be the first photo control that
+can't be recomputed per animation frame on a large image — the preview may
+need a downscaled proxy, the way useHistogram already counts one.
+
+Also open, both needing a scoping decision before starting:
+- BOOK-001 (page templates system) — large, needs its own phasing pass.
 - BOOK-004 (print export modal) — explicitly deferred by the user pending a
   rethink; don't resume without them re-raising it or confirming a scope.
 
-Note for PHOTO-013: PhotoAdjustments has now grown twice, and it's persisted
-as photoEdits by portBackFromPhotoEditor. Merge stored edits over
-DEFAULT_ADJUSTMENTS rather than trusting a stored object to hold every field.
+Note for PHOTO-013: PhotoAdjustments has now grown three times and holds
+nested objects (levels, curves), and it's persisted as photoEdits by
+portBackFromPhotoEditor. Merge stored edits over DEFAULT_ADJUSTMENTS rather
+than trusting a stored object to hold every field, and normalize stored
+curve points (utils/levelsCurves.ts normalizeCurvePoints) rather than
+trusting their shape.

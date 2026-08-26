@@ -14,9 +14,9 @@ const CONTROLS: { key: NumericAdjustmentKey; label: string }[] = [
 ]
 
 /** Brightness/contrast (PHOTO-004) plus exposure/highlights/shadows — the
- *  tone-controls phase of PHOTO-007's tonal/color adjustment set. The colour
- *  half of that set is ColorPanel; levels and curves (a histogram +
- *  point-based UI, not a slider) are a separate, follow-up phase. */
+ *  tone-controls phase of PHOTO-007's tonal/color adjustment set. The rest
+ *  of that set lives in its own panels: LevelsPanel and CurvesPanel (the
+ *  histogram-backed controls) and ColorPanel (the colour half). */
 export function AdjustmentsPanel() {
   const adjustments = usePhotoEditorStore((s) => s.adjustments)
   const setAdjustment = usePhotoEditorStore((s) => s.setAdjustment)

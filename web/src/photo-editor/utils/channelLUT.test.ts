@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildChannelLUTs, applyChannelLUTs, needsChannelLUTs } from './channelLUT'
+import { DEFAULT_CURVES, DEFAULT_LEVELS } from './levelsCurves'
 
 const NEUTRAL = {
   exposure: 0,
@@ -10,6 +11,8 @@ const NEUTRAL = {
   redBalance: 0,
   greenBalance: 0,
   blueBalance: 0,
+  levels: DEFAULT_LEVELS,
+  curves: DEFAULT_CURVES,
 }
 
 describe('needsChannelLUTs', () => {
@@ -78,6 +81,7 @@ describe('buildChannelLUTs', () => {
 
   it('clamps to 0..255 with every control pushed to an extreme', () => {
     const { r, g, b } = buildChannelLUTs({
+      ...NEUTRAL,
       exposure: 100,
       highlights: 100,
       shadows: 100,
@@ -86,6 +90,7 @@ describe('buildChannelLUTs', () => {
       redBalance: 100,
       greenBalance: 100,
       blueBalance: -100,
+      levels: { black: 40, white: 200, gamma: 2 },
     })
     for (let v = 0; v < 256; v++) {
       for (const channel of [r, g, b]) {
