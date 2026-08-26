@@ -1,5 +1,8 @@
-PROD-001 (print product templates: pins & magnets) is implemented on branch
-feat/PROD-001-pins-magnets — check `gh pr list` before assuming it's merged.
+PROD-001 (print product templates: pins & magnets, plus multi-up sheets) is
+implemented on branch feat/PROD-001-pins-magnets — check `gh pr list` before
+assuming it's merged. The multi-up half (several products ganged up on a
+Letter/A4 sheet, count capped at what fits) was asked for after the first
+PR went up and rides in the same branch and PR.
 Note the ids: the two product-template tickets were originally written as
 TPL-001/TPL-002, which already belong to closed tickets (#23 multi-page
 designs, #24 duplicate a page, and storeTypes.ts still cites TPL-001 for the
