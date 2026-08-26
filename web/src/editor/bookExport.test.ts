@@ -23,6 +23,7 @@ class FakeJsPDF {
 vi.mock('jspdf', () => ({ jsPDF: FakeJsPDF }))
 
 import { exportBookPDF } from './bookExport'
+import { findProductTemplate, productGuideSpec } from './products'
 
 const blankCanvas = { objects: [] }
 
@@ -49,6 +50,23 @@ describe('exportBookPDF', () => {
     // calls addPage to start a new one.
     expect(addPage).toHaveBeenCalledTimes(2)
     expect(save).toHaveBeenCalledWith('my-book.pdf')
+  })
+
+  it('draws no cut marks for a print-product page — its guides are screen-only (PROD-001)', async () => {
+    // Reachable only if a product project ever routes here (the export modal
+    // sends it down the plain PNG/PDF path today), but the guard is the same
+    // one book pages rely on: marks come from `bleed`, which a product page
+    // deliberately doesn't carry — its geometry lives in `product`.
+    const pin = page({
+      width: 825,
+      height: 825,
+      product: productGuideSpec(findProductTemplate('pin-2-25')!),
+    })
+
+    await exportBookPDF([pin], { width: 825, height: 825 }, 'Pins', 'all')
+
+    expect(addImage).toHaveBeenCalledTimes(1)
+    expect(line).not.toHaveBeenCalled()
   })
 
   it('scope "cover" exports only the cover page', async () => {

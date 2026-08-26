@@ -38,7 +38,9 @@ export function CanvasGuides() {
   if (!active) return null
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5]">
+    // print:hidden for the same reason as ProductGuides: guides are for the
+    // screen, and a browser print of the page shouldn't put them on paper.
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5] print:hidden">
       <canvas ref={canvasRef} className="absolute left-0 top-0" />
     </div>
   )

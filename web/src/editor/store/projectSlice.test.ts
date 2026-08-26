@@ -321,3 +321,28 @@ describe('newProductProject — multi-up sheets (PROD-001)', () => {
     }
   })
 })
+
+describe('product guides never become canvas content (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  it('leaves the canvas empty — the trim and safe-zone circles are not objects, so no export can serialize them', () => {
+    useCanvasStore.getState().newProductProject(findProductTemplate('pin-2-25')!, {
+      sheetId: 'letter',
+      count: 6,
+    })
+
+    // Every exporter (PNG/JPEG/PDF/SVG) serializes this canvas and nothing
+    // else, so a page whose only "guides" live on a DOM overlay exports blank.
+    expect(canvas.getObjects()).toHaveLength(0)
+    const serialized = useCanvasStore.getState().pages[0].canvas as { objects?: unknown[] }
+    expect(serialized.objects).toEqual([])
+    // The geometry is page metadata, not artwork.
+    expect(useCanvasStore.getState().pages[0].product?.sheet?.count).toBe(6)
+  })
+})

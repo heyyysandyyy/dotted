@@ -34,7 +34,8 @@ export function GridOverlay() {
   if (!grid.visible) return null
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5]">
+    // print:hidden: the grid is a screen aid, never something to print.
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5] print:hidden">
       <canvas ref={canvasRef} className="absolute left-0 top-0" />
     </div>
   )

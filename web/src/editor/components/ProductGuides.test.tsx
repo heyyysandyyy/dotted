@@ -52,3 +52,23 @@ describe('ProductGuides overlay (PROD-001)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+describe('ProductGuides — printing (PROD-001)', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    )
+  })
+
+  it('is hidden from a browser print of the editor page, not just from exports', () => {
+    setUpPage(SPEC)
+    const { container } = render(<ProductGuides />)
+
+    expect(container.querySelector('div')).toHaveClass('print:hidden')
+  })
+})

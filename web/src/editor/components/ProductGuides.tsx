@@ -36,7 +36,11 @@ export function ProductGuides() {
   if (!active) return null
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5]">
+    // print:hidden matters as much as living outside the fabric canvas: no
+    // export can reach these circles, but the overlay is still a DOM element,
+    // and printing the editor page itself (⌘P) would otherwise put the trim
+    // and safe-zone rings on paper.
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[5] print:hidden">
       <canvas ref={canvasRef} className="absolute left-0 top-0" />
     </div>
   )

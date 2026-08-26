@@ -7,8 +7,22 @@ vi.mock('./utils', async (importOriginal) => {
   return { ...actual, downloadUrl: vi.fn() }
 })
 
-import { slugify, exportPNG, exportJPEG } from './exporters'
+vi.mock('./productGuides', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import('./productGuides')
+  return { ...actual, drawProductGuides: vi.fn() }
+})
+vi.mock('./pageGuides', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import('./pageGuides')
+  return { ...actual, drawPageGuides: vi.fn() }
+})
+
+import { slugify, exportPNG, exportJPEG, exportSVG } from './exporters'
 import { downloadUrl } from './utils'
+import { drawProductGuides } from './productGuides'
+import { drawPageGuides } from './pageGuides'
+
+const drawProductGuidesMock = vi.mocked(drawProductGuides)
+const drawPageGuidesMock = vi.mocked(drawPageGuides)
 
 const downloadMock = vi.mocked(downloadUrl)
 
@@ -101,5 +115,30 @@ describe('export render-hook regression (alignment guides)', () => {
     expect(canvas.__eventListeners['before:render']).toHaveLength(1)
     // ...and still fires during a normal (non-export) render.
     expect(() => canvas.toDataURL()).toThrow()
+  })
+})
+
+describe('exports never carry the on-screen guides (PROD-001, UX-015)', () => {
+  beforeEach(() => {
+    downloadMock.mockClear()
+    drawProductGuidesMock.mockClear()
+    drawPageGuidesMock.mockClear()
+    // exportSVG hands its markup to the browser as an object URL, which jsdom
+    // has no implementation for.
+    vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:svg', revokeObjectURL: () => {} })
+  })
+
+  it('renders the fabric canvas only — no exporter paints a trim, bleed or safe-zone guide into it', () => {
+    const canvas = makeCanvas() as unknown as fabric.Canvas
+
+    exportPNG(canvas, 'pins')
+    exportJPEG(canvas, 'pins')
+    exportSVG(canvas, 'pins')
+
+    expect(downloadMock).toHaveBeenCalledTimes(3)
+    // The guides live on a DOM overlay outside the fabric canvas; if anyone
+    // ever "helpfully" bakes them into an export, this is what catches it.
+    expect(drawProductGuidesMock).not.toHaveBeenCalled()
+    expect(drawPageGuidesMock).not.toHaveBeenCalled()
   })
 })

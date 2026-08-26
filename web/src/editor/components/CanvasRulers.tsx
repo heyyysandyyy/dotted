@@ -244,7 +244,8 @@ export function CanvasRulers() {
   }
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10">
+    // print:hidden: rulers and their guide lines are screen chrome.
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 print:hidden">
       <canvas
         ref={topRef}
         onPointerDown={startCreate('horizontal')}
