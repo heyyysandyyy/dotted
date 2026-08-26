@@ -2,8 +2,12 @@ import { usePhotoEditorStore } from './store/usePhotoEditorStore'
 import { PhotoEditorTopBar } from './components/PhotoEditorTopBar'
 import { EmptyState } from './components/EmptyState'
 import { AdjustmentsPanel } from './components/AdjustmentsPanel'
+import { LevelsPanel } from './components/LevelsPanel'
+import { CurvesPanel } from './components/CurvesPanel'
 import { ColorPanel } from './components/ColorPanel'
+import { useDecodedImage } from './hooks/useDecodedImage'
 import { useAdjustedPreviewCanvas } from './hooks/useAdjustedPreviewCanvas'
+import { useHistogram } from './hooks/useHistogram'
 import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
 
 /**
@@ -14,14 +18,18 @@ import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
  * (Edit-from-Canvas) populate usePhotoEditorStore's `image` field. The
  * preview is a <canvas> (not a plain <img>) since PHOTO-007's tone and
  * colour controls need real pixel passes on top of PHOTO-004's CSS-filter
- * brightness/contrast — see useAdjustedPreviewCanvas. The sidebar scrolls:
- * with the colour sections added it can outgrow the viewport even though
- * every section is collapsible.
+ * brightness/contrast — see useAdjustedPreviewCanvas. The image is decoded
+ * once here and shared with the histogram the Levels and Curves panels plot
+ * (useDecodedImage), so the two never decode the same data URL twice. The
+ * sidebar scrolls: with the colour, levels and curves sections added it can
+ * outgrow the viewport even though every section is collapsible.
  */
 export function PhotoEditor() {
   const image = usePhotoEditorStore((s) => s.image)
   const adjustments = usePhotoEditorStore((s) => s.adjustments)
-  const canvasRef = useAdjustedPreviewCanvas(image, adjustments)
+  const decoded = useDecodedImage(image)
+  const canvasRef = useAdjustedPreviewCanvas(decoded, adjustments)
+  const histogram = useHistogram(decoded, adjustments)
   usePhotoEditorShortcuts()
 
   return (
@@ -38,6 +46,8 @@ export function PhotoEditor() {
         {image && (
           <aside className="w-64 shrink-0 overflow-y-auto border-l border-editor bg-editor-bg">
             <AdjustmentsPanel />
+            <LevelsPanel histogram={histogram} />
+            <CurvesPanel histogram={histogram} />
             <ColorPanel />
           </aside>
         )}

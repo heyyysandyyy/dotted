@@ -1,4 +1,13 @@
 import { create } from 'zustand'
+import {
+  CURVE_CHANNELS,
+  DEFAULT_CURVES,
+  DEFAULT_LEVELS,
+  IDENTITY_CURVE,
+  LEVELS_LIMITS,
+  normalizeCurvePoints,
+} from '../utils/levelsCurves'
+import type { CurveChannel, CurvePoint, PhotoCurves, PhotoLevels } from '../utils/levelsCurves'
 
 /**
  * Identifies the Canvas object an image came from, captured at the moment
@@ -27,8 +36,14 @@ export interface PhotoEditorSourceRef {
  * its ±100 maps to a ±180° rotation of the colour wheel (see colorPass.ts).
  *
  * Grouped by the phase that added them: brightness/contrast (PHOTO-004);
- * exposure/highlights/shadows (PHOTO-007 tone-controls phase); everything
- * from `saturation` down (PHOTO-007 colour-controls phase).
+ * exposure/highlights/shadows (PHOTO-007 tone-controls phase); `saturation`
+ * through `invert` (PHOTO-007 colour-controls phase). `levels` and `curves`
+ * (PHOTO-007 levels/curves phase) break the one-number-per-control shape
+ * deliberately — a curve is a variable-length list of control points and
+ * levels is a black/white/gamma triple, neither of which a single -100..100
+ * slider can express. They ride in the same snapshot regardless, so
+ * PHOTO-005's undo/redo and PHOTO-006's stored edit metadata keep covering
+ * every control with no second history stack.
  */
 export interface PhotoAdjustments {
   brightness: number
@@ -46,11 +61,15 @@ export interface PhotoAdjustments {
   blueBalance: number
   blackAndWhite: boolean
   invert: boolean
+  levels: PhotoLevels
+  curves: PhotoCurves
 }
 
 /** The -100..100 slider-backed fields, split off the on/off ones so
  *  setAdjustment/AdjustmentSlider can't be pointed at a boolean (and
- *  setToggle can't be pointed at a number) by mistake. */
+ *  setToggle can't be pointed at a number) by mistake. `levels`/`curves`
+ *  drop out of both automatically — neither extends `number` or `boolean` —
+ *  so they can only be written through their own setters. */
 export type NumericAdjustmentKey = {
   [K in keyof PhotoAdjustments]: PhotoAdjustments[K] extends number ? K : never
 }[keyof PhotoAdjustments]
@@ -76,6 +95,8 @@ export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = {
   blueBalance: 0,
   blackAndWhite: false,
   invert: false,
+  levels: DEFAULT_LEVELS,
+  curves: DEFAULT_CURVES,
 }
 
 const clampAdjustment = (v: number) => Math.max(-100, Math.min(100, v))
@@ -86,8 +107,22 @@ const HISTORY_DEBOUNCE_MS = 300
 // becomes one undo step, not one step per pixel of drag.
 let historyDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+function samePoints(a: CurvePoint[], b: CurvePoint[]): boolean {
+  return a === b || (a.length === b.length && a.every((p, i) => p.x === b[i].x && p.y === b[i].y))
+}
+
+// Driven off DEFAULT_ADJUSTMENTS' own keys so a field added later is
+// compared by default rather than silently ignored. `levels` and `curves`
+// are the two that need looking into rather than an identity check, since
+// every edit to them produces a fresh object.
 function sameAdjustments(a: PhotoAdjustments, b: PhotoAdjustments): boolean {
-  return (Object.keys(DEFAULT_ADJUSTMENTS) as (keyof PhotoAdjustments)[]).every((key) => a[key] === b[key])
+  return (Object.keys(DEFAULT_ADJUSTMENTS) as (keyof PhotoAdjustments)[]).every((key) => {
+    if (key === 'levels') {
+      return a.levels.black === b.levels.black && a.levels.white === b.levels.white && a.levels.gamma === b.levels.gamma
+    }
+    if (key === 'curves') return CURVE_CHANNELS.every((channel) => samePoints(a.curves[channel], b.curves[channel]))
+    return a[key] === b[key]
+  })
 }
 
 /**
@@ -119,8 +154,21 @@ interface PhotoEditorState {
   setAdjustment: (key: NumericAdjustmentKey, value: number) => void
   /** Set one on/off adjustment (black & white, invert) — undoable on the same debounced path. */
   setToggle: (key: ToggleAdjustmentKey, value: boolean) => void
-  /** Reset one adjustment back to its neutral default — itself undoable. */
+  /** Reset one adjustment back to its neutral default — itself undoable.
+   *  For `levels`/`curves` that resets the whole group at once; the
+   *  per-field/per-channel resets are resetLevel/resetCurve. */
   resetAdjustment: (key: keyof PhotoAdjustments) => void
+  /** Set one input-levels field, clamped to LEVELS_LIMITS. Black and white
+   *  may never cross: the field being set wins and pushes the other aside. */
+  setLevel: (key: keyof PhotoLevels, value: number) => void
+  /** Reset one input-levels field to its neutral default, leaving the other
+   *  two where they are. */
+  resetLevel: (key: keyof PhotoLevels) => void
+  /** Replace one curve's control points — normalized (clamped, sorted,
+   *  de-duplicated on x) on the way in, so no other consumer has to. */
+  setCurve: (channel: CurveChannel, points: CurvePoint[]) => void
+  /** Reset one curve back to the straight-through identity. */
+  resetCurve: (channel: CurveChannel) => void
   undo: () => void
   redo: () => void
 }
@@ -166,6 +214,26 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     setToggle: (key, value) => commit(key, value),
 
     resetAdjustment: (key) => commit(key, DEFAULT_ADJUSTMENTS[key]),
+
+    setLevel: (key, value) => {
+      const { min, max } = LEVELS_LIMITS[key]
+      const clamped = Math.max(min, Math.min(max, Number.isFinite(value) ? value : DEFAULT_LEVELS[key]))
+      const next: PhotoLevels = { ...get().adjustments.levels, [key]: clamped }
+      // Both limits stop one step short of the full 0..255 range, so shoving
+      // the other endpoint aside can never push it out of bounds.
+      if (next.black >= next.white) {
+        if (key === 'black') next.white = clamped + 1
+        else if (key === 'white') next.black = clamped - 1
+      }
+      commit('levels', next)
+    },
+
+    resetLevel: (key) => commit('levels', { ...get().adjustments.levels, [key]: DEFAULT_LEVELS[key] }),
+
+    setCurve: (channel, points) =>
+      commit('curves', { ...get().adjustments.curves, [channel]: normalizeCurvePoints(points) }),
+
+    resetCurve: (channel) => commit('curves', { ...get().adjustments.curves, [channel]: IDENTITY_CURVE }),
 
     undo: () => {
       if (historyDebounceTimer) {

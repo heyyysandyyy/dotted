@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS, type PhotoEditorSourceRef } from './usePhotoEditorStore'
+import { DEFAULT_CURVES, IDENTITY_CURVE } from '../utils/levelsCurves'
 
 const NEUTRAL_HISTORY = { historyStack: [DEFAULT_ADJUSTMENTS], historyIndex: 0 }
 
@@ -303,5 +304,128 @@ describe('usePhotoEditorStore — undo/redo (PHOTO-005)', () => {
     vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
 
     expect(usePhotoEditorStore.getState().historyStack).toEqual([DEFAULT_ADJUSTMENTS])
+  })
+})
+
+describe('usePhotoEditorStore — levels and curves (PHOTO-007 levels/curves)', () => {
+  beforeEach(() => {
+    // Same fake-timer guard as the slider suites above: setLevel/setCurve
+    // funnel through the shared debounced history push.
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('setLevel clamps each field to its own limits', () => {
+    usePhotoEditorStore.getState().setLevel('black', -20)
+    expect(usePhotoEditorStore.getState().adjustments.levels.black).toBe(0)
+
+    usePhotoEditorStore.getState().setLevel('gamma', 9)
+    expect(usePhotoEditorStore.getState().adjustments.levels.gamma).toBe(3)
+
+    usePhotoEditorStore.getState().setLevel('white', 400)
+    expect(usePhotoEditorStore.getState().adjustments.levels.white).toBe(255)
+  })
+
+  it('a black point pushed up to the white point shoves the white point out of its way', () => {
+    usePhotoEditorStore.getState().setLevel('black', 255)
+    expect(usePhotoEditorStore.getState().adjustments.levels).toEqual({ black: 254, white: 255, gamma: 1 })
+  })
+
+  it('a white point pushed down onto the black point shoves the black point down', () => {
+    usePhotoEditorStore.getState().setLevel('black', 100)
+    usePhotoEditorStore.getState().setLevel('white', 100)
+    expect(usePhotoEditorStore.getState().adjustments.levels).toEqual({ black: 99, white: 100, gamma: 1 })
+  })
+
+  it('resetLevel restores one field and leaves the others alone', () => {
+    usePhotoEditorStore.getState().setLevel('black', 30)
+    usePhotoEditorStore.getState().setLevel('gamma', 1.8)
+    usePhotoEditorStore.getState().resetLevel('gamma')
+
+    expect(usePhotoEditorStore.getState().adjustments.levels).toEqual({ black: 30, white: 255, gamma: 1 })
+  })
+
+  it('setCurve normalizes the points on the way in', () => {
+    usePhotoEditorStore.getState().setCurve('rgb', [
+      { x: 255, y: 255 },
+      { x: 128, y: 300 },
+      { x: 0, y: -40 },
+    ])
+
+    expect(usePhotoEditorStore.getState().adjustments.curves.rgb).toEqual([
+      { x: 0, y: 0 },
+      { x: 128, y: 255 },
+      { x: 255, y: 255 },
+    ])
+  })
+
+  it('setCurve touches only the channel it names', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      { x: 255, y: 255 },
+    ]
+    usePhotoEditorStore.getState().setCurve('r', points)
+
+    const { curves } = usePhotoEditorStore.getState().adjustments
+    expect(curves.r).toEqual(points)
+    expect(curves.rgb).toEqual(DEFAULT_CURVES.rgb)
+    expect(curves.g).toEqual(DEFAULT_CURVES.g)
+    expect(curves.b).toEqual(DEFAULT_CURVES.b)
+  })
+
+  it('resetCurve puts one channel back to the identity curve', () => {
+    usePhotoEditorStore.getState().setCurve('g', [
+      { x: 0, y: 40 },
+      { x: 255, y: 255 },
+    ])
+    usePhotoEditorStore.getState().resetCurve('g')
+
+    expect(usePhotoEditorStore.getState().adjustments.curves.g).toEqual(IDENTITY_CURVE)
+  })
+
+  it('a curve edit is undoable and redoable like any other adjustment', () => {
+    const bent = [
+      { x: 0, y: 0 },
+      { x: 128, y: 190 },
+      { x: 255, y: 255 },
+    ]
+    usePhotoEditorStore.getState().setCurve('rgb', bent)
+    vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
+
+    usePhotoEditorStore.getState().undo()
+    expect(usePhotoEditorStore.getState().adjustments.curves.rgb).toEqual(IDENTITY_CURVE)
+
+    usePhotoEditorStore.getState().redo()
+    expect(usePhotoEditorStore.getState().adjustments.curves.rgb).toEqual(bent)
+  })
+
+  it('re-committing structurally identical levels/curves adds no history step', () => {
+    usePhotoEditorStore.getState().setLevel('black', 20)
+    vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
+    // A fresh object with the same values every time — an identity check
+    // would push a second, indistinguishable undo step here.
+    usePhotoEditorStore.getState().setCurve('rgb', [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ])
+    vi.advanceTimersByTime(HISTORY_DEBOUNCE_MS)
+
+    expect(usePhotoEditorStore.getState().historyStack).toHaveLength(2)
+  })
+
+  it('a new image resets levels and curves with everything else', () => {
+    usePhotoEditorStore.getState().setLevel('white', 200)
+    usePhotoEditorStore.getState().setCurve('b', [
+      { x: 0, y: 60 },
+      { x: 255, y: 255 },
+    ])
+    usePhotoEditorStore.getState().setImage('data:image/png;base64,new')
+
+    expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 })
