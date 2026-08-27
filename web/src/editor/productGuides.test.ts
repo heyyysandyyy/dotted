@@ -6,7 +6,13 @@ import {
   productCutLinesSVG,
   PRINT_CUT_LINE_STYLE,
 } from './productGuides'
-import { buildSheetLayout, findProductTemplate, productCanvasSize, productGuideSpec } from './products'
+import {
+  buildSheetLayout,
+  customProductTemplate,
+  findProductTemplate,
+  productCanvasSize,
+  productGuideSpec,
+} from './products'
 
 function mockCtx() {
   return {
@@ -18,6 +24,7 @@ function mockCtx() {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
     arc: vi.fn(),
+    rect: vi.fn(),
     stroke: vi.fn(),
     setLineDash: vi.fn(),
     fillStyle: '',
@@ -51,9 +58,9 @@ describe('drawProductGuides (PROD-001)', () => {
     const radii = vi.mocked(ctx.arc).mock.calls.map((call) => [call[0], call[1], call[2]])
     // The clip circle, the trim circle, then the safe-zone circle.
     expect(radii).toEqual([
-      [centre, centre, SPEC.diameterPx / 2],
-      [centre, centre, SPEC.diameterPx / 2],
-      [centre, centre, SPEC.diameterPx / 2 - SPEC.safeZonePx],
+      [centre, centre, SPEC.trimWidthPx / 2],
+      [centre, centre, SPEC.trimWidthPx / 2],
+      [centre, centre, SPEC.trimWidthPx / 2 - SPEC.safeZonePx],
     ])
     expect(ctx.stroke).toHaveBeenCalledTimes(2)
   })
@@ -71,7 +78,7 @@ describe('drawProductGuides (PROD-001)', () => {
     const [cx, cy, trimRadius] = vi.mocked(ctx.arc).mock.calls[1]
     expect(cx).toBe(40 + (SIZE.width * scale) / 2)
     expect(cy).toBe(10 + (SIZE.height * scale) / 2)
-    expect(trimRadius).toBe((SPEC.diameterPx / 2) * scale)
+    expect(trimRadius).toBe((SPEC.trimWidthPx / 2) * scale)
   })
 
   it('draws nothing at a scale where the trim circle has no radius left', () => {
@@ -87,7 +94,7 @@ describe('drawProductGuides (PROD-001)', () => {
     drawProductGuides(
       ctx,
       { x: 0, y: 0, width: SIZE.width, height: SIZE.height },
-      { ...SPEC, safeZonePx: SPEC.diameterPx },
+      { ...SPEC, safeZonePx: SPEC.trimWidthPx },
       1,
     )
 
@@ -219,7 +226,7 @@ describe('drawProductCutLines (PROD-001 print output)', () => {
     expect(ctx.clearRect).not.toHaveBeenCalled()
     expect(ctx.stroke).toHaveBeenCalledTimes(1)
     expect(vi.mocked(ctx.arc).mock.calls).toEqual([
-      [SIZE.width / 2, SIZE.height / 2, SPEC.diameterPx / 2, 0, Math.PI * 2],
+      [SIZE.width / 2, SIZE.height / 2, SPEC.trimWidthPx / 2, 0, Math.PI * 2],
     ])
   })
 
@@ -270,20 +277,67 @@ describe('productCutLinesSVG (PROD-001 vector export)', () => {
     const markup = productCutLinesSVG(productGuideSpec(PIN, layout), { width: 2550, height: 3300 })
 
     expect(markup.match(/<circle /g)).toHaveLength(4)
-    expect(markup).toContain(`r="${SPEC.diameterPx / 2}"`)
+    expect(markup).toContain(`r="${SPEC.trimWidthPx / 2}"`)
     expect(markup).toContain('stroke-dasharray="24 16"')
     expect(markup).toContain('fill="none"')
   })
 
   it('carries the cut line only — the safe-zone radius appears nowhere in it', () => {
     const markup = productCutLinesSVG(SPEC, SIZE)
-    const safeRadius = SPEC.diameterPx / 2 - SPEC.safeZonePx
+    const safeRadius = SPEC.trimWidthPx / 2 - SPEC.safeZonePx
 
     expect(markup.match(/<circle /g)).toHaveLength(1)
     expect(markup).not.toContain(`r="${safeRadius}"`)
   })
 
   it('is empty for a spec with no radius, rather than a stray empty group', () => {
-    expect(productCutLinesSVG({ ...SPEC, diameterPx: 0 }, SIZE)).toBe('')
+    expect(productCutLinesSVG({ ...SPEC, trimWidthPx: 0, trimHeightPx: 0 }, SIZE)).toBe('')
+  })
+})
+
+describe('rectangular products (PROD-001 custom sizes)', () => {
+  const MAGNET = customProductTemplate('magnet', 'rect', 2, 3)
+  const RECT_SPEC = productGuideSpec(MAGNET)
+  const RECT_SIZE = productCanvasSize(MAGNET)
+
+  it('outlines the trim as a rectangle centred on its cell, not a circle', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, ...RECT_SIZE }, RECT_SPEC, 1)
+
+    expect(ctx.arc).not.toHaveBeenCalled()
+    // 600 × 900px of trim inside a 675 × 975px artboard: a 37.5px bleed all round.
+    expect(vi.mocked(ctx.rect).mock.calls).toEqual([[37.5, 37.5, 600, 900]])
+  })
+
+  it('insets the safe zone off both axes, so it stays a rectangle', () => {
+    const ctx = mockCtx()
+    drawProductGuides(ctx, { x: 0, y: 0, ...RECT_SIZE }, RECT_SPEC, 1)
+
+    // Trim twice (the tint's clip path, then the dashed outline), then the
+    // safe zone: 0.125in off every edge of the 600 × 900 face.
+    const safe = vi.mocked(ctx.rect).mock.calls.at(-1)
+    expect(safe).toEqual([75, 75, 525, 825])
+  })
+
+  it('lays a sheet of them out on the grid its own cell size gives', () => {
+    const layout = buildSheetLayout(MAGNET, { sheetId: 'letter', count: 9 })!
+    const ctx = mockCtx()
+
+    drawProductCutLines(
+      ctx,
+      { x: 0, y: 0, width: 2550, height: 3300 },
+      productGuideSpec(MAGNET, layout),
+      1,
+    )
+
+    expect(layout).toMatchObject({ columns: 3, rows: 3, count: 9 })
+    expect(ctx.rect).toHaveBeenCalledTimes(9)
+  })
+
+  it('exports as SVG rects rather than circles', () => {
+    const markup = productCutLinesSVG(RECT_SPEC, RECT_SIZE)
+
+    expect(markup).not.toContain('<circle')
+    expect(markup).toContain('<rect x="37.5" y="37.5" width="600" height="900"')
   })
 })

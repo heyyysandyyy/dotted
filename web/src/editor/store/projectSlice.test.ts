@@ -293,7 +293,7 @@ describe('newProductProject — multi-up sheets (PROD-001)', () => {
       count: 6,
     })
     // The product's own geometry is unchanged by ganging it up.
-    expect(pages[0].product?.diameterPx).toBe(675)
+    expect(pages[0].product?.trimWidthPx).toBe(675)
   })
 
   it('clamps a count the paper can’t hold', () => {
@@ -302,7 +302,7 @@ describe('newProductProject — multi-up sheets (PROD-001)', () => {
   })
 
   it('falls back to a single artboard when the product can’t be ganged up at all', () => {
-    useCanvasStore.getState().newProductProject({ ...pin, diameterIn: 20 }, { sheetId: 'letter', count: 4 })
+    useCanvasStore.getState().newProductProject({ ...pin, widthIn: 20, heightIn: 20 }, { sheetId: 'letter', count: 4 })
 
     const { pages, width } = useCanvasStore.getState()
     expect(pages[0].product?.sheet).toBeUndefined()

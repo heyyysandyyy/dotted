@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ProductSetupPanel } from './ProductSetupPanel'
 import { useCanvasStore } from '../store/useCanvasStore'
-import { findProductTemplate } from '../products'
+import { customProductTemplate, findProductTemplate, productWithShape } from '../products'
 
 /** The value shown under one stat label — several stats can share a value
  *  (a pin's bleed and safe zone are both 0.25in), so they're read by label. */
@@ -61,7 +61,8 @@ describe('ProductSetupPanel (PROD-001)', () => {
   it('states the artboard, bleed, safe zone and resolution being committed to', () => {
     render(<ProductSetupPanel initialTemplateId="pin-2-25" onCreated={() => {}} />)
 
-    expect(stat('Canvas')).toBe('825 × 825 px')
+    expect(stat('Product')).toBe('2.25 in round')
+    expect(stat('Page')).toBe('825 × 825 px')
     expect(stat('Bleed')).toBe('0.25 in')
     expect(stat('Safe zone')).toBe('0.25 in')
     expect(stat('Resolution')).toBe('300 dpi')
@@ -70,7 +71,7 @@ describe('ProductSetupPanel (PROD-001)', () => {
   it('reports a magnet’s smaller bleed and safe zone, not the pin defaults', () => {
     render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
 
-    expect(stat('Canvas')).toBe('675 × 675 px')
+    expect(stat('Page')).toBe('675 × 675 px')
     expect(stat('Bleed')).toBe('0.125 in')
     expect(stat('Safe zone')).toBe('0.125 in')
   })
@@ -105,7 +106,7 @@ describe('ProductSetupPanel — several per page (PROD-001)', () => {
     expect(screen.getByLabelText('Per page')).toHaveValue(6)
     expect(screen.getByText(/Up to 6 fit on US Letter/)).toBeInTheDocument()
     expect(screen.getByText(/2 across × 3 down/)).toBeInTheDocument()
-    expect(stat('Canvas')).toBe('2550 × 3300 px')
+    expect(stat('Page')).toBe('2550 × 3300 px')
     expect(stat('Products')).toBe('6')
   })
 
@@ -116,7 +117,7 @@ describe('ProductSetupPanel — several per page (PROD-001)', () => {
     fireEvent.change(screen.getByLabelText('Paper'), { target: { value: 'a4' } })
 
     expect(screen.getByLabelText('Per page')).toHaveValue(8)
-    expect(stat('Canvas')).toBe('2480 × 3508 px')
+    expect(stat('Page')).toBe('2480 × 3508 px')
   })
 
   it('takes a smaller count and creates the sheet with it', () => {
@@ -154,5 +155,160 @@ describe('ProductSetupPanel — several per page (PROD-001)', () => {
     fireEvent.click(screen.getByText('Create 1″ pin'))
 
     expect(newProductProject).toHaveBeenCalledWith(findProductTemplate('pin-1'), undefined)
+  })
+})
+
+describe('ProductSetupPanel — custom sizes (PROD-001)', () => {
+  const newProductProject = vi.fn()
+
+  beforeEach(() => {
+    newProductProject.mockClear()
+    useCanvasStore.setState({ newProductProject })
+  })
+
+  const openCustom = (initialTemplateId = 'magnet-2') => {
+    render(<ProductSetupPanel initialTemplateId={initialTemplateId} onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Custom…'))
+  }
+
+  it('is closed until asked for, leaving the presets in charge', () => {
+    render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
+
+    expect(screen.queryByLabelText('Width (in)')).not.toBeInTheDocument()
+    expect(screen.getByText('Create 2″ magnet')).toBeInTheDocument()
+  })
+
+  it('sizes the product, not the page: 2 × 3 is the magnet, and the page is it plus bleed', () => {
+    openCustom()
+
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Height (in)'), { target: { value: '3' } })
+
+    expect(stat('Product')).toBe('2 × 3 in')
+    expect(stat('Page')).toBe('675 × 975 px')
+    expect(stat('Products')).toBe('1')
+    expect(screen.getByText('Create 2 × 3″ magnet')).toBeInTheDocument()
+  })
+
+  it('works out how many of that size a page holds, and fills it', () => {
+    openCustom()
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Height (in)'), { target: { value: '3' } })
+
+    fireEvent.click(screen.getByText('Several per page'))
+
+    expect(screen.getByText(/Up to 9 fit on US Letter/)).toBeInTheDocument()
+    expect(screen.getByText(/3 across × 3 down/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Per page')).toHaveValue(9)
+    // The page is now the paper — the 2 × 3in size stayed with the magnet.
+    expect(stat('Product')).toBe('2 × 3 in')
+    expect(stat('Page')).toBe('2550 × 3300 px')
+  })
+
+  it('still lets a smaller number than fits be asked for', () => {
+    openCustom()
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Height (in)'), { target: { value: '3' } })
+    fireEvent.click(screen.getByText('Several per page'))
+
+    fireEvent.change(screen.getByLabelText('Per page'), { target: { value: '4' } })
+    fireEvent.click(screen.getByText('Create sheet of 4'))
+
+    expect(newProductProject).toHaveBeenCalledWith(customProductTemplate('magnet', 'rect', 2, 3), {
+      sheetId: 'letter',
+      count: 4,
+    })
+  })
+
+  it('asks for one measurement for a round product and creates it at that diameter', () => {
+    openCustom('pin-1')
+    fireEvent.click(screen.getByText('Round'))
+
+    expect(screen.queryByLabelText('Height (in)')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Diameter (in)'), { target: { value: '2.5' } })
+
+    expect(stat('Product')).toBe('2.5 in round')
+    fireEvent.click(screen.getByText('Create 2.5″ pin'))
+    expect(newProductProject).toHaveBeenCalledWith(
+      customProductTemplate('pin', 'circle', 2.5, 2.5),
+      undefined,
+    )
+  })
+
+  it('refuses to create a size nothing could be made at, and says the range', () => {
+    openCustom()
+
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '0' } })
+
+    expect(screen.getByText(/between 0.5 and 12 in/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Create/ })).toBeDisabled()
+  })
+
+  it('goes back to a preset when one is clicked', () => {
+    openCustom()
+    fireEvent.click(screen.getByText('3″'))
+
+    expect(screen.queryByLabelText('Width (in)')).not.toBeInTheDocument()
+    expect(screen.getByText('Create 3″ magnet')).toBeInTheDocument()
+  })
+})
+
+describe('ProductSetupPanel — round or square presets (PROD-001)', () => {
+  const newProductProject = vi.fn()
+
+  beforeEach(() => {
+    newProductProject.mockClear()
+    useCanvasStore.setState({ newProductProject })
+  })
+
+  it('offers magnets both outlines, starting round', () => {
+    render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
+
+    expect(screen.getByText('Round')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Square')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('does not offer it for pins, which only come round', () => {
+    render(<ProductSetupPanel initialTemplateId="pin-1" onCreated={() => {}} />)
+
+    expect(screen.queryByText('Square')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Magnets'))
+    expect(screen.getByText('Square')).toBeInTheDocument()
+  })
+
+  it('squares the preset off at the same size, and says so', () => {
+    render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
+
+    fireEvent.click(screen.getByText('Square'))
+
+    expect(stat('Product')).toBe('2 × 2 in')
+    expect(stat('Page')).toBe('675 × 675 px')
+    fireEvent.click(screen.getByText('Create 2″ square magnet'))
+    expect(newProductProject).toHaveBeenCalledWith(
+      productWithShape(findProductTemplate('magnet-2')!, 'rect'),
+      undefined,
+    )
+  })
+
+  it('holds the outline while another size is picked', () => {
+    render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Square'))
+
+    fireEvent.click(screen.getByText('3″'))
+
+    expect(screen.getByText('Create 3″ square magnet')).toBeInTheDocument()
+    // The size chip still tracks the preset it came from.
+    expect(screen.getByText('3″').closest('button')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('gangs squares up on a sheet like any other product', () => {
+    render(<ProductSetupPanel initialTemplateId="magnet-2" onCreated={() => {}} />)
+    fireEvent.click(screen.getByText('Square'))
+
+    fireEvent.click(screen.getByText('Several per page'))
+
+    expect(screen.getByText(/Up to 12 fit on US Letter/)).toBeInTheDocument()
+    expect(stat('Page')).toBe('2550 × 3300 px')
   })
 })

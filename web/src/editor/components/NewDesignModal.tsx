@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import {
   PRESET_FILTERS,
   SIZE_PRESETS,
@@ -12,6 +13,7 @@ import {
   PRODUCT_TEMPLATES,
   findProductTemplate,
   productCanvasSize,
+  type PresetTemplate,
 } from '../products'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { BookSetupPanel } from './BookSetupPanel'
@@ -29,7 +31,7 @@ const THUMB_BOX = 72
 /** The biggest product on offer, so the product thumbnails can be drawn to
  *  scale against each other — a 1" pin should visibly be a third of a 3" one,
  *  the same way the rectangular presets' thumbnails are to scale. */
-const LARGEST_PRODUCT_IN = Math.max(...PRODUCT_TEMPLATES.map((t) => t.diameterIn))
+const LARGEST_PRODUCT_IN = Math.max(...PRODUCT_TEMPLATES.map((t) => t.widthIn))
 
 const FILTER_LABELS: Record<PresetFilter, string> = {
   all: 'All',
@@ -39,6 +41,21 @@ const FILTER_LABELS: Record<PresetFilter, string> = {
   book: 'Book',
   presentation: 'Presentation',
   video: 'Video',
+}
+
+/** The product grid's one card that isn't a preset: it opens product setup on
+ *  the custom-size fields. Without it the only way to a typed product size is
+ *  to pick a preset first and then change it, which reads as "the presets are
+ *  all there is" — and sends people to the page-size box below instead. */
+const CUSTOM_PRODUCT_ID = 'custom'
+
+/** Whether a product card answers a search — by its own name or its family's. */
+function matchesSearch(template: PresetTemplate, q: string): boolean {
+  return (
+    q === '' ||
+    template.label.toLowerCase().includes(q) ||
+    PRODUCT_CATEGORY_LABELS[template.category].toLowerCase().includes(q)
+  )
 }
 
 const pxPer = (unit: UnitId) => SIZE_UNITS.find((u) => u.id === unit)!.pxPer
@@ -56,7 +73,9 @@ export function NewDesignModal({ open, onClose }: Props) {
   const [unit, setUnit] = useState<UnitId>('px')
   const [wStr, setWStr] = useState('1080')
   const [hStr, setHStr] = useState('1080')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Seeded, not null: the All tab opens on its first card like every other,
+  // and the size fields below already spell that preset out.
+  const [selectedId, setSelectedId] = useState<string | null>(SIZE_PRESETS[0].id)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
 
   const presets = useMemo(() => {
@@ -73,20 +92,37 @@ export function NewDesignModal({ open, onClose }: Props) {
   // own cards in the same grid.
   const products = useMemo(() => {
     if (filter !== 'all' && filter !== 'product') return []
-    const q = search.trim().toLowerCase()
-    return PRODUCT_TEMPLATES.filter(
-      (t) =>
-        q === '' ||
-        t.label.toLowerCase().includes(q) ||
-        PRODUCT_CATEGORY_LABELS[t.category].toLowerCase().includes(q),
-    )
+    return PRODUCT_TEMPLATES.filter((t) => matchesSearch(t, search.trim().toLowerCase()))
   }, [filter, search])
+
+  const showCustomProduct =
+    (filter === 'all' || filter === 'product') &&
+    ['', 'custom', 'size', 'pin', 'magnet'].some((term) =>
+      term.startsWith(search.trim().toLowerCase()),
+    )
 
   if (!open) return null
 
+  const toPx = (value: string) => Math.max(1, Math.round((Number(value) || 0) * pxPer(unit)))
+  /**
+   * The preset the size fields currently spell out, if any — the other half of
+   * the link that clicking a preset already makes. Typed sizes light the card
+   * up but leave `selectedId` alone: a book preset swaps this whole box for
+   * Book setup, and having that happen on the keystroke that completes 1800 ×
+   * 2700 would take the fields away mid-edit. Clicking the lit card still
+   * opens it.
+   */
+  const matchedPresetId =
+    SIZE_PRESETS.find((p) => p.width === toPx(wStr) && p.height === toPx(hStr))?.id ?? null
+
   const selectedPreset = SIZE_PRESETS.find((p) => p.id === selectedId) ?? null
   const isBook = selectedPreset?.category === 'book'
+  const customProduct = selectedProductId === CUSTOM_PRODUCT_ID
   const selectedProduct = selectedProductId ? findProductTemplate(selectedProductId) : null
+
+  /** Whether a card's own setup panel is on screen above the page-size box. */
+  const setupShowing =
+    selectedProductId !== null || (selectedPreset?.category === 'book' && selectedPreset !== null)
 
   // Clicking a preset fills the custom-size inputs (in px) rather than creating
   // immediately, so the user can tweak before committing.
@@ -98,6 +134,50 @@ export function NewDesignModal({ open, onClose }: Props) {
     setSelectedProductId(null)
   }
 
+  /**
+   * Switching filter lands on the first card of the new grid, unless what's
+   * already selected is still in it — a tab that opens on nothing makes the
+   * user's first click a formality, and a selection whose card the new grid
+   * doesn't show strands its setup panel under a grid of unrelated presets
+   * (product setup under the Social sizes reads as a sizing control for them).
+   */
+  const pickFilter = (next: PresetFilter) => {
+    setFilter(next)
+    const showsProducts = next === 'all' || next === 'product'
+    const q = search.trim().toLowerCase()
+    // "Still in the grid" has to mean the search too, or a tab switch keeps a
+    // selection whose card the search has already hidden.
+    const currentProduct = selectedProductId ? findProductTemplate(selectedProductId) : null
+    const keptProduct =
+      showsProducts &&
+      selectedProductId !== null &&
+      (selectedProductId === CUSTOM_PRODUCT_ID || (currentProduct !== null && matchesSearch(currentProduct, q)))
+    const current = SIZE_PRESETS.find((p) => p.id === selectedId)
+    const keptPreset =
+      current &&
+      (next === 'all' || current.category === next) &&
+      (q === '' || current.label.toLowerCase().includes(q))
+    if (keptProduct || keptPreset) return
+
+    const preset = SIZE_PRESETS.find(
+      (p) =>
+        (next === 'all' || p.category === next) &&
+        (q === '' || p.label.toLowerCase().includes(q)),
+    )
+    if (preset) {
+      pickPreset(preset)
+      return
+    }
+    // Products aren't SIZE_PRESETS, so they're the first card only on their own
+    // tab — or on any tab a search has emptied of everything else.
+    const product = showsProducts ? PRODUCT_TEMPLATES.find((t) => matchesSearch(t, q)) : undefined
+    if (product) pickProduct(product.id)
+    else {
+      setSelectedId(null)
+      setSelectedProductId(null)
+    }
+  }
+
   const pickProduct = (id: string) => {
     setSelectedId(null)
     setSelectedProductId(id)
@@ -105,14 +185,15 @@ export function NewDesignModal({ open, onClose }: Props) {
 
   const changeUnit = (next: UnitId) => {
     // Preserve the real size: reinterpret the current value into the new unit.
-    const toPx = (s: string) => (Number(s) || 0) * pxPer(unit)
-    setWStr(pxToUnit(toPx(wStr), next))
-    setHStr(pxToUnit(toPx(hStr), next))
+    // Unrounded, unlike the toPx above — rounding here would shave a little
+    // off the size every time the unit changed.
+    const exactPx = (value: string) => (Number(value) || 0) * pxPer(unit)
+    setWStr(pxToUnit(exactPx(wStr), next))
+    setHStr(pxToUnit(exactPx(hStr), next))
     setUnit(next)
   }
 
   const create = () => {
-    const toPx = (s: string) => Math.max(1, Math.round((Number(s) || 0) * pxPer(unit)))
     newProject(toPx(wStr), toPx(hStr))
     onClose()
   }
@@ -124,33 +205,45 @@ export function NewDesignModal({ open, onClose }: Props) {
     <Modal title="New design" widthClass="w-[720px]" onClose={onClose}>
       <h2 className="mb-4 text-lg font-semibold text-editor-text-strong">What are you creating?</h2>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {PRESET_FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full border px-3 py-1 text-sm transition ${
-              filter === f
-                ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
-            }`}
-          >
-            {FILTER_LABELS[f]}
-          </button>
-        ))}
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search presets…"
-          className="ml-auto w-40 rounded-md border border-editor-strong bg-editor-surface px-3 py-1 text-sm text-editor-text-strong outline-none placeholder:text-editor-text-subtle focus:border-editor-input"
-        />
+      {/* Two columns, not one wrapping row: as a flex item among the pills the
+          search box gets pushed onto a line of its own the moment they wrap,
+          and `ml-auto` then strands it against the right edge. */}
+      <div className="mb-3 flex items-start gap-3">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {PRESET_FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => pickFilter(f)}
+              className={`rounded-full border px-3 py-1 text-sm transition ${
+                filter === f
+                  ? 'border-indigo-500 bg-indigo-600 text-white'
+                  : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
+              }`}
+            >
+              {FILTER_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <div className="relative shrink-0">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editor-text-subtle"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search presets…"
+            aria-label="Search presets"
+            className="w-44 rounded-md border border-editor-strong bg-editor-surface py-1 pl-8 pr-3 text-sm text-editor-text-strong outline-none placeholder:text-editor-text-subtle focus:border-editor-input"
+          />
+        </div>
       </div>
 
       <div className="grid max-h-[320px] grid-cols-4 gap-3 overflow-y-auto pr-1">
         {presets.map((p) => {
           const scale = Math.min(THUMB_BOX / p.width, THUMB_BOX / p.height)
-          const isSelected = selectedId === p.id
+          const isSelected = selectedId ? selectedId === p.id : matchedPresetId === p.id
           return (
             <button
               key={p.id}
@@ -181,7 +274,7 @@ export function NewDesignModal({ open, onClose }: Props) {
         })}
         {products.map((t) => {
           const size = productCanvasSize(t)
-          const circleSize = THUMB_BOX * (t.diameterIn / LARGEST_PRODUCT_IN)
+          const circleSize = THUMB_BOX * (t.widthIn / LARGEST_PRODUCT_IN)
           const isSelected = selectedProductId === t.id
           return (
             <button
@@ -211,33 +304,97 @@ export function NewDesignModal({ open, onClose }: Props) {
             </button>
           )
         })}
-        {presets.length === 0 && products.length === 0 && (
+        {showCustomProduct && (
+          <button
+            onClick={() => pickProduct(CUSTOM_PRODUCT_ID)}
+            className={`relative flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition ${
+              customProduct
+                ? 'border-indigo-500 bg-editor-surface'
+                : 'border-editor-strong hover:border-editor-input hover:bg-editor-surface'
+            }`}
+          >
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              Custom
+            </span>
+            <div className="flex h-[72px] w-[72px] items-center justify-center">
+              {/* Dashed, and neither round nor square in particular: the size
+                  and the shape are both still to be typed. */}
+              <div className="h-[52px] w-[44px] rounded-sm border-2 border-dashed border-editor-input" />
+            </div>
+            <div className="text-xs font-medium leading-tight text-editor-text">Custom product</div>
+            <div className="text-[11px] text-editor-text-subtle">Pin or magnet, any size</div>
+          </button>
+        )}
+        {presets.length === 0 && products.length === 0 && !showCustomProduct && (
           <div className="col-span-4 py-10 text-center text-sm text-editor-text-subtle">
             No presets match “{search}”.
           </div>
         )}
       </div>
 
-      {selectedProduct ? (
+      {/* Panel and page-size box stack rather than replace each other: the
+          setup panel makes the thing the card names, and the box below makes a
+          plain page at whatever size is typed. Two Create buttons on one
+          screen, so each says which of the two it is. */}
+      {(selectedProduct || customProduct) && (
         <div className="mt-5">
           {/* Keyed like BookSetupPanel below: a different product card seeds
               different internal state, which only a remount picks up. */}
           <ProductSetupPanel
-            key={selectedProduct.id}
-            initialTemplateId={selectedProduct.id}
+            key={selectedProductId ?? ''}
+            // The custom card has no preset of its own; it opens the panel on
+            // the first product and switches it straight to custom sizing, so
+            // the category and margins still come from somewhere real.
+            initialTemplateId={selectedProduct?.id ?? PRODUCT_TEMPLATES[0].id}
+            startCustom={customProduct}
             onCreated={onClose}
           />
         </div>
-      ) : isBook && selectedPreset ? (
+      )}
+
+      {filter === 'product' && !selectedProduct && !customProduct && (
+        <p className="mt-5 rounded-lg border border-dashed border-editor-strong p-4 text-center text-sm text-editor-text-subtle">
+          Pick a product above to set its size — the page follows from it.
+        </p>
+      )}
+
+      {isBook && selectedPreset && (
         <div className="mt-5">
           {/* key remounts the panel when a different preset card is clicked —
               otherwise its internal size state (seeded once from the prop)
               would never pick up the new selection. */}
           <BookSetupPanel key={selectedPreset.id} initialPresetId={selectedPreset.id} onCreated={onClose} />
         </div>
-      ) : (
+      )}
+
         <div className="mt-5 rounded-lg border border-editor-strong p-3">
-          <div className="mb-2 text-sm font-medium text-editor-text">Custom size</div>
+          <div className="mb-2 text-sm font-medium text-editor-text">Custom page size</div>
+          {/* This box is the page's size. A pin or magnet is sized as the
+              product instead — with its own bleed, safe zone and print dpi —
+              so say which of the two Creates on screen this one is, rather
+              than letting 2 × 3in quietly become a 2 × 3in page. */}
+          <p className="mb-3 text-[11px] text-editor-text-subtle">
+            {setupShowing ? (
+              <>
+                Or make a plain page at this size — a blank canvas, without{' '}
+                {isBook && selectedPreset ? 'the book’s spreads and spine' : 'the product’s guides'}.
+              </>
+            ) : (
+              <>
+                Sizes the page. A pin or magnet is sized as the product itself — start one from the{' '}
+                <button
+                  onClick={() => {
+                    setFilter('product')
+                    pickProduct(CUSTOM_PRODUCT_ID)
+                  }}
+                  className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300"
+                >
+                  Products filter
+                </button>{' '}
+                above, and the page follows from it.
+              </>
+            )}
+          </p>
           <div className="flex items-end gap-3">
             <label className="flex flex-col text-xs text-editor-text-muted">
               Width
@@ -284,11 +441,10 @@ export function NewDesignModal({ open, onClose }: Props) {
               onClick={create}
               className="ml-auto rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
-              Create
+              Create page
             </button>
           </div>
         </div>
-      )}
 
       <div className="mt-4 flex justify-end">
         <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text">

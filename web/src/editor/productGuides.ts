@@ -1,10 +1,10 @@
-import { cellSizePx } from './products'
-import type { ProductGuideSpec } from './products'
+import { cellSizePx, trimSizePx } from './products'
+import type { ProductGuideSpec, ProductShape } from './products'
 
 /**
- * Trim/bleed/safe-zone drawing math for circular print products (PROD-001).
- * The counterpart to pageGuides.ts, which does the same job for rectangular
- * book pages — one function, several callers (the canvas overlay and the
+ * Trim/bleed/safe-zone drawing math for print products (PROD-001). The
+ * counterpart to pageGuides.ts, which does the same job for rectangular book
+ * pages — one function, several callers (the canvas overlay and the
  * new-design preview), so no two of them can draw a product differently.
  *
  * Everything is drawn in the caller's own pixel space: `box` is where the
@@ -18,21 +18,21 @@ export interface ProductGuideStyle {
   bleedTint: string
   trimColor: string
   safeColor: string
-  /** [dash, gap] for the trim circle. */
+  /** [dash, gap] for the trim outline. */
   dash: [number, number]
-  /** [dash, gap] for the safe-zone circle, finer so the two read apart. */
+  /** [dash, gap] for the safe-zone outline, finer so the two read apart. */
   safeDash: [number, number]
 }
 
 /**
- * The trim circle as it goes to paper (PROD-001).
+ * The trim outline as it goes to paper (PROD-001).
  *
  * Sized in artboard px and scaled with the artwork, unlike the on-screen
  * style above whose px are screen px so guides stay hair-thin at any zoom: a
  * cut line printed at 300dpi, or exported at 2×, has to keep its proportions
  * or it lands as an invisible thread on a 2550px sheet.
  *
- * Only the trim circle is in here. The bleed tint would print over the
+ * Only the trim outline is in here. The bleed tint would print over the
  * artwork, and the safe zone is a design aid — it frames what stays visible,
  * so a line around it on the finished product is exactly what nobody wants.
  */
@@ -74,28 +74,46 @@ export function productCellCentres(
   spec: ProductGuideSpec,
   scale: number,
 ): { x: number; y: number }[] {
-  const cell = cellSizePx(spec) * scale
+  const cell = cellSizePx(spec)
+  const cellW = cell.width * scale
+  const cellH = cell.height * scale
   const columns = spec.sheet?.columns ?? 1
   const rows = spec.sheet?.rows ?? 1
   const count = spec.sheet?.count ?? 1
-  const originX = box.x + (box.width - columns * cell) / 2
-  const originY = box.y + (box.height - rows * cell) / 2
+  const originX = box.x + (box.width - columns * cellW) / 2
+  const originY = box.y + (box.height - rows * cellH) / 2
   return Array.from({ length: count }, (_, i) => ({
-    x: originX + ((i % columns) + 0.5) * cell,
-    y: originY + (Math.floor(i / columns) + 0.5) * cell,
+    x: originX + ((i % columns) + 0.5) * cellW,
+    y: originY + (Math.floor(i / columns) + 0.5) * cellH,
   }))
 }
 
-/** Add one full circle as its own subpath. The moveTo matters: without it,
- *  arc() joins the previous subpath's end to this circle's start with a
- *  straight line, which strokes as a web of chords across the sheet. */
-function circleSubpath(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+/**
+ * Add one product outline, centred on (x, y), as its own subpath.
+ *
+ * The moveTo before arc() matters: without it, arc() joins the previous
+ * subpath's end to this circle's start with a straight line, which strokes as
+ * a web of chords across the sheet. rect() opens its own subpath already.
+ */
+function outlineSubpath(
+  ctx: CanvasRenderingContext2D,
+  shape: ProductShape,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  if (shape === 'rect') {
+    ctx.rect(x - width / 2, y - height / 2, width, height)
+    return
+  }
+  const radius = width / 2
   ctx.moveTo(x + radius, y)
   ctx.arc(x, y, radius, 0, Math.PI * 2)
 }
 
 /**
- * Draw only the cut line: one dashed trim circle per product, and nothing
+ * Draw only the cut line: one dashed trim outline per product, and nothing
  * else. This is the guide that's *meant* to reach paper — it's where the
  * product gets cut out — so it's what the exporters composite into a PNG/
  * JPEG/PDF and what a browser print of the editor page shows.
@@ -110,8 +128,10 @@ export function drawProductCutLines(
   scale: number,
   style = PRINT_CUT_LINE_STYLE,
 ): void {
-  const trimRadius = (spec.diameterPx / 2) * scale
-  if (trimRadius <= 0) return
+  const trim = trimSizePx(spec)
+  const trimW = trim.width * scale
+  const trimH = trim.height * scale
+  if (trimW <= 0 || trimH <= 0) return
 
   ctx.save()
   ctx.strokeStyle = style.color
@@ -119,7 +139,7 @@ export function drawProductCutLines(
   ctx.setLineDash(style.dash.map((d) => Math.max(1, d * scale)))
   ctx.beginPath()
   for (const centre of productCellCentres(box, spec, scale)) {
-    circleSubpath(ctx, centre.x, centre.y, trimRadius)
+    outlineSubpath(ctx, spec.shape, centre.x, centre.y, trimW, trimH)
   }
   ctx.stroke()
   ctx.restore()
@@ -128,31 +148,36 @@ export function drawProductCutLines(
 /**
  * The same cut line as SVG markup, for the one export that isn't a raster.
  * Drawn at artboard scale, to be appended inside the `<svg>` fabric produced
- * so the circles land in the artboard's own coordinate system.
+ * so the outlines land in the artboard's own coordinate system.
  */
 export function productCutLinesSVG(
   spec: ProductGuideSpec,
   size: { width: number; height: number },
   style = PRINT_CUT_LINE_STYLE,
 ): string {
-  const trimRadius = spec.diameterPx / 2
-  if (trimRadius <= 0) return ''
-  const circles = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
-    .map((c) => `<circle cx="${c.x}" cy="${c.y}" r="${trimRadius}" />`)
+  const trim = trimSizePx(spec)
+  if (trim.width <= 0 || trim.height <= 0) return ''
+  const shapes = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
+    .map((c) =>
+      spec.shape === 'rect'
+        ? `<rect x="${c.x - trim.width / 2}" y="${c.y - trim.height / 2}" ` +
+          `width="${trim.width}" height="${trim.height}" />`
+        : `<circle cx="${c.x}" cy="${c.y}" r="${trim.width / 2}" />`,
+    )
     .join('')
   return (
     `<g fill="none" stroke="${style.color}" stroke-width="${style.widthPx}" ` +
-    `stroke-dasharray="${style.dash.join(' ')}">${circles}</g>`
+    `stroke-dasharray="${style.dash.join(' ')}">${shapes}</g>`
   )
 }
 
 /**
- * Draw the wrap/bleed tint (punched clear inside every trim circle), the
- * dashed trim circles, and the dashed safe-zone circles — one set per product
- * on the page, whether that's a single pin on its own artboard or a full
- * sheet of them.
+ * Draw the wrap/bleed tint (punched clear inside every trim outline), the
+ * dashed trim outlines, and the dashed safe-zone outlines — one set per
+ * product on the page, whether that's a single pin on its own artboard or a
+ * full sheet of them.
  *
- * No-ops when the trim circles would have no radius on screen — a zoomed-out
+ * No-ops when the trim outlines would have no size on screen — a zoomed-out
  * thumbnail can scale a 450px pin down past the point where any of this is
  * meaningful.
  */
@@ -163,19 +188,25 @@ export function drawProductGuides(
   scale: number,
   style: ProductGuideStyle = DEFAULT_PRODUCT_GUIDE_STYLE,
 ): void {
-  const trimRadius = (spec.diameterPx / 2) * scale
-  if (trimRadius <= 0) return
-  const safeRadius = Math.max(0, spec.diameterPx / 2 - spec.safeZonePx) * scale
+  const trim = trimSizePx(spec)
+  const trimW = trim.width * scale
+  const trimH = trim.height * scale
+  if (trimW <= 0 || trimH <= 0) return
+  // The safe zone is inset by the same amount on every edge, so a rectangle
+  // loses two insets off each axis and a circle loses one off its radius —
+  // which is the same sum, since its width is its diameter.
+  const safeW = Math.max(0, trim.width - spec.safeZonePx * 2) * scale
+  const safeH = Math.max(0, trim.height - spec.safeZonePx * 2) * scale
   const centres = productCellCentres(box, spec, scale)
 
-  // Tint the whole artboard, then clear every trim circle out of it, so only
-  // the waste around and between the products reads as tinted. The circles go
+  // Tint the whole artboard, then clear every trim outline out of it, so only
+  // the waste around and between the products reads as tinted. The outlines go
   // into one path: a clip takes the union of its subpaths.
   ctx.save()
   ctx.fillStyle = style.bleedTint
   ctx.fillRect(box.x, box.y, box.width, box.height)
   ctx.beginPath()
-  for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, trimRadius)
+  for (const centre of centres) outlineSubpath(ctx, spec.shape, centre.x, centre.y, trimW, trimH)
   ctx.clip()
   ctx.clearRect(box.x, box.y, box.width, box.height)
   ctx.restore()
@@ -185,14 +216,14 @@ export function drawProductGuides(
   ctx.strokeStyle = style.trimColor
   ctx.setLineDash(style.dash)
   ctx.beginPath()
-  for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, trimRadius)
+  for (const centre of centres) outlineSubpath(ctx, spec.shape, centre.x, centre.y, trimW, trimH)
   ctx.stroke()
 
-  if (safeRadius > 0) {
+  if (safeW > 0 && safeH > 0) {
     ctx.strokeStyle = style.safeColor
     ctx.setLineDash(style.safeDash)
     ctx.beginPath()
-    for (const centre of centres) circleSubpath(ctx, centre.x, centre.y, safeRadius)
+    for (const centre of centres) outlineSubpath(ctx, spec.shape, centre.x, centre.y, safeW, safeH)
     ctx.stroke()
   }
 
