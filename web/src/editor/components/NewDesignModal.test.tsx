@@ -30,30 +30,36 @@ describe('NewDesignModal — print products', () => {
     expect(screen.getByText('3″ magnet')).toBeInTheDocument()
   })
 
-  it('swaps the page-size box for product setup once a product is picked', () => {
+  it('shows product setup above the page-size box, each naming what it makes', () => {
     render(<NewDesignModal open onClose={() => {}} />)
-    expect(screen.getByText('Custom page size')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('2″ magnet'))
 
-    // The general "Custom size" box sizes the *page*, which is not what a
-    // product design is started from — product setup replaces it.
-    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
+    // Both are on screen, so each Create has to say which of the two it is:
+    // one makes the magnet, the other a blank canvas at the typed size.
     expect(screen.getByText('Product setup')).toBeInTheDocument()
+    expect(screen.getByText('Custom page size')).toBeInTheDocument()
+    expect(screen.getByText('Create 2″ magnet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create page' })).toBeInTheDocument()
+    expect(screen.getByText(/Or make a plain page at this size/)).toBeInTheDocument()
   })
 
-  it('keeps the page-size box off the products screen entirely', () => {
+  it('warns off the page-size box in the book flow’s own terms', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(screen.getByText('US Trade'))
+
+    expect(screen.getByText('Book setup')).toBeInTheDocument()
+    expect(screen.getByText(/without the book’s spreads and spine/)).toBeInTheDocument()
+  })
+
+  it('lands the products tab on a product, with the page-size box below it', () => {
     render(<NewDesignModal open onClose={() => {}} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Products' }))
 
-    // A width, a height and a Create button under the product cards is how a
-    // 2 × 3in magnet became a 2 × 3in page. The tab lands on its first product
-    // instead, so product setup is what's under the grid.
-    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Width')).not.toBeInTheDocument()
-    expect(screen.getByText('Product setup')).toBeInTheDocument()
     expect(screen.getByText('Create 1″ pin')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create page' })).toBeInTheDocument()
   })
 
   it('falls back to the hint when a search leaves the products grid empty', () => {
@@ -123,9 +129,10 @@ describe('NewDesignModal — print products', () => {
     // own text is the last place to say so before that happens.
     fireEvent.click(screen.getByRole('button', { name: 'Products filter' }))
 
-    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
     expect(screen.getByText('Product setup')).toBeInTheDocument()
     expect(screen.getByLabelText('Width (in)')).toBeInTheDocument()
+    // The link has done its job and steps aside once setup is up.
+    expect(screen.queryByRole('button', { name: 'Products filter' })).not.toBeInTheDocument()
   })
 
   it('creates a magnet from the custom card at the typed size', () => {

@@ -120,6 +120,10 @@ export function NewDesignModal({ open, onClose }: Props) {
   const customProduct = selectedProductId === CUSTOM_PRODUCT_ID
   const selectedProduct = selectedProductId ? findProductTemplate(selectedProductId) : null
 
+  /** Whether a card's own setup panel is on screen above the page-size box. */
+  const setupShowing =
+    selectedProductId !== null || (selectedPreset?.category === 'book' && selectedPreset !== null)
+
   // Clicking a preset fills the custom-size inputs (in px) rather than creating
   // immediately, so the user can tweak before committing.
   const pickPreset = (p: SizePreset) => {
@@ -328,7 +332,11 @@ export function NewDesignModal({ open, onClose }: Props) {
         )}
       </div>
 
-      {selectedProduct || customProduct ? (
+      {/* Panel and page-size box stack rather than replace each other: the
+          setup panel makes the thing the card names, and the box below makes a
+          plain page at whatever size is typed. Two Create buttons on one
+          screen, so each says which of the two it is. */}
+      {(selectedProduct || customProduct) && (
         <div className="mt-5">
           {/* Keyed like BookSetupPanel below: a different product card seeds
               different internal state, which only a remount picks up. */}
@@ -342,40 +350,50 @@ export function NewDesignModal({ open, onClose }: Props) {
             onCreated={onClose}
           />
         </div>
-      ) : filter === 'product' ? (
-        // Nothing is picked yet, and the page-size box doesn't belong on this
-        // screen: a product is sized as the product, and a Create button next
-        // to a width and a height is precisely how a 2 × 3in magnet ends up a
-        // 2 × 3in page instead.
+      )}
+
+      {filter === 'product' && !selectedProduct && !customProduct && (
         <p className="mt-5 rounded-lg border border-dashed border-editor-strong p-4 text-center text-sm text-editor-text-subtle">
           Pick a product above to set its size — the page follows from it.
         </p>
-      ) : isBook && selectedPreset ? (
+      )}
+
+      {isBook && selectedPreset && (
         <div className="mt-5">
           {/* key remounts the panel when a different preset card is clicked —
               otherwise its internal size state (seeded once from the prop)
               would never pick up the new selection. */}
           <BookSetupPanel key={selectedPreset.id} initialPresetId={selectedPreset.id} onCreated={onClose} />
         </div>
-      ) : (
+      )}
+
         <div className="mt-5 rounded-lg border border-editor-strong p-3">
           <div className="mb-2 text-sm font-medium text-editor-text">Custom page size</div>
           {/* This box is the page's size. A pin or magnet is sized as the
               product instead — with its own bleed, safe zone and print dpi —
-              so point at where that's done rather than letting 2 × 3in quietly
-              become a 2 × 3in page. */}
+              so say which of the two Creates on screen this one is, rather
+              than letting 2 × 3in quietly become a 2 × 3in page. */}
           <p className="mb-3 text-[11px] text-editor-text-subtle">
-            Sizes the page. A pin or magnet is sized as the product itself — start one from the{' '}
-            <button
-              onClick={() => {
-                setFilter('product')
-                pickProduct(CUSTOM_PRODUCT_ID)
-              }}
-              className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300"
-            >
-              Products filter
-            </button>{' '}
-            above, and the page follows from it.
+            {setupShowing ? (
+              <>
+                Or make a plain page at this size — a blank canvas, without{' '}
+                {isBook && selectedPreset ? 'the book’s spreads and spine' : 'the product’s guides'}.
+              </>
+            ) : (
+              <>
+                Sizes the page. A pin or magnet is sized as the product itself — start one from the{' '}
+                <button
+                  onClick={() => {
+                    setFilter('product')
+                    pickProduct(CUSTOM_PRODUCT_ID)
+                  }}
+                  className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300"
+                >
+                  Products filter
+                </button>{' '}
+                above, and the page follows from it.
+              </>
+            )}
           </p>
           <div className="flex items-end gap-3">
             <label className="flex flex-col text-xs text-editor-text-muted">
@@ -423,11 +441,10 @@ export function NewDesignModal({ open, onClose }: Props) {
               onClick={create}
               className="ml-auto rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
-              Create
+              Create page
             </button>
           </div>
         </div>
-      )}
 
       <div className="mt-4 flex justify-end">
         <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-editor-text-muted hover:text-editor-text">
