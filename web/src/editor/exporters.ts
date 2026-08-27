@@ -1,5 +1,62 @@
 import type * as fabric from 'fabric'
 import { downloadUrl } from './utils'
+import { drawProductCutLines, productCutLinesSVG } from './productGuides'
+import type { ProductGuideSpec } from './products'
+
+/**
+ * The print-product page being exported, when there is one (PROD-001).
+ *
+ * Its cut line is composited into the export — that's the guide a printer or
+ * a button maker actually needs, the same way exportBookPDF draws cut marks
+ * into a book PDF. The bleed tint and safe-zone circle are screen-only and
+ * never come along.
+ */
+export type CutLines = ProductGuideSpec | null | undefined
+
+/**
+ * The artboard as a data URL, with the product cut line composited on top
+ * when there is one.
+ *
+ * Without cut lines this is fabric's own toDataURL, untouched — the path
+ * every non-product design still takes. With them, the artboard is rendered
+ * to a canvas element first so the circles can be stroked onto the finished
+ * raster at the export's own scale.
+ */
+function rasterDataUrl(
+  canvas: fabric.Canvas,
+  format: 'png' | 'jpeg',
+  scale: number,
+  width: number,
+  height: number,
+  quality: number | undefined,
+  cutLines: CutLines,
+): string {
+  if (!cutLines) return canvas.toDataURL({ format, quality, multiplier: scale, width, height })
+  const element = canvas.toCanvasElement(scale, { width, height })
+  const ctx = element.getContext('2d')
+  if (ctx) {
+    drawProductCutLines(
+      ctx,
+      { x: 0, y: 0, width: element.width, height: element.height },
+      cutLines,
+      scale,
+    )
+  }
+  return element.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', quality)
+}
+
+/** Append the cut-line circles inside fabric's own `</svg>`. Matched from the
+ *  end: an embedded image could carry the string earlier in the markup. */
+export function withCutLinesSVG(
+  svg: string,
+  size: { width: number; height: number },
+  cutLines: CutLines,
+): string {
+  if (!cutLines) return svg
+  const close = svg.lastIndexOf('</svg>')
+  if (close < 0) return svg
+  return svg.slice(0, close) + productCutLinesSVG(cutLines, size) + svg.slice(close)
+}
 
 /** Make a filesystem-friendly base filename from a design name. */
 export function slugify(name: string): string {
@@ -69,11 +126,11 @@ function withoutRenderHooks<T>(canvas: fabric.Canvas, fn: () => T): T {
  * so the artboard is exported exactly as set — the result is transparent only
  * when the user's canvas background is transparent (CLR-001).
  */
-export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1) {
+export function exportPNG(canvas: fabric.Canvas, name: string, scale = 1, cutLines?: CutLines) {
   const { width, height } = artboardSize(canvas)
   const dataUrl = atNativeArtboard(canvas, () =>
     withoutRenderHooks(canvas, () =>
-      canvas.toDataURL({ format: 'png', multiplier: scale, width, height }),
+      rasterDataUrl(canvas, 'png', scale, width, height, undefined, cutLines),
     ),
   )
   downloadUrl(dataUrl, `${slugify(name)}.png`)
@@ -94,6 +151,7 @@ export function exportJPEG(
   name: string,
   scale = 1,
   quality = DEFAULT_JPEG_QUALITY,
+  cutLines?: CutLines,
 ) {
   const { width, height } = artboardSize(canvas)
   const prevBg = canvas.backgroundColor
@@ -105,7 +163,7 @@ export function exportJPEG(
   try {
     dataUrl = atNativeArtboard(canvas, () =>
       withoutRenderHooks(canvas, () =>
-        canvas.toDataURL({ format: 'jpeg', quality, multiplier: scale, width, height }),
+        rasterDataUrl(canvas, 'jpeg', scale, width, height, quality, cutLines),
       ),
     )
   } finally {
@@ -127,11 +185,11 @@ export function exportJPEG(
  * jsPDF is a large dependency only needed for this path, so it is lazy-loaded
  * on demand to keep it out of the initial bundle.
  */
-export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) {
+export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1, cutLines?: CutLines) {
   const { width: pageW, height: pageH } = artboardSize(canvas)
   const dataUrl = atNativeArtboard(canvas, () =>
     withoutRenderHooks(canvas, () =>
-      canvas.toDataURL({ format: 'png', multiplier: scale, width: pageW, height: pageH }),
+      rasterDataUrl(canvas, 'png', scale, pageW, pageH, undefined, cutLines),
     ),
   )
 
@@ -154,14 +212,14 @@ export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1) 
  * (the fix for the SVG-export stored-XSS advisories), so no extra sanitization
  * is needed here.
  */
-export function exportSVG(canvas: fabric.Canvas, name: string) {
+export function exportSVG(canvas: fabric.Canvas, name: string, cutLines?: CutLines) {
   const { width, height } = artboardSize(canvas)
   const svg = atNativeArtboard(canvas, () =>
     withoutRenderHooks(canvas, () =>
       canvas.toSVG({ width: `${width}`, height: `${height}`, viewBox: { x: 0, y: 0, width, height } }),
     ),
   )
-  const blob = new Blob([svg], { type: 'image/svg+xml' })
+  const blob = new Blob([withCutLinesSVG(svg, { width, height }, cutLines)], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   downloadUrl(url, `${slugify(name)}.svg`)
   // Free the object URL after the synchronous download click has fired.

@@ -2,6 +2,7 @@ import type * as fabric from 'fabric'
 import type { UnitId, SizePreset } from '../constants'
 import type { PageData, Guides } from '../storage'
 import type { StarterTemplate } from '../templates'
+import type { PresetTemplate, ProductSheetChoice } from '../products'
 import type { AlignMode, ShadowEffect } from '../utils'
 import type { PhotoEditorSourceRef, PhotoAdjustments } from '../../photo-editor/store/usePhotoEditorStore'
 
@@ -72,6 +73,10 @@ export interface ProjectSlice {
   /** Start a book project: one cover page + pageCount/2 spread pages, all
    *  book-typed with bleed baked into their size (UX-015). */
   newBookProject: (preset: SizePreset, pageCount: number) => void
+  /** Start a print-product project (PROD-001): one page carrying that
+   *  product's guide geometry, sized at its trim + bleed — or, when a sheet
+   *  is asked for, at that paper size with a grid of them ganged up on it. */
+  newProductProject: (template: PresetTemplate, sheet?: ProductSheetChoice) => void
   /** Save the current design as a reusable template (TPL-004). */
   saveAsTemplate: (name: string) => boolean
   /** Start a new project from a user-saved template by id (TPL-004). */
@@ -159,6 +164,10 @@ export interface ViewSlice {
   snapGuides: boolean
   /** Book spread framing (UX-015): side-by-side (both pages) or single (one at a time). */
   spreadView: SpreadView
+  /** Whether a product page's trim/bleed/safe-zone guides are drawn (PROD-001).
+   *  A view preference like the grid and rulers, so it lives here and stays
+   *  session-scoped rather than being saved into the design. */
+  showProductGuides: boolean
   /** Guides the dragging object is currently snapped to (transient highlight). */
   activeGuides: Guides
 
@@ -196,6 +205,8 @@ export interface ViewSlice {
   clearGuides: () => void
   /** Show/hide all guides (UX-004). */
   toggleGuides: () => void
+  /** Show/hide the product template guide layer (PROD-001). */
+  toggleProductGuides: () => void
   /** Enable/disable snapping objects to guides (UX-004). */
   toggleSnapGuides: () => void
   /** Set the guides currently being snapped to (highlight; not persisted). */

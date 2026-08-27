@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fabric from 'fabric'
 import { useCanvasStore } from './useCanvasStore'
 import { DEFAULT_ADJUSTMENTS } from '../../photo-editor/store/usePhotoEditorStore'
+import { findProductTemplate, productCanvasSize, productGuideSpec } from '../products'
+import { listTemplates, loadProject } from '../storage'
 
 describe('saveCurrentProject — saveError surfacing (data-loss fix)', () => {
   let canvas: fabric.Canvas
@@ -157,5 +159,190 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
 
     expect(ok).toBe(true)
     expect(useCanvasStore.getState().saveError).toMatch(/storage is full/)
+  })
+})
+
+describe('newProductProject (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  const pin = findProductTemplate('pin-2-25')!
+
+  it('creates one page sized at trim + bleed, carrying that product’s guide geometry', () => {
+    useCanvasStore.getState().newProductProject(pin)
+
+    const { pages, width, height } = useCanvasStore.getState()
+    expect(pages).toHaveLength(1)
+    expect({ width, height }).toEqual(productCanvasSize(pin))
+    expect(pages[0].width).toBe(825)
+    expect(pages[0].height).toBe(825)
+    expect(pages[0].product).toEqual(productGuideSpec(pin))
+  })
+
+  it('resizes the live canvas to the artboard, on a white background', () => {
+    useCanvasStore.getState().newProductProject(pin)
+
+    expect(canvas.getWidth()).toBe(825)
+    expect(canvas.getHeight()).toBe(825)
+    expect(useCanvasStore.getState().backgroundColor).toBe('#ffffff')
+  })
+
+  it('persists the page immediately, so the guides survive a reload', () => {
+    useCanvasStore.getState().newProductProject(pin)
+    const id = useCanvasStore.getState().currentProjectId!
+
+    const stored = loadProject(id)
+    expect(stored?.pages[0].product).toEqual(productGuideSpec(pin))
+  })
+
+  it('starts a fresh project each time rather than adding to the open one', () => {
+    useCanvasStore.getState().newProductProject(pin)
+    const first = useCanvasStore.getState().currentProjectId
+
+    useCanvasStore.getState().newProductProject(findProductTemplate('magnet-3')!)
+
+    expect(useCanvasStore.getState().currentProjectId).not.toBe(first)
+    expect(useCanvasStore.getState().pages).toHaveLength(1)
+    expect(useCanvasStore.getState().pages[0].product?.templateId).toBe('magnet-3')
+  })
+
+  it('a second page of a product design inherits its size and guides', () => {
+    useCanvasStore.getState().newProductProject(pin)
+
+    useCanvasStore.getState().addPage()
+
+    const { pages, activePageId } = useCanvasStore.getState()
+    expect(pages).toHaveLength(2)
+    const added = pages.find((p) => p.id === activePageId)!
+    expect(added.width).toBe(825)
+    expect(added.height).toBe(825)
+    expect(added.product).toEqual(productGuideSpec(pin))
+  })
+
+  it('a duplicated product page keeps its guides', () => {
+    useCanvasStore.getState().newProductProject(pin)
+    const sourceId = useCanvasStore.getState().pages[0].id
+
+    useCanvasStore.getState().duplicatePage(sourceId)
+
+    const { pages } = useCanvasStore.getState()
+    expect(pages).toHaveLength(2)
+    expect(pages[1].product).toEqual(productGuideSpec(pin))
+    expect(pages[1].id).not.toBe(sourceId)
+  })
+
+  it('leaves plain projects without any product metadata', () => {
+    useCanvasStore.getState().newProject(400, 300)
+    expect(useCanvasStore.getState().pages[0].product).toBeUndefined()
+
+    useCanvasStore.getState().addPage()
+    expect(useCanvasStore.getState().pages[1].product).toBeUndefined()
+    expect(useCanvasStore.getState().pages[1].width).toBeUndefined()
+  })
+})
+
+describe('saveAsTemplate — product pages (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  it('keeps the guide geometry through save-as-template and back out again', () => {
+    const pin = findProductTemplate('pin-3')!
+    useCanvasStore.getState().newProductProject(pin)
+
+    expect(useCanvasStore.getState().saveAsTemplate('Pin starter')).toBe(true)
+    const template = listTemplates()[0]
+    useCanvasStore.getState().newProjectFromSavedTemplate(template.id)
+
+    const { pages, width } = useCanvasStore.getState()
+    expect(width).toBe(1050)
+    expect(pages[0].product).toEqual(productGuideSpec(pin))
+  })
+})
+
+describe('newProductProject — multi-up sheets (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  const pin = findProductTemplate('pin-2-25')!
+
+  it('sizes the page to the paper and stores the grid it ganged up in', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'letter', count: 6 })
+
+    const { pages, width, height } = useCanvasStore.getState()
+    expect({ width, height }).toEqual({ width: 2550, height: 3300 })
+    expect(pages[0].product?.sheet).toEqual({
+      sheetId: 'letter',
+      label: 'US Letter',
+      columns: 2,
+      rows: 3,
+      count: 6,
+    })
+    // The product's own geometry is unchanged by ganging it up.
+    expect(pages[0].product?.diameterPx).toBe(675)
+  })
+
+  it('clamps a count the paper can’t hold', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'letter', count: 40 })
+    expect(useCanvasStore.getState().pages[0].product?.sheet?.count).toBe(6)
+  })
+
+  it('falls back to a single artboard when the product can’t be ganged up at all', () => {
+    useCanvasStore.getState().newProductProject({ ...pin, diameterIn: 20 }, { sheetId: 'letter', count: 4 })
+
+    const { pages, width } = useCanvasStore.getState()
+    expect(pages[0].product?.sheet).toBeUndefined()
+    expect(width).toBe(20 * 300 + 150)
+  })
+
+  it('keeps the sheet layout through add-page and duplicate-page', () => {
+    useCanvasStore.getState().newProductProject(pin, { sheetId: 'a4', count: 8 })
+
+    useCanvasStore.getState().addPage()
+    useCanvasStore.getState().duplicatePage(useCanvasStore.getState().pages[0].id)
+
+    for (const page of useCanvasStore.getState().pages) {
+      expect(page.product?.sheet?.count).toBe(8)
+      expect(page.width).toBe(2480)
+    }
+  })
+})
+
+describe('product guides never become canvas content (PROD-001)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    localStorage.clear()
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 100, height: 100 })
+    useCanvasStore.setState({ canvas, pages: [], selection: [] })
+  })
+
+  it('leaves the canvas empty — the trim and safe-zone circles are not objects, so no export can serialize them', () => {
+    useCanvasStore.getState().newProductProject(findProductTemplate('pin-2-25')!, {
+      sheetId: 'letter',
+      count: 6,
+    })
+
+    // Every exporter (PNG/JPEG/PDF/SVG) serializes this canvas and nothing
+    // else, so a page whose only "guides" live on a DOM overlay exports blank.
+    expect(canvas.getObjects()).toHaveLength(0)
+    const serialized = useCanvasStore.getState().pages[0].canvas as { objects?: unknown[] }
+    expect(serialized.objects).toEqual([])
+    // The geometry is page metadata, not artwork.
+    expect(useCanvasStore.getState().pages[0].product?.sheet?.count).toBe(6)
   })
 })

@@ -21,6 +21,7 @@ import {
 } from '../effectsEngine'
 import { CanvasRulers } from './CanvasRulers'
 import { CanvasGuides } from './CanvasGuides'
+import { ProductGuides } from './ProductGuides'
 import { GridOverlay } from './GridOverlay'
 import { EyedropperOverlay } from './EyedropperOverlay'
 import { CropOverlay } from './CropOverlay'
@@ -641,6 +642,7 @@ export function CanvasStage() {
           )
         })()}
       <CanvasGuides />
+      <ProductGuides />
       <GridOverlay />
       <CanvasRulers />
       <EyedropperOverlay />

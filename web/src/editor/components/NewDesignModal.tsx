@@ -7,8 +7,15 @@ import {
   type SizePreset,
   type UnitId,
 } from '../constants'
+import {
+  PRODUCT_CATEGORY_LABELS,
+  PRODUCT_TEMPLATES,
+  findProductTemplate,
+  productCanvasSize,
+} from '../products'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { BookSetupPanel } from './BookSetupPanel'
+import { ProductSetupPanel } from './ProductSetupPanel'
 import { Modal } from './Modal'
 
 interface Props {
@@ -19,10 +26,16 @@ interface Props {
 /** Largest thumbnail box (px); the preview keeps the preset's real aspect ratio. */
 const THUMB_BOX = 72
 
+/** The biggest product on offer, so the product thumbnails can be drawn to
+ *  scale against each other — a 1" pin should visibly be a third of a 3" one,
+ *  the same way the rectangular presets' thumbnails are to scale. */
+const LARGEST_PRODUCT_IN = Math.max(...PRODUCT_TEMPLATES.map((t) => t.diameterIn))
+
 const FILTER_LABELS: Record<PresetFilter, string> = {
   all: 'All',
   social: 'Social',
   print: 'Print',
+  product: 'Products',
   book: 'Book',
   presentation: 'Presentation',
   video: 'Video',
@@ -44,6 +57,7 @@ export function NewDesignModal({ open, onClose }: Props) {
   const [wStr, setWStr] = useState('1080')
   const [hStr, setHStr] = useState('1080')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
 
   const presets = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -54,10 +68,25 @@ export function NewDesignModal({ open, onClose }: Props) {
     )
   }, [filter, search])
 
+  // Print products (PROD-001) aren't SIZE_PRESETS — they carry real-world
+  // inches and a dpi — so they're filtered separately and rendered as their
+  // own cards in the same grid.
+  const products = useMemo(() => {
+    if (filter !== 'all' && filter !== 'product') return []
+    const q = search.trim().toLowerCase()
+    return PRODUCT_TEMPLATES.filter(
+      (t) =>
+        q === '' ||
+        t.label.toLowerCase().includes(q) ||
+        PRODUCT_CATEGORY_LABELS[t.category].toLowerCase().includes(q),
+    )
+  }, [filter, search])
+
   if (!open) return null
 
   const selectedPreset = SIZE_PRESETS.find((p) => p.id === selectedId) ?? null
   const isBook = selectedPreset?.category === 'book'
+  const selectedProduct = selectedProductId ? findProductTemplate(selectedProductId) : null
 
   // Clicking a preset fills the custom-size inputs (in px) rather than creating
   // immediately, so the user can tweak before committing.
@@ -66,6 +95,12 @@ export function NewDesignModal({ open, onClose }: Props) {
     setWStr(String(p.width))
     setHStr(String(p.height))
     setSelectedId(p.id)
+    setSelectedProductId(null)
+  }
+
+  const pickProduct = (id: string) => {
+    setSelectedId(null)
+    setSelectedProductId(id)
   }
 
   const changeUnit = (next: UnitId) => {
@@ -144,14 +179,56 @@ export function NewDesignModal({ open, onClose }: Props) {
             </button>
           )
         })}
-        {presets.length === 0 && (
+        {products.map((t) => {
+          const size = productCanvasSize(t)
+          const circleSize = THUMB_BOX * (t.diameterIn / LARGEST_PRODUCT_IN)
+          const isSelected = selectedProductId === t.id
+          return (
+            <button
+              key={t.id}
+              onClick={() => pickProduct(t.id)}
+              className={`relative flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition ${
+                isSelected
+                  ? 'border-indigo-500 bg-editor-surface'
+                  : 'border-editor-strong hover:border-editor-input hover:bg-editor-surface'
+              }`}
+            >
+              <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {PRODUCT_CATEGORY_LABELS[t.category].split(' ')[0]}
+              </span>
+              <div className="flex h-[72px] w-[72px] items-center justify-center">
+                {/* Circular, because the product is — the square artboard
+                    around it is what the guides are there to explain. */}
+                <div
+                  className="rounded-full bg-editor-surface-3"
+                  style={{ width: circleSize, height: circleSize }}
+                />
+              </div>
+              <div className="text-xs font-medium leading-tight text-editor-text">{t.label}</div>
+              <div className="text-[11px] text-editor-text-subtle">
+                {size.width} × {size.height} px
+              </div>
+            </button>
+          )
+        })}
+        {presets.length === 0 && products.length === 0 && (
           <div className="col-span-4 py-10 text-center text-sm text-editor-text-subtle">
             No presets match “{search}”.
           </div>
         )}
       </div>
 
-      {isBook && selectedPreset ? (
+      {selectedProduct ? (
+        <div className="mt-5">
+          {/* Keyed like BookSetupPanel below: a different product card seeds
+              different internal state, which only a remount picks up. */}
+          <ProductSetupPanel
+            key={selectedProduct.id}
+            initialTemplateId={selectedProduct.id}
+            onCreated={onClose}
+          />
+        </div>
+      ) : isBook && selectedPreset ? (
         <div className="mt-5">
           {/* key remounts the panel when a different preset card is clicked —
               otherwise its internal size state (seeded once from the prop)
