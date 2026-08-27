@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
+  MAX_PRODUCT_IN,
+  MIN_PRODUCT_IN,
   PRODUCT_TEMPLATES,
   PRODUCT_DPI,
   buildSheetLayout,
   cellSizePx,
+  canChooseShape,
+  customProductTemplate,
+  isCustomProduct,
+  productWithShape,
+  isValidProductSize,
+  trimSizePx,
   findProductTemplate,
   productArtboardSize,
   productCanvasSize,
@@ -16,8 +24,8 @@ import {
 
 describe('PRODUCT_TEMPLATES (PROD-001)', () => {
   it('ships the six pin and magnet sizes the ticket calls for', () => {
-    expect(productsInCategory('pin').map((t) => t.diameterIn)).toEqual([1, 1.5, 2.25, 3])
-    expect(productsInCategory('magnet').map((t) => t.diameterIn)).toEqual([2, 3])
+    expect(productsInCategory('pin').map((t) => t.widthIn)).toEqual([1, 1.5, 2.25, 3])
+    expect(productsInCategory('magnet').map((t) => t.widthIn)).toEqual([2, 3])
     expect(PRODUCT_TEMPLATES).toHaveLength(6)
   })
 
@@ -30,7 +38,7 @@ describe('PRODUCT_TEMPLATES (PROD-001)', () => {
       expect(t.bleedIn).toBeGreaterThan(0)
       expect(t.safeZoneIn).toBeGreaterThan(0)
       // A safe zone that ate the whole face would leave nothing designable.
-      expect(t.safeZoneIn).toBeLessThan(t.diameterIn / 2)
+      expect(t.safeZoneIn).toBeLessThan(t.widthIn / 2)
     }
   })
 
@@ -51,7 +59,7 @@ describe('productCanvasSize', () => {
     for (const t of PRODUCT_TEMPLATES) {
       const { width, height } = productCanvasSize(t)
       expect(width).toBe(height)
-      expect(width).toBe(Math.round((t.diameterIn + t.bleedIn * 2) * t.dpi))
+      expect(width).toBe(Math.round((t.widthIn + t.bleedIn * 2) * t.dpi))
     }
   })
 })
@@ -63,7 +71,8 @@ describe('productGuideSpec', () => {
       templateId: 'magnet-2',
       label: '2″ magnet',
       shape: 'circle',
-      diameterPx: 600,
+      trimWidthPx: 600,
+      trimHeightPx: 600,
       bleedPx: 37.5,
       safeZonePx: 37.5,
       dpi: 300,
@@ -74,7 +83,7 @@ describe('productGuideSpec', () => {
     for (const t of PRODUCT_TEMPLATES) {
       const spec = productGuideSpec(t)
       const { width } = productCanvasSize(t)
-      expect(spec.diameterPx + spec.bleedPx * 2).toBe(width)
+      expect(spec.trimWidthPx + spec.bleedPx * 2).toBe(width)
     }
   })
 })
@@ -120,7 +129,7 @@ describe('multi-up sheets (PROD-001)', () => {
   })
 
   it('reports no layout at all for a product too big to gang up', () => {
-    const oversized = { ...pin, diameterIn: 20 }
+    const oversized = { ...pin, widthIn: 20, heightIn: 20 }
     expect(sheetCapacity(oversized, 'letter').max).toBe(0)
     expect(buildSheetLayout(oversized, { sheetId: 'letter', count: 2 })).toBeNull()
   })
@@ -139,7 +148,133 @@ describe('multi-up sheets (PROD-001)', () => {
 
   it('keeps the cell size the product’s own artboard, sheet or not', () => {
     const layout = buildSheetLayout(pin, { sheetId: 'letter', count: 6 })
-    expect(cellSizePx(productGuideSpec(pin, layout))).toBe(825)
-    expect(cellSizePx(productGuideSpec(pin))).toBe(825)
+    expect(cellSizePx(productGuideSpec(pin, layout))).toEqual({ width: 825, height: 825 })
+    expect(cellSizePx(productGuideSpec(pin))).toEqual({ width: 825, height: 825 })
+  })
+})
+
+describe('customProductTemplate (PROD-001)', () => {
+  it('takes the typed size as the product’s own, not the page’s', () => {
+    const magnet = customProductTemplate('magnet', 'rect', 2, 3)
+
+    expect(magnet).toMatchObject({ shape: 'rect', widthIn: 2, heightIn: 3, category: 'magnet' })
+    // The page is the product plus its bleed on all four sides — a 2 × 3in
+    // magnet at 300dpi with a 0.125in magnet bleed.
+    expect(productCanvasSize(magnet)).toEqual({ width: 675, height: 975 })
+  })
+
+  it('inherits the category’s margins rather than inventing its own', () => {
+    expect(customProductTemplate('magnet', 'rect', 2, 3)).toMatchObject({
+      bleedIn: 0.125,
+      safeZoneIn: 0.125,
+    })
+    // A custom pin still wraps like a pin.
+    expect(customProductTemplate('pin', 'circle', 2.5, 2.5)).toMatchObject({
+      bleedIn: 0.25,
+      safeZoneIn: 0.25,
+    })
+  })
+
+  it('stores a round product as equal sides, so nothing downstream special-cases it', () => {
+    const pin25 = customProductTemplate('pin', 'circle', 2.5, 99)
+
+    expect(pin25).toMatchObject({ shape: 'circle', widthIn: 2.5, heightIn: 2.5 })
+    expect(pin25.label).toBe('2.5″ pin')
+  })
+
+  it('names a rectangle by both sides', () => {
+    expect(customProductTemplate('magnet', 'rect', 2, 3).label).toBe('2 × 3″ magnet')
+  })
+
+  it('clamps a size nothing could be made at, and reports which ones those are', () => {
+    expect(customProductTemplate('magnet', 'rect', 0, 400)).toMatchObject({
+      widthIn: MIN_PRODUCT_IN,
+      heightIn: MAX_PRODUCT_IN,
+    })
+    expect(isValidProductSize(0)).toBe(false)
+    expect(isValidProductSize(Number.NaN)).toBe(false)
+    expect(isValidProductSize(2)).toBe(true)
+  })
+
+  it('is recognisable as custom, so the picker can tell it from a preset', () => {
+    expect(isCustomProduct(customProductTemplate('magnet', 'rect', 2, 3))).toBe(true)
+    expect(isCustomProduct(findProductTemplate('pin-1')!)).toBe(false)
+  })
+
+  it('works out how many of a custom size fit on a page, per axis', () => {
+    const magnet = customProductTemplate('magnet', 'rect', 2, 3)
+
+    // 2.25 × 3.25in cells on US Letter's 8 × 10.5in usable area.
+    expect(sheetCapacity(magnet, 'letter')).toEqual({ columns: 3, rows: 3, max: 9 })
+    expect(cellSizePx(productGuideSpec(magnet))).toEqual({ width: 675, height: 975 })
+  })
+
+  it('makes a tall custom product fit fewer down the page than across it', () => {
+    const tall = customProductTemplate('magnet', 'rect', 2, 5)
+
+    expect(sheetCapacity(tall, 'letter')).toEqual({ columns: 3, rows: 2, max: 6 })
+  })
+})
+
+describe('trimSizePx (PROD-001)', () => {
+  it('reads a spec’s trim size', () => {
+    expect(trimSizePx(productGuideSpec(findProductTemplate('pin-2-25')!))).toEqual({
+      width: 675,
+      height: 675,
+    })
+  })
+
+  it('falls back to the diameter designs were saved with before custom sizes', () => {
+    const legacy = { ...productGuideSpec(findProductTemplate('pin-2-25')!) }
+    delete (legacy as { trimWidthPx?: number }).trimWidthPx
+    delete (legacy as { trimHeightPx?: number }).trimHeightPx
+
+    expect(trimSizePx({ ...legacy, diameterPx: 675 } as typeof legacy)).toEqual({
+      width: 675,
+      height: 675,
+    })
+  })
+})
+
+describe('productWithShape (PROD-001)', () => {
+  const magnet2 = findProductTemplate('magnet-2')!
+
+  it('is offered for magnets, which are cut from sheet, and not for pins, which are shells', () => {
+    expect(canChooseShape('magnet')).toBe(true)
+    expect(canChooseShape('pin')).toBe(false)
+  })
+
+  it('squares a preset off at the size it is sold at', () => {
+    const square = productWithShape(magnet2, 'rect')
+
+    expect(square).toMatchObject({ shape: 'rect', widthIn: 2, heightIn: 2, id: 'magnet-2-square' })
+    expect(square.label).toBe('2″ square magnet')
+    // A 2in square plus the magnet bleed, so the artboard stops being the
+    // circle's bounding box and becomes the product itself.
+    expect(productCanvasSize(square)).toEqual({ width: 675, height: 675 })
+  })
+
+  it('keeps the category’s margins — a square magnet is still a magnet', () => {
+    expect(productWithShape(magnet2, 'rect')).toMatchObject({
+      bleedIn: 0.125,
+      safeZoneIn: 0.125,
+      category: 'magnet',
+    })
+  })
+
+  it('costs no yield: a square and a round magnet gang up the same', () => {
+    const round3 = findProductTemplate('magnet-3')!
+    expect(sheetCapacity(productWithShape(round3, 'rect'), 'letter')).toEqual(
+      sheetCapacity(round3, 'letter'),
+    )
+  })
+
+  it('hands back the preset untouched when it is already that shape', () => {
+    expect(productWithShape(magnet2, 'circle')).toBe(magnet2)
+  })
+
+  it('rounds a squared preset back off', () => {
+    const round = productWithShape(productWithShape(magnet2, 'rect'), 'circle')
+    expect(round).toMatchObject({ shape: 'circle', widthIn: 2, heightIn: 2 })
   })
 })

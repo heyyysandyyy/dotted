@@ -1,0 +1,104 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, within } from '@testing-library/react'
+import { NewDesignModal } from './NewDesignModal'
+import { useCanvasStore } from '../store/useCanvasStore'
+import { customProductTemplate } from '../products'
+
+/**
+ * The product route through the modal itself (PROD-001), rather than the setup
+ * panel in isolation: picking Products, choosing a card, and typing a size the
+ * presets don't offer. The panel's own tests can't see this wiring — the modal
+ * decides whether the panel is on screen at all, and whether the general
+ * canvas-size box is what's showing instead.
+ */
+describe('NewDesignModal — print products', () => {
+  const newProductProject = vi.fn()
+  const newProject = vi.fn()
+
+  beforeEach(() => {
+    newProductProject.mockClear()
+    newProject.mockClear()
+    useCanvasStore.setState({ newProductProject, newProject, canvas: null })
+  })
+
+  it('offers the products under their own filter', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    expect(screen.getByText('2.25″ pin')).toBeInTheDocument()
+    expect(screen.getByText('3″ magnet')).toBeInTheDocument()
+  })
+
+  it('swaps the page-size box for product setup once a product is picked', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    expect(screen.getByText('Custom page size')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('2″ magnet'))
+
+    // The general "Custom size" box sizes the *page*, which is not what a
+    // product design is started from — product setup replaces it.
+    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+  })
+
+  it('offers a custom card in the grid, so a typed size never needs a preset first', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    fireEvent.click(screen.getByText('Custom product'))
+
+    // Straight into the size fields — no preset to undo first.
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+    expect(screen.getByLabelText('Width (in)')).toBeInTheDocument()
+  })
+
+  it('sends the page-size box’s reader to the product flow instead', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    // The general box is where a 2 × 3in entry became a 2 × 3in *page*; its
+    // own text is the last place to say so before that happens.
+    fireEvent.click(screen.getByRole('button', { name: 'Products filter' }))
+
+    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+    expect(screen.getByLabelText('Width (in)')).toBeInTheDocument()
+  })
+
+  it('creates a magnet from the custom card at the typed size', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByText('Custom product'))
+
+    // "Magnets" is also the badge on every magnet card in the grid above, so
+    // reach for the panel's own category card.
+    const panel = screen.getByText('Product setup').parentElement!
+    fireEvent.click(within(panel).getByText('Magnets'))
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Height (in)'), { target: { value: '3' } })
+    fireEvent.click(screen.getByText('Create 2 × 3″ magnet'))
+
+    expect(newProductProject).toHaveBeenCalledWith(
+      customProductTemplate('magnet', 'rect', 2, 3),
+      undefined,
+    )
+    expect(newProject).not.toHaveBeenCalled()
+  })
+
+  it('creates a magnet at a typed size, not a page at that size', () => {
+    const onClose = vi.fn()
+    render(<NewDesignModal open onClose={onClose} />)
+
+    fireEvent.click(screen.getByText('2″ magnet'))
+    fireEvent.click(screen.getByText('Custom…'))
+    fireEvent.change(screen.getByLabelText('Width (in)'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Height (in)'), { target: { value: '3' } })
+    fireEvent.click(screen.getByText('Create 2 × 3″ magnet'))
+
+    expect(newProductProject).toHaveBeenCalledWith(
+      customProductTemplate('magnet', 'rect', 2, 3),
+      undefined,
+    )
+    expect(newProject).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalled()
+  })
+})
