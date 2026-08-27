@@ -111,6 +111,20 @@ export function NewDesignModal({ open, onClose }: Props) {
     setSelectedProductId(null)
   }
 
+  /**
+   * Switching filter drops any selection whose card the new grid doesn't show.
+   * A setup panel outliving its card sits under a grid of unrelated presets
+   * with nothing on screen to explain what it belongs to — and product setup,
+   * stranded under the Social sizes, reads as a sizing control for those.
+   */
+  const pickFilter = (next: PresetFilter) => {
+    setFilter(next)
+    const showsProducts = next === 'all' || next === 'product'
+    if (!showsProducts) setSelectedProductId(null)
+    const preset = SIZE_PRESETS.find((p) => p.id === selectedId)
+    if (preset && next !== 'all' && preset.category !== next) setSelectedId(null)
+  }
+
   const pickProduct = (id: string) => {
     setSelectedId(null)
     setSelectedProductId(id)
@@ -141,7 +155,7 @@ export function NewDesignModal({ open, onClose }: Props) {
         {PRESET_FILTERS.map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => pickFilter(f)}
             className={`rounded-full border px-3 py-1 text-sm transition ${
               filter === f
                 ? 'border-indigo-500 bg-indigo-600 text-white'

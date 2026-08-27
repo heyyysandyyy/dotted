@@ -63,6 +63,37 @@ describe('NewDesignModal — print products', () => {
     expect(screen.getByText('Custom page size')).toBeInTheDocument()
   })
 
+  it('drops product setup when the filter moves to a grid without it', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByText('2″ magnet'))
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Social' }))
+
+    // Left on screen it would read as a sizing control for the social presets.
+    expect(screen.queryByText('Product setup')).not.toBeInTheDocument()
+    expect(screen.getByText('Custom page size')).toBeInTheDocument()
+  })
+
+  it('keeps it while the product is still on the grid', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByText('2″ magnet'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+  })
+
+  it('does the same for a book preset’s setup panel', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByText('US Trade'))
+    expect(screen.getByText('Book setup')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }))
+
+    expect(screen.queryByText('Book setup')).not.toBeInTheDocument()
+  })
+
   it('offers a custom card in the grid, so a typed size never needs a preset first', () => {
     render(<NewDesignModal open onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Products' }))
