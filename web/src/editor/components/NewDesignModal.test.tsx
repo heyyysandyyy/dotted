@@ -42,6 +42,27 @@ describe('NewDesignModal — print products', () => {
     expect(screen.getByText('Product setup')).toBeInTheDocument()
   })
 
+  it('keeps the page-size box off the products screen entirely', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    // A width, a height and a Create button under the product cards is how a
+    // 2 × 3in magnet became a 2 × 3in page.
+    expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Width')).not.toBeInTheDocument()
+    expect(screen.getByText(/Pick a product above to set its size/)).toBeInTheDocument()
+  })
+
+  it('still offers it everywhere else, where the page is what is being sized', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    expect(screen.getByText('Custom page size')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }))
+    expect(screen.getByText('Custom page size')).toBeInTheDocument()
+  })
+
   it('offers a custom card in the grid, so a typed size never needs a preset first', () => {
     render(<NewDesignModal open onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Products' }))

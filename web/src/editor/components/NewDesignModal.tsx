@@ -266,6 +266,14 @@ export function NewDesignModal({ open, onClose }: Props) {
             onCreated={onClose}
           />
         </div>
+      ) : filter === 'product' ? (
+        // Nothing is picked yet, and the page-size box doesn't belong on this
+        // screen: a product is sized as the product, and a Create button next
+        // to a width and a height is precisely how a 2 × 3in magnet ends up a
+        // 2 × 3in page instead.
+        <p className="mt-5 rounded-lg border border-dashed border-editor-strong p-4 text-center text-sm text-editor-text-subtle">
+          Pick a product above to set its size — the page follows from it.
+        </p>
       ) : isBook && selectedPreset ? (
         <div className="mt-5">
           {/* key remounts the panel when a different preset card is clicked —
