@@ -96,6 +96,18 @@ export function NewDesignModal({ open, onClose }: Props) {
 
   if (!open) return null
 
+  const toPx = (value: string) => Math.max(1, Math.round((Number(value) || 0) * pxPer(unit)))
+  /**
+   * The preset the size fields currently spell out, if any — the other half of
+   * the link that clicking a preset already makes. Typed sizes light the card
+   * up but leave `selectedId` alone: a book preset swaps this whole box for
+   * Book setup, and having that happen on the keystroke that completes 1800 ×
+   * 2700 would take the fields away mid-edit. Clicking the lit card still
+   * opens it.
+   */
+  const matchedPresetId =
+    SIZE_PRESETS.find((p) => p.width === toPx(wStr) && p.height === toPx(hStr))?.id ?? null
+
   const selectedPreset = SIZE_PRESETS.find((p) => p.id === selectedId) ?? null
   const isBook = selectedPreset?.category === 'book'
   const customProduct = selectedProductId === CUSTOM_PRODUCT_ID
@@ -132,14 +144,15 @@ export function NewDesignModal({ open, onClose }: Props) {
 
   const changeUnit = (next: UnitId) => {
     // Preserve the real size: reinterpret the current value into the new unit.
-    const toPx = (s: string) => (Number(s) || 0) * pxPer(unit)
-    setWStr(pxToUnit(toPx(wStr), next))
-    setHStr(pxToUnit(toPx(hStr), next))
+    // Unrounded, unlike the toPx above — rounding here would shave a little
+    // off the size every time the unit changed.
+    const exactPx = (value: string) => (Number(value) || 0) * pxPer(unit)
+    setWStr(pxToUnit(exactPx(wStr), next))
+    setHStr(pxToUnit(exactPx(hStr), next))
     setUnit(next)
   }
 
   const create = () => {
-    const toPx = (s: string) => Math.max(1, Math.round((Number(s) || 0) * pxPer(unit)))
     newProject(toPx(wStr), toPx(hStr))
     onClose()
   }
@@ -177,7 +190,7 @@ export function NewDesignModal({ open, onClose }: Props) {
       <div className="grid max-h-[320px] grid-cols-4 gap-3 overflow-y-auto pr-1">
         {presets.map((p) => {
           const scale = Math.min(THUMB_BOX / p.width, THUMB_BOX / p.height)
-          const isSelected = selectedId === p.id
+          const isSelected = selectedId ? selectedId === p.id : matchedPresetId === p.id
           return (
             <button
               key={p.id}

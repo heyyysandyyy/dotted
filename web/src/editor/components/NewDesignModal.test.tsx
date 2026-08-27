@@ -154,3 +154,70 @@ describe('NewDesignModal — print products', () => {
     expect(onClose).toHaveBeenCalled()
   })
 })
+
+describe('NewDesignModal — presets and the size fields track each other', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({ newProject: vi.fn(), newProductProject: vi.fn(), canvas: null })
+  })
+
+  const card = (label: string) => screen.getByText(label).closest('button')!
+
+  it('lights up the preset a typed size spells out', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Video' }))
+
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1280' } })
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '720' } })
+
+    expect(card('YouTube thumbnail').className).toContain('border-indigo-500')
+  })
+
+  it('drops the highlight again as soon as the size stops matching', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Video' }))
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1280' } })
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '720' } })
+
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '721' } })
+
+    expect(card('YouTube thumbnail').className).not.toContain('border-indigo-500')
+  })
+
+  it('matches whatever unit the fields are in', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }))
+
+    fireEvent.change(screen.getByLabelText('Units'), { target: { value: 'in' } })
+    // A business card preset is 1050 × 600px, which is 10.9375 × 6.25in.
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '10.9375' } })
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '6.25' } })
+
+    expect(card('Business card').className).toContain('border-indigo-500')
+  })
+
+  it('does not open Book setup from underneath a half-typed size', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Book' }))
+
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1800' } })
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '2700' } })
+
+    // The card says the size is recognised; the fields stay where they are.
+    expect(card('US Trade').className).toContain('border-indigo-500')
+    expect(screen.queryByText('Book setup')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Width')).toHaveValue(1800)
+
+    // Clicking the lit card is what commits to the book flow.
+    fireEvent.click(card('US Trade'))
+    expect(screen.getByText('Book setup')).toBeInTheDocument()
+  })
+
+  it('still fills the fields when a preset is clicked', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(card('Instagram story'))
+
+    expect(screen.getByLabelText('Width')).toHaveValue(1080)
+    expect(screen.getByLabelText('Height')).toHaveValue(1920)
+  })
+})
