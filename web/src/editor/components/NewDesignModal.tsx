@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import {
   PRESET_FILTERS,
   SIZE_PRESETS,
@@ -12,6 +13,7 @@ import {
   PRODUCT_TEMPLATES,
   findProductTemplate,
   productCanvasSize,
+  type PresetTemplate,
 } from '../products'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { BookSetupPanel } from './BookSetupPanel'
@@ -47,6 +49,15 @@ const FILTER_LABELS: Record<PresetFilter, string> = {
  *  all there is" — and sends people to the page-size box below instead. */
 const CUSTOM_PRODUCT_ID = 'custom'
 
+/** Whether a product card answers a search — by its own name or its family's. */
+function matchesSearch(template: PresetTemplate, q: string): boolean {
+  return (
+    q === '' ||
+    template.label.toLowerCase().includes(q) ||
+    PRODUCT_CATEGORY_LABELS[template.category].toLowerCase().includes(q)
+  )
+}
+
 const pxPer = (unit: UnitId) => SIZE_UNITS.find((u) => u.id === unit)!.pxPer
 
 /** Format a px value for display in the chosen unit (whole px, 2dp otherwise). */
@@ -62,7 +73,9 @@ export function NewDesignModal({ open, onClose }: Props) {
   const [unit, setUnit] = useState<UnitId>('px')
   const [wStr, setWStr] = useState('1080')
   const [hStr, setHStr] = useState('1080')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Seeded, not null: the All tab opens on its first card like every other,
+  // and the size fields below already spell that preset out.
+  const [selectedId, setSelectedId] = useState<string | null>(SIZE_PRESETS[0].id)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
 
   const presets = useMemo(() => {
@@ -79,13 +92,7 @@ export function NewDesignModal({ open, onClose }: Props) {
   // own cards in the same grid.
   const products = useMemo(() => {
     if (filter !== 'all' && filter !== 'product') return []
-    const q = search.trim().toLowerCase()
-    return PRODUCT_TEMPLATES.filter(
-      (t) =>
-        q === '' ||
-        t.label.toLowerCase().includes(q) ||
-        PRODUCT_CATEGORY_LABELS[t.category].toLowerCase().includes(q),
-    )
+    return PRODUCT_TEMPLATES.filter((t) => matchesSearch(t, search.trim().toLowerCase()))
   }, [filter, search])
 
   const showCustomProduct =
@@ -124,17 +131,47 @@ export function NewDesignModal({ open, onClose }: Props) {
   }
 
   /**
-   * Switching filter drops any selection whose card the new grid doesn't show.
-   * A setup panel outliving its card sits under a grid of unrelated presets
-   * with nothing on screen to explain what it belongs to — and product setup,
-   * stranded under the Social sizes, reads as a sizing control for those.
+   * Switching filter lands on the first card of the new grid, unless what's
+   * already selected is still in it — a tab that opens on nothing makes the
+   * user's first click a formality, and a selection whose card the new grid
+   * doesn't show strands its setup panel under a grid of unrelated presets
+   * (product setup under the Social sizes reads as a sizing control for them).
    */
   const pickFilter = (next: PresetFilter) => {
     setFilter(next)
     const showsProducts = next === 'all' || next === 'product'
-    if (!showsProducts) setSelectedProductId(null)
-    const preset = SIZE_PRESETS.find((p) => p.id === selectedId)
-    if (preset && next !== 'all' && preset.category !== next) setSelectedId(null)
+    const q = search.trim().toLowerCase()
+    // "Still in the grid" has to mean the search too, or a tab switch keeps a
+    // selection whose card the search has already hidden.
+    const currentProduct = selectedProductId ? findProductTemplate(selectedProductId) : null
+    const keptProduct =
+      showsProducts &&
+      selectedProductId !== null &&
+      (selectedProductId === CUSTOM_PRODUCT_ID || (currentProduct !== null && matchesSearch(currentProduct, q)))
+    const current = SIZE_PRESETS.find((p) => p.id === selectedId)
+    const keptPreset =
+      current &&
+      (next === 'all' || current.category === next) &&
+      (q === '' || current.label.toLowerCase().includes(q))
+    if (keptProduct || keptPreset) return
+
+    const preset = SIZE_PRESETS.find(
+      (p) =>
+        (next === 'all' || p.category === next) &&
+        (q === '' || p.label.toLowerCase().includes(q)),
+    )
+    if (preset) {
+      pickPreset(preset)
+      return
+    }
+    // Products aren't SIZE_PRESETS, so they're the first card only on their own
+    // tab — or on any tab a search has emptied of everything else.
+    const product = showsProducts ? PRODUCT_TEMPLATES.find((t) => matchesSearch(t, q)) : undefined
+    if (product) pickProduct(product.id)
+    else {
+      setSelectedId(null)
+      setSelectedProductId(null)
+    }
   }
 
   const pickProduct = (id: string) => {
@@ -164,27 +201,39 @@ export function NewDesignModal({ open, onClose }: Props) {
     <Modal title="New design" widthClass="w-[720px]" onClose={onClose}>
       <h2 className="mb-4 text-lg font-semibold text-editor-text-strong">What are you creating?</h2>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {PRESET_FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => pickFilter(f)}
-            className={`rounded-full border px-3 py-1 text-sm transition ${
-              filter === f
-                ? 'border-indigo-500 bg-indigo-600 text-white'
-                : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
-            }`}
-          >
-            {FILTER_LABELS[f]}
-          </button>
-        ))}
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search presets…"
-          className="ml-auto w-40 rounded-md border border-editor-strong bg-editor-surface px-3 py-1 text-sm text-editor-text-strong outline-none placeholder:text-editor-text-subtle focus:border-editor-input"
-        />
+      {/* Two columns, not one wrapping row: as a flex item among the pills the
+          search box gets pushed onto a line of its own the moment they wrap,
+          and `ml-auto` then strands it against the right edge. */}
+      <div className="mb-3 flex items-start gap-3">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {PRESET_FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => pickFilter(f)}
+              className={`rounded-full border px-3 py-1 text-sm transition ${
+                filter === f
+                  ? 'border-indigo-500 bg-indigo-600 text-white'
+                  : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
+              }`}
+            >
+              {FILTER_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <div className="relative shrink-0">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editor-text-subtle"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search presets…"
+            aria-label="Search presets"
+            className="w-44 rounded-md border border-editor-strong bg-editor-surface py-1 pl-8 pr-3 text-sm text-editor-text-strong outline-none placeholder:text-editor-text-subtle focus:border-editor-input"
+          />
+        </div>
       </div>
 
       <div className="grid max-h-[320px] grid-cols-4 gap-3 overflow-y-auto pr-1">

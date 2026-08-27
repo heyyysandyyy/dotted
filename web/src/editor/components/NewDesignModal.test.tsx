@@ -48,9 +48,20 @@ describe('NewDesignModal — print products', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Products' }))
 
     // A width, a height and a Create button under the product cards is how a
-    // 2 × 3in magnet became a 2 × 3in page.
+    // 2 × 3in magnet became a 2 × 3in page. The tab lands on its first product
+    // instead, so product setup is what's under the grid.
     expect(screen.queryByText('Custom page size')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Width')).not.toBeInTheDocument()
+    expect(screen.getByText('Product setup')).toBeInTheDocument()
+    expect(screen.getByText('Create 1″ pin')).toBeInTheDocument()
+  })
+
+  it('falls back to the hint when a search leaves the products grid empty', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Search presets'), { target: { value: 'zzz' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+
     expect(screen.getByText(/Pick a product above to set its size/)).toBeInTheDocument()
   })
 
@@ -196,8 +207,9 @@ describe('NewDesignModal — presets and the size fields track each other', () =
   })
 
   it('does not open Book setup from underneath a half-typed size', () => {
+    // On the All tab, where the book presets share the grid with everything
+    // else and the size fields are on screen to type into.
     render(<NewDesignModal open onClose={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Book' }))
 
     fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1800' } })
     fireEvent.change(screen.getByLabelText('Height'), { target: { value: '2700' } })
@@ -216,6 +228,62 @@ describe('NewDesignModal — presets and the size fields track each other', () =
     render(<NewDesignModal open onClose={() => {}} />)
 
     fireEvent.click(card('Instagram story'))
+
+    expect(screen.getByLabelText('Width')).toHaveValue(1080)
+    expect(screen.getByLabelText('Height')).toHaveValue(1920)
+  })
+})
+
+describe('NewDesignModal — every tab lands on a card', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({ newProject: vi.fn(), newProductProject: vi.fn(), canvas: null })
+  })
+
+  it('opens on the first card of the All grid', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    expect(screen.getByText('Instagram post').closest('button')!.className).toContain(
+      'border-indigo-500',
+    )
+  })
+
+  it('takes the first size of each tab, and fills the fields with it', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }))
+
+    expect(screen.getByText('A4 portrait').closest('button')!.className).toContain(
+      'border-indigo-500',
+    )
+    expect(screen.getByLabelText('Width')).toHaveValue(794)
+    expect(screen.getByLabelText('Height')).toHaveValue(1123)
+  })
+
+  it('opens the setup panel of tabs whose first card has one', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Book' }))
+    expect(screen.getByText('Book setup')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+    expect(screen.getByText('Create 1″ pin')).toBeInTheDocument()
+  })
+
+  it('keeps a selection the new grid still shows rather than resetting it', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+    fireEvent.click(screen.getByText('3″ magnet'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+
+    expect(screen.getByText('Create 3″ magnet')).toBeInTheDocument()
+  })
+
+  it('lands on the first card the search has left in the grid', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Search presets'), { target: { value: 'story' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Social' }))
 
     expect(screen.getByLabelText('Width')).toHaveValue(1080)
     expect(screen.getByLabelText('Height')).toHaveValue(1920)
