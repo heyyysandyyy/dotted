@@ -30,14 +30,20 @@ export interface PhotoEditorSourceRef {
 /**
  * Tonal and colour adjustment values for the loaded image.
  *
- * Numeric fields are all -100..100 with 0 = no change, deliberately on one
+ * Most numeric fields are -100..100 with 0 = no change, deliberately on one
  * shared scale so a single clamp and a single slider component cover every
- * one of them — `hue` is the only field whose unit isn't really "percent":
- * its ±100 maps to a ±180° rotation of the colour wheel (see colorPass.ts).
+ * one of them. Two kinds of exception: fields whose unit isn't really
+ * "percent" (`hue`'s ±100 is a ±180° turn of the colour wheel, see
+ * colorPass.ts; `motionBlurAngle`'s is ±90° of streak direction, see
+ * spatialPass.ts), and PHOTO-008's one-directional strengths, which run
+ * 0..100 — see ADJUSTMENT_LIMITS, which is what actually enforces the range.
  *
  * Grouped by the phase that added them: brightness/contrast (PHOTO-004);
  * exposure/highlights/shadows (PHOTO-007 tone-controls phase); `saturation`
- * through `invert` (PHOTO-007 colour-controls phase). `levels` and `curves`
+ * through `invert` (PHOTO-007 colour-controls phase); `sharpen` through
+ * `grain` (PHOTO-008's sharpen/blur/noise tools, the first controls that
+ * read neighbouring pixels rather than mapping each one on its own).
+ * `levels` and `curves`
  * (PHOTO-007 levels/curves phase) break the one-number-per-control shape
  * deliberately — a curve is a variable-length list of control points and
  * levels is a black/white/gamma triple, neither of which a single -100..100
@@ -61,6 +67,13 @@ export interface PhotoAdjustments {
   blueBalance: number
   blackAndWhite: boolean
   invert: boolean
+  sharpen: number
+  sharpenRadius: number
+  blur: number
+  motionBlur: number
+  motionBlurAngle: number
+  noiseReduction: number
+  grain: number
   levels: PhotoLevels
   curves: PhotoCurves
 }
@@ -95,11 +108,44 @@ export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = {
   blueBalance: 0,
   blackAndWhite: false,
   invert: false,
+  sharpen: 0,
+  // Mid-scale, so the sharpen amount works out of the box without the radius
+  // having to be found first; it is still neutral, since radius does nothing
+  // while amount is 0.
+  sharpenRadius: 50,
+  blur: 0,
+  motionBlur: 0,
+  motionBlurAngle: 0,
+  noiseReduction: 0,
+  grain: 0,
   levels: DEFAULT_LEVELS,
   curves: DEFAULT_CURVES,
 }
 
-const clampAdjustment = (v: number) => Math.max(-100, Math.min(100, v))
+/**
+ * Range overrides for the numeric fields that aren't the shared -100..100.
+ * PHOTO-008's neighbourhood controls are one-directional — there is no
+ * negative amount of grain, and a negative blur radius isn't a thing — so
+ * they run 0..100 with 0 as their neutral. `motionBlurAngle` keeps the full
+ * signed range: it's a direction, not a strength.
+ *
+ * Enforced in the store rather than only on the slider's `min`, so a value
+ * arriving from anywhere else (a restored history entry, PHOTO-006's stored
+ * edit metadata) can't put the pass into a state its maths never expects.
+ */
+const ADJUSTMENT_LIMITS: Partial<Record<NumericAdjustmentKey, { min: number; max: number }>> = {
+  sharpen: { min: 0, max: 100 },
+  sharpenRadius: { min: 0, max: 100 },
+  blur: { min: 0, max: 100 },
+  motionBlur: { min: 0, max: 100 },
+  noiseReduction: { min: 0, max: 100 },
+  grain: { min: 0, max: 100 },
+}
+
+const clampAdjustment = (key: NumericAdjustmentKey, v: number) => {
+  const { min, max } = ADJUSTMENT_LIMITS[key] ?? { min: -100, max: 100 }
+  return Math.max(min, Math.min(max, v))
+}
 
 const HISTORY_DEBOUNCE_MS = 300
 // Module-level like useHistoryStore's own debounceTimer (Canvas) — a drag
@@ -209,7 +255,7 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     openFromCanvas: (image, sourceRef) =>
       set({ image, sourceRef, adjustments: DEFAULT_ADJUSTMENTS, ...resetHistory() }),
 
-    setAdjustment: (key, value) => commit(key, clampAdjustment(value)),
+    setAdjustment: (key, value) => commit(key, clampAdjustment(key, value)),
 
     setToggle: (key, value) => commit(key, value),
 

@@ -5,6 +5,7 @@ import { AdjustmentsPanel } from './components/AdjustmentsPanel'
 import { LevelsPanel } from './components/LevelsPanel'
 import { CurvesPanel } from './components/CurvesPanel'
 import { ColorPanel } from './components/ColorPanel'
+import { DetailPanel } from './components/DetailPanel'
 import { useDecodedImage } from './hooks/useDecodedImage'
 import { useAdjustedPreviewCanvas } from './hooks/useAdjustedPreviewCanvas'
 import { useHistogram } from './hooks/useHistogram'
@@ -21,8 +22,8 @@ import { usePhotoEditorShortcuts } from './hooks/usePhotoEditorShortcuts'
  * brightness/contrast — see useAdjustedPreviewCanvas. The image is decoded
  * once here and shared with the histogram the Levels and Curves panels plot
  * (useDecodedImage), so the two never decode the same data URL twice. The
- * sidebar scrolls: with the colour, levels and curves sections added it can
- * outgrow the viewport even though every section is collapsible.
+ * sidebar scrolls: with the colour, levels, curves and detail sections added
+ * it can outgrow the viewport even though every section is collapsible.
  */
 export function PhotoEditor() {
   const image = usePhotoEditorStore((s) => s.image)
@@ -49,6 +50,7 @@ export function PhotoEditor() {
             <LevelsPanel histogram={histogram} />
             <CurvesPanel histogram={histogram} />
             <ColorPanel />
+            <DetailPanel />
           </aside>
         )}
       </div>
