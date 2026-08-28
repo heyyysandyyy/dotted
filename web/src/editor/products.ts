@@ -135,10 +135,12 @@ const round = (category: ProductCategory, diameterIn: number, label: string): Pr
   dpi: PRODUCT_DPI,
 })
 
-/** The six stock products PROD-001 ships, in the order the picker shows them.
- *  Any other size is reachable as a custom one (customProductTemplate). */
+/** The stock products PROD-001 ships, in the order the picker shows them —
+ *  each category ascending by size. Any other size is reachable as a custom
+ *  one (customProductTemplate). */
 export const PRODUCT_TEMPLATES: PresetTemplate[] = [
   round('pin', 1, '1″ pin'),
+  round('pin', 1.25, '1.25″ pin'),
   round('pin', 1.5, '1.5″ pin'),
   round('pin', 2.25, '2.25″ pin'),
   round('pin', 3, '3″ pin'),
@@ -162,7 +164,7 @@ export function isValidProductSize(value: number): boolean {
 }
 
 /**
- * A product at a size the user typed rather than one of the six presets
+ * A product at a size the user typed rather than one of the stock presets
  * (PROD-001). The dimensions are the *product's* — a 2 × 3 magnet is a magnet
  * you could hold, not a 2 × 3 page — so everything downstream (artboard size,
  * guides, how many fit on a sheet) falls out of the same maths the presets go
