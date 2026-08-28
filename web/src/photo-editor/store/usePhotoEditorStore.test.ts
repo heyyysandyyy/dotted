@@ -429,3 +429,71 @@ describe('usePhotoEditorStore — levels and curves (PHOTO-007 levels/curves)', 
     expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 })
+
+describe('usePhotoEditorStore — detail adjustments (PHOTO-008)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ image: null, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('setAdjustment drives the sharpen, blur and noise controls', () => {
+    const store = () => usePhotoEditorStore.getState()
+    store().setAdjustment('sharpen', 60)
+    store().setAdjustment('blur', 25)
+    store().setAdjustment('motionBlur', 40)
+    store().setAdjustment('motionBlurAngle', -70)
+    store().setAdjustment('noiseReduction', 30)
+    store().setAdjustment('grain', 15)
+
+    expect(store().adjustments).toMatchObject({
+      sharpen: 60,
+      blur: 25,
+      motionBlur: 40,
+      motionBlurAngle: -70,
+      noiseReduction: 30,
+      grain: 15,
+    })
+  })
+
+  it.each(['sharpen', 'sharpenRadius', 'blur', 'motionBlur', 'noiseReduction', 'grain'] as const)(
+    'clamps %s to 0..100 — these are one-directional strengths, not signed ones',
+    (key) => {
+      usePhotoEditorStore.getState().setAdjustment(key, -40)
+      expect(usePhotoEditorStore.getState().adjustments[key]).toBe(0)
+
+      usePhotoEditorStore.getState().setAdjustment(key, 500)
+      expect(usePhotoEditorStore.getState().adjustments[key]).toBe(100)
+    },
+  )
+
+  it('keeps motionBlurAngle signed — it is a direction, not a strength', () => {
+    usePhotoEditorStore.getState().setAdjustment('motionBlurAngle', -100)
+    expect(usePhotoEditorStore.getState().adjustments.motionBlurAngle).toBe(-100)
+
+    usePhotoEditorStore.getState().setAdjustment('motionBlurAngle', -500)
+    expect(usePhotoEditorStore.getState().adjustments.motionBlurAngle).toBe(-100)
+  })
+
+  it('resets the sharpen radius to its mid-scale default, not to zero', () => {
+    usePhotoEditorStore.getState().setAdjustment('sharpenRadius', 90)
+    usePhotoEditorStore.getState().resetAdjustment('sharpenRadius')
+    expect(usePhotoEditorStore.getState().adjustments.sharpenRadius).toBe(DEFAULT_ADJUSTMENTS.sharpenRadius)
+    expect(usePhotoEditorStore.getState().adjustments.sharpenRadius).toBeGreaterThan(0)
+  })
+
+  it('folds the new controls into the same undo stack as every other adjustment', () => {
+    usePhotoEditorStore.getState().setAdjustment('grain', 50)
+    vi.advanceTimersByTime(300)
+    expect(usePhotoEditorStore.getState().adjustments.grain).toBe(50)
+
+    usePhotoEditorStore.getState().undo()
+    expect(usePhotoEditorStore.getState().adjustments.grain).toBe(0)
+
+    usePhotoEditorStore.getState().redo()
+    expect(usePhotoEditorStore.getState().adjustments.grain).toBe(50)
+  })
+})
