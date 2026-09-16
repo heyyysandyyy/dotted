@@ -8,7 +8,7 @@ vi.mock('../exporters', async (importOriginal) => {
     exportPNG: vi.fn(),
     exportJPEG: vi.fn(),
     exportPDF: vi.fn(() => Promise.resolve()),
-    exportSVG: vi.fn(),
+    exportSVG: vi.fn(() => Promise.resolve()),
   }
 })
 

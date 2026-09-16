@@ -1,6 +1,7 @@
 import type * as fabric from 'fabric'
 import { downloadUrl } from './utils'
 import { drawProductCutLines, productCutLinesSVG } from './productGuides'
+import { fontFaceMarkup, withFontFaces } from './svgFonts'
 import type { ProductGuideSpec } from './products'
 
 /**
@@ -208,18 +209,25 @@ export async function exportPDF(canvas: fabric.Canvas, name: string, scale = 1, 
  * there is no scale or quality option. fabric's toSVG serializes the artboard
  * (including its background) to markup, which we hand to the browser as a Blob.
  *
+ * fabric's markup names each font but carries none of it, so the fonts the
+ * design was set in are embedded as `@font-face` rules before the file leaves
+ * the app — without them a viewer substitutes its own default (BUG-006) and
+ * the export does not match the design. Fetching those faces is what makes
+ * this export async; a fetch failure just falls back to naming the font.
+ *
  * fabric 7 escapes text and gradient colour stops during SVG serialization
  * (the fix for the SVG-export stored-XSS advisories), so no extra sanitization
  * is needed here.
  */
-export function exportSVG(canvas: fabric.Canvas, name: string, cutLines?: CutLines) {
+export async function exportSVG(canvas: fabric.Canvas, name: string, cutLines?: CutLines) {
   const { width, height } = artboardSize(canvas)
   const svg = atNativeArtboard(canvas, () =>
     withoutRenderHooks(canvas, () =>
       canvas.toSVG({ width: `${width}`, height: `${height}`, viewBox: { x: 0, y: 0, width, height } }),
     ),
   )
-  const blob = new Blob([withCutLinesSVG(svg, { width, height }, cutLines)], { type: 'image/svg+xml' })
+  const withFonts = withFontFaces(svg, await fontFaceMarkup(canvas.getObjects()))
+  const blob = new Blob([withCutLinesSVG(withFonts, { width, height }, cutLines)], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   downloadUrl(url, `${slugify(name)}.svg`)
   // Free the object URL after the synchronous download click has fired.
