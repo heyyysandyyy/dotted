@@ -65,6 +65,8 @@ function makeCanvas() {
     renderAll() {},
     getWidth: () => 100,
     getHeight: () => 100,
+    // Empty: these cases assert on the guide painters, not on font embedding.
+    getObjects: () => [] as unknown[],
     toDataURL() {
       return this._runExportRender('data:image/png;base64,AAAA')
     },
@@ -154,12 +156,12 @@ describe('exports never carry the screen-only guides (PROD-001, UX-015)', () => 
     vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:svg', revokeObjectURL: () => {} })
   })
 
-  it('paints no bleed tint or safe-zone ring into an export — those are screen aids', () => {
+  it('paints no bleed tint or safe-zone ring into an export — those are screen aids', async () => {
     const canvas = makeCanvas() as unknown as fabric.Canvas
 
     exportPNG(canvas, 'pins')
     exportJPEG(canvas, 'pins')
-    exportSVG(canvas, 'pins')
+    await exportSVG(canvas, 'pins')
 
     expect(downloadMock).toHaveBeenCalledTimes(3)
     // drawProductGuides is the screen painter (tint + cut line + safe zone).

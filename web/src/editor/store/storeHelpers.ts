@@ -1,7 +1,8 @@
 import * as fabric from 'fabric'
 import type { ModifiedEvent } from 'fabric'
 import { EXTRA_PROPS, type PageData } from '../storage'
-import { GOOGLE_FONTS, loadGoogleFont } from '../fonts'
+import { loadGoogleFont } from '../fonts'
+import { collectFontUsage } from '../svgFonts'
 import { isShape } from '../utils'
 import { isEffectClone } from '../effectsEngine'
 
@@ -18,12 +19,13 @@ export const SHAPE_STROKE = '#111111'
  * paints them with the fallback font until the font is fetched (BUG-001 on load).
  */
 export function loadCanvasFonts(canvas: fabric.Canvas): void {
-  const families = new Set<string>()
-  for (const o of canvas.getObjects()) {
-    const family = (o as unknown as { fontFamily?: string }).fontFamily
-    if (typeof family === 'string' && GOOGLE_FONTS.includes(family)) families.add(family)
+  // collectFontUsage recurses into groups and per-character style runs, so
+  // text nested in a group (UX-016) gets its font too — a top-level-only walk
+  // left grouped text painting in the fallback font forever.
+  const families = collectFontUsage(canvas.getObjects()).keys()
+  for (const family of families) {
+    loadGoogleFont(family).then(() => canvas.requestRenderAll())
   }
-  families.forEach((family) => loadGoogleFont(family).then(() => canvas.requestRenderAll()))
 }
 
 /**

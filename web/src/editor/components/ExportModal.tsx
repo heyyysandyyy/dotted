@@ -62,7 +62,12 @@ export function ExportModal({ open, onClose }: Props) {
         console.error('PDF export failed', err)
       })
     }
-    else if (format === 'svg') exportSVG(canvas, designName, cutLines)
+    // SVG export is async too (it fetches the fonts it embeds); same treatment.
+    else if (format === 'svg') {
+      exportSVG(canvas, designName, cutLines).catch((err) => {
+        console.error('SVG export failed', err)
+      })
+    }
     onClose()
   }
 

@@ -55,6 +55,7 @@ checklist of the *active* batch only.
 - [x] BUG-003 Zoom slider not functional in stack view (issue #128)
 - [x] BUG-004 Stack view — cover/spread pages render at inconsistent sizes (issue #129)
 - [x] BUG-005 Stack view — cover page right-aligned to spread's right edge (issue #130; back-cover mirroring left as a documented no-op — no back-cover PageType variant exists yet)
+- [ ] BUG-006 SVG export substitutes a default font for the design's Google font — embed the used faces as `@font-face` data URIs, subsetted by the characters actually typed (issue #239)
 - [x] UX-020 Shadow effects (issue #113) — spread control (phase 1, #133), multiple simultaneous effects (phase 2), inner shadow via real raster compositing (phase 3)
 - [x] UX-021 Crop rotated images (issue #115)
 - [x] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
