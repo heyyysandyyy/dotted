@@ -21,9 +21,14 @@ const UBUNTU_CSS = `
 }
 `
 
+/** Host equality, not a substring match — the stylesheet host is exactly this one. */
+function isStylesheetRequest(url: string): boolean {
+  return new URL(url).hostname === 'fonts.googleapis.com'
+}
+
 function mockFetch(css: string = UBUNTU_CSS) {
   return vi.fn(async (input: string) => {
-    if (input.includes('fonts.googleapis.com')) {
+    if (isStylesheetRequest(input)) {
       return { ok: true, text: async () => css } as unknown as Response
     }
     return {
@@ -95,7 +100,7 @@ describe('fontFaceMarkup — BUG-006: SVG exports substituted a serif for the de
     vi.stubGlobal('fetch', fetchMock)
     await fontFaceMarkup([{ fontFamily: 'Ubuntu', fontWeight: 'bold', text: 'Hi' }])
 
-    const cssUrl = fetchMock.mock.calls.map((c) => c[0]).find((u) => u.includes('googleapis'))!
+    const cssUrl = fetchMock.mock.calls.map((c) => c[0]).find(isStylesheetRequest)!
     expect(cssUrl).toContain('wght@700')
     expect(cssUrl).not.toContain('400')
   })
@@ -137,7 +142,7 @@ describe('fontFaceMarkup — BUG-006: SVG exports substituted a serif for the de
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string) =>
-        input.includes('googleapis')
+        isStylesheetRequest(input)
           ? ({ ok: true, text: async () => UBUNTU_CSS } as unknown as Response)
           : ({
               ok: true,
