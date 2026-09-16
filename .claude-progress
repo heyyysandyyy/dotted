@@ -1,34 +1,50 @@
-PROD-001 (print product templates: pins & magnets, plus multi-up sheets) is
-implemented on branch feat/PROD-001-pins-magnets — check `gh pr list` before
-assuming it's merged. The multi-up half (several products ganged up on a
-Letter/A4 sheet, count capped at what fits) was asked for after the first
-PR went up and rides in the same branch and PR.
-Note the ids: the two product-template tickets were originally written as
-TPL-001/TPL-002, which already belong to closed tickets (#23 multi-page
-designs, #24 duplicate a page, and storeTypes.ts still cites TPL-001 for the
-stack view). They were renumbered PROD-001/PROD-002 before any work started.
+PHOTO-008 (sharpen, blur and noise tools) is implemented on branch
+feat/PHOTO-008-sharpen-blur-noise — check `gh pr list` before assuming it's
+merged.
+
+What it added, and the two things worth knowing before touching this area:
+- spatialPass.ts is the first neighbourhood pass in the photo pipeline
+  (toneLUT, channelLUT, levelsCurves and colorPass are all per-pixel or
+  per-channel maps). The gaussian is three box passes per axis, which is
+  O(1) per pixel in the radius; a textbook kernel was far too slow to redo
+  per animation frame.
+- Every spatial radius is a *fraction of the render's shorter edge*, never a
+  pixel count. That is load-bearing: renderAdjustedImage is called at three
+  different sizes for the same image (full-res bake, 1400px preview, 256px
+  histogram proxy), and a pixel radius would make them disagree. Grain needed
+  its own version of this — grainParticleSize() grows the particle with the
+  image, since a particle fixed at one pixel is finer on the bake than on the
+  preview it was judged from.
+- useAdjustedPreviewCanvas now renders at a 1400px cap (PREVIEW_MAX_EDGE),
+  where it previously used the image's natural size. flattenImage (PHOTO-006's
+  port-back) still bakes at full resolution and is unaffected.
+
+Known limitation, deliberate: flatten-on-exit on a large uncapped image now
+takes 1-4s with the blur/sharpen tools active, where it was near-instant when
+the pipeline was LUT-only. It's a one-time operation on exit, not per frame,
+and there is no progress indicator. Worth a ticket if it bites.
 
 Next ticket: no auto-pickable one. What's open, each needing a decision:
-- PROD-002 (further product families: stickers, cards, patches, keychains,
-  totes, mugs, phone cases) — explicitly "not yet scoped" on the checklist.
-  It extends PROD-001's preset model past circles, so it needs a shape
-  decision first: products.ts's ProductShape is a single-member union
-  ('circle') on purpose, and productGuides.ts draws arcs directly. A
-  die-cut sticker or a rounded-rect card needs a path-based guide, not a
-  radius.
-- PHOTO-008 (sharpen, blur, noise) — a convolution pipeline, unlike every
-  photo util shipped so far (toneLUT, channelLUT, levelsCurves, colorPass
-  are all per-pixel or per-channel maps). Expect a kernel util and the
-  first photo control that can't recompute per frame on a large image; the
-  preview will likely need a downscaled proxy, the way useHistogram does.
+- PHOTO-009 (geometry tools: crop, straighten, arbitrary rotate, flip,
+  resize/resample, perspective) — the natural next in the photo sequence. It
+  is a separate raster pipeline from Canvas's existing crop tools (UX-009,
+  UX-021), so decide up front whether the two share geometry code or stay
+  apart.
+- PHOTO-011 (selection and local masking) is foundational and unlocks locally
+  scoped versions of the PHOTO-008/010/012 tools, so it is worth sequencing
+  before those where possible — including before PHOTO-012's filters.
+- PROD-002 (further product families) — explicitly "not yet scoped". Extends
+  PROD-001's preset model past circles, so it needs a shape decision first:
+  products.ts's ProductShape covers 'circle' and 'rect' only, and
+  productGuides.ts draws arcs and rectangles directly. A die-cut sticker or a
+  rounded-rect card needs a path-based guide.
 - BOOK-001 (page templates system) — large, needs its own phasing pass.
 - BOOK-004 (print export modal) — deferred by the user pending a rethink;
   don't resume without them re-raising it.
 
-Two known boundaries left by PROD-001, both deliberate and both worth
-knowing before touching this area:
+Two boundaries left by PROD-001, both deliberate:
 - Page thumbnails (PageBar/PageStack) draw book guides but not product
   guides, so a pin page's thumbnail is a plain white square.
-- Resizing the artboard (UX-014) on a product page leaves the guide circle
-  at its original diameter, so the two stop agreeing. Book pages have the
-  same gap with their bleed, so it wasn't singled out here.
+- Resizing the artboard (UX-014) on a product page leaves the guide circle at
+  its original diameter, so the two stop agreeing. Book pages have the same
+  gap with their bleed.
