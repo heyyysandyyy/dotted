@@ -7,6 +7,17 @@ const DEBOUNCE_MS = 300
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * Cancel any pending debounced record. Clearing and nulling always happen
+ * together: `flushPendingSave` reads a non-null `debounceTimer` as "an edit is
+ * still pending", so a timer that was cleared but left non-null makes that
+ * guard fail open and lets a snapshot fire when nothing was actually queued.
+ */
+function cancelPendingRecord(): void {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = null
+}
+
 /** A history entry: the whole multi-page project state, so page add/delete/
  *  duplicate are undoable alongside in-page edits (TPL-001). Includes the
  *  artboard dimensions so a canvas resize is undoable too (UX-014). */
@@ -77,7 +88,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   pendingLabel: '',
 
   reset: () => {
-    if (debounceTimer) clearTimeout(debounceTimer)
+    cancelPendingRecord()
     const snap = snapshot()
     set({
       stack: snap ? [snap] : [],
@@ -123,11 +134,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   scheduleRecord: (label) => {
     if (get().isRestoring) return
     if (label) set({ pendingLabel: label })
-    if (debounceTimer) clearTimeout(debounceTimer)
-    // Reset to null on natural fire too, not just when cancelled — otherwise
-    // debounceTimer keeps holding a stale (already-fired) id forever, and
-    // flushPendingSave's "nothing pending" check would never actually see
-    // nothing pending once a single edit had ever been made.
+    cancelPendingRecord()
+    // Null on natural fire too, not just when cancelled — an already-fired id
+    // is still truthy, and would leave flushPendingSave's guard permanently
+    // convinced an edit was pending. See cancelPendingRecord.
     debounceTimer = setTimeout(() => {
       debounceTimer = null
       get().record()
@@ -142,8 +152,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     // — with nothing pending, that used to snapshot the canvas mid-load
     // (still empty) and persist it, overwriting the real saved data.
     if (!debounceTimer) return
-    clearTimeout(debounceTimer)
-    debounceTimer = null
+    cancelPendingRecord()
     get().record()
   },
 
@@ -177,7 +186,7 @@ function restore(
 ) {
   const canvas = useCanvasStore.getState().canvas
   if (!canvas) return
-  if (debounceTimer) clearTimeout(debounceTimer)
+  cancelPendingRecord()
   set({ isRestoring: true })
   const { pages, activePageId, width, height } = JSON.parse(json) as ProjectSnapshot
   // Restore the whole project state (pages + active page + dimensions).

@@ -86,6 +86,33 @@ describe('useHistoryStore — flushPendingSave (data-loss fix for route navigati
     // clobbering the real saved data with a snapshot of the empty canvas.
     expect(projectRaw('proj-1')).toBe(saved)
   })
+
+  it('stays a no-op when a reset cancelled the pending timer — a cleared id must not still read as pending', () => {
+    // Put real content on the canvas, so a later clear() is an observable
+    // change rather than an empty-to-empty write that record() would skip
+    // anyway on its unchanged-snapshot guard.
+    canvas.add(new fabric.Rect({ left: 10, top: 10, width: 20, height: 20 }))
+
+    // Baseline on disk, with the rect in it.
+    useHistoryStore.getState().scheduleRecord('Added rect')
+    vi.advanceTimersByTime(DEBOUNCE_MS_FOR_TEST)
+    const saved = projectRaw('proj-1')
+    expect(saved).toContain('"Rect"')
+
+    // An edit arms the debounce, then a project open resets history while that
+    // timer is still in flight. reset() cancels it, so nothing is pending.
+    useHistoryStore.getState().scheduleRecord('Moved rect')
+    useHistoryStore.getState().reset()
+
+    // The transitional canvas: mid-load and empty, nothing scheduled for it.
+    canvas.clear()
+    useHistoryStore.getState().flushPendingSave()
+
+    // Regression: reset() cleared the timeout but left the (now dead) timer id
+    // non-null, so flushPendingSave's "nothing pending" guard read it as truthy
+    // and recorded anyway, persisting the empty canvas over the real data.
+    expect(projectRaw('proj-1')).toBe(saved)
+  })
 })
 
 const DEBOUNCE_MS_FOR_TEST = 300
