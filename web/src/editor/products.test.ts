@@ -23,10 +23,10 @@ import {
 } from './products'
 
 describe('PRODUCT_TEMPLATES (PROD-001)', () => {
-  it('ships the six pin and magnet sizes the ticket calls for', () => {
-    expect(productsInCategory('pin').map((t) => t.widthIn)).toEqual([1, 1.5, 2.25, 3])
+  it('ships the pin and magnet sizes the ticket calls for, each category ascending', () => {
+    expect(productsInCategory('pin').map((t) => t.widthIn)).toEqual([1, 1.25, 1.5, 2.25, 3])
     expect(productsInCategory('magnet').map((t) => t.widthIn)).toEqual([2, 3])
-    expect(PRODUCT_TEMPLATES).toHaveLength(6)
+    expect(PRODUCT_TEMPLATES).toHaveLength(7)
   })
 
   it('gives every template a unique id, a print dpi and a positive bleed and safe zone', () => {
