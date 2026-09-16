@@ -84,6 +84,26 @@ describe('renderAdjustedImage', () => {
     expect(ctx.putImageData).toHaveBeenCalled()
   })
 
+  it('runs the pixel pass for a PHOTO-008 detail edit, which no CSS filter can express', () => {
+    const canvas = document.createElement('canvas')
+    const ctx = fakeCanvasContext()
+
+    renderAdjustedImage(canvas, {} as CanvasImageSource, 10, 10, { ...DEFAULT_ADJUSTMENTS, blur: 40 })
+
+    expect(ctx.getImageData).toHaveBeenCalledWith(0, 0, 10, 10)
+    expect(ctx.putImageData).toHaveBeenCalled()
+  })
+
+  it('still skips the pixel pass when only the sharpen radius moved, since that sharpens nothing', () => {
+    const canvas = document.createElement('canvas')
+    const ctx = fakeCanvasContext()
+
+    renderAdjustedImage(canvas, {} as CanvasImageSource, 10, 10, { ...DEFAULT_ADJUSTMENTS, sharpenRadius: 100 })
+
+    expect(ctx.getImageData).not.toHaveBeenCalled()
+    expect(ctx.putImageData).not.toHaveBeenCalled()
+  })
+
   it('returns false (no throw) when 2d context is unavailable, so callers can report the failure', () => {
     const canvas = document.createElement('canvas')
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
