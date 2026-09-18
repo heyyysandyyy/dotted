@@ -1,28 +1,31 @@
-PHOTO-008 (sharpen, blur and noise tools) is implemented on branch
-feat/PHOTO-008-sharpen-blur-noise — check `gh pr list` before assuming it's
+UX-028 (expand export dialog options) is implemented on branch
+feat/UX-028-export-dialog-options — check `gh pr list` before assuming it's
 merged.
 
-What it added, and the two things worth knowing before touching this area:
-- spatialPass.ts is the first neighbourhood pass in the photo pipeline
-  (toneLUT, channelLUT, levelsCurves and colorPass are all per-pixel or
-  per-channel maps). The gaussian is three box passes per axis, which is
-  O(1) per pixel in the radius; a textbook kernel was far too slow to redo
-  per animation frame.
-- Every spatial radius is a *fraction of the render's shorter edge*, never a
-  pixel count. That is load-bearing: renderAdjustedImage is called at three
-  different sizes for the same image (full-res bake, 1400px preview, 256px
-  histogram proxy), and a pixel radius would make them disagree. Grain needed
-  its own version of this — grainParticleSize() grows the particle with the
-  image, since a particle fixed at one pixel is finer on the bake than on the
-  preview it was judged from.
-- useAdjustedPreviewCanvas now renders at a 1400px cap (PREVIEW_MAX_EDGE),
-  where it previously used the image's natural size. flattenImage (PHOTO-006's
-  port-back) still bakes at full resolution and is unaffected.
+What it changed, and what's worth knowing before touching exports again:
+- Every single-page export (PNG/JPEG/PDF/SVG) now crops to one ExportBounds
+  from exportBounds() in exporters.ts — the full artboard, or the selection's
+  box (plus its effect clones) clipped to the artboard. Rasters crop via
+  toDataURL/toCanvasElement left/top/width/height, the PDF page is sized to
+  it, SVG crops with the viewBox. All in untransformed artboard coordinates.
+- Selection-only exports hide everything else for the duration of the render
+  (withOnlySelection), including a group's other children during in-place
+  group editing. For SVG this has to stub each dropped object's own toSVG:
+  fabric's Group serializes every child regardless of excludeFromExport, a
+  hidden one just gets `visibility: hidden`. exporters.fabric.test.ts pins
+  that against real fabric (node-canvas).
+- PNG's "Transparent background" toggle defaults ON, per the ticket: the
+  background colour goes to '' and the background image is dropped for the
+  export. Off flattens onto the background colour, or white. A behaviour
+  change from the old as-is PNG — revisit the default if users trip on it.
+- Exporters now take an options object, not positional scale/quality/cutLines.
+  slugify is gone; sanitizeFileName keeps the user's case and spaces, and the
+  book PDF uses it too ("My Book.pdf", no longer "my-book.pdf").
+- A selection export carries no product cut line — that's a print-file thing.
 
-Known limitation, deliberate: flatten-on-exit on a large uncapped image now
-takes 1-4s with the blur/sharpen tools active, where it was near-instant when
-the pipeline was LUT-only. It's a one-time operation on exit, not per frame,
-and there is no progress indicator. Worth a ticket if it bites.
+Bookkeeping gap on main: BUG-006 merged as #240 (issue #239 is closed) but its
+CLAUDE.md checkbox was never ticked. Tick it in the next ticket's bookkeeping
+commit.
 
 Next ticket: no auto-pickable one. What's open, each needing a decision:
 - PHOTO-009 (geometry tools: crop, straighten, arbitrary rotate, flip,
@@ -34,17 +37,7 @@ Next ticket: no auto-pickable one. What's open, each needing a decision:
   scoped versions of the PHOTO-008/010/012 tools, so it is worth sequencing
   before those where possible — including before PHOTO-012's filters.
 - PROD-002 (further product families) — explicitly "not yet scoped". Extends
-  PROD-001's preset model past circles, so it needs a shape decision first:
-  products.ts's ProductShape covers 'circle' and 'rect' only, and
-  productGuides.ts draws arcs and rectangles directly. A die-cut sticker or a
-  rounded-rect card needs a path-based guide.
+  PROD-001's preset model past circles, so it needs a shape decision first.
 - BOOK-001 (page templates system) — large, needs its own phasing pass.
 - BOOK-004 (print export modal) — deferred by the user pending a rethink;
   don't resume without them re-raising it.
-
-Two boundaries left by PROD-001, both deliberate:
-- Page thumbnails (PageBar/PageStack) draw book guides but not product
-  guides, so a pin page's thumbnail is a plain white square.
-- Resizing the artboard (UX-014) on a product page leaves the guide circle at
-  its original diameter, so the two stop agreeing. Book pages have the same
-  gap with their bleed.
