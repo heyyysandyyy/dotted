@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS, type PhotoEditorSourceRef } from './usePhotoEditorStore'
 import { DEFAULT_CURVES, IDENTITY_CURVE } from '../utils/levelsCurves'
+import { apply, planGeometry } from '../utils/geometry'
+import type { PhotoGeometry } from '../utils/geometry'
 
 const NEUTRAL_HISTORY = { historyStack: [DEFAULT_ADJUSTMENTS], historyIndex: 0 }
 
@@ -495,5 +497,148 @@ describe('usePhotoEditorStore — detail adjustments (PHOTO-008)', () => {
 
     usePhotoEditorStore.getState().redo()
     expect(usePhotoEditorStore.getState().adjustments.grain).toBe(50)
+  })
+})
+
+describe('usePhotoEditorStore — geometry (PHOTO-009)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ image: 'data:image/png;base64,x', adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const geometry = () => usePhotoEditorStore.getState().adjustments.geometry
+
+  it('normalizes geometry on the way in', () => {
+    usePhotoEditorStore.getState().setGeometry({ straighten: 99, crop: { x: -1, y: 0, w: 0.5, h: 2 } })
+    expect(geometry().straighten).toBe(45)
+    expect(geometry().crop).toEqual({ x: 0, y: 0, w: 0.5, h: 1 })
+  })
+
+  it('puts a geometry change in the same undo history as the adjustments', () => {
+    usePhotoEditorStore.getState().setGeometry({ angle: 12 })
+    vi.advanceTimersByTime(300)
+    usePhotoEditorStore.getState().setAdjustment('brightness', 10)
+    vi.advanceTimersByTime(300)
+
+    usePhotoEditorStore.getState().undo()
+    expect(usePhotoEditorStore.getState().adjustments.brightness).toBe(0)
+    expect(geometry().angle).toBe(12)
+    usePhotoEditorStore.getState().undo()
+    expect(geometry().angle).toBe(0)
+  })
+
+  it('records no history step for a geometry change that changes nothing', () => {
+    usePhotoEditorStore.getState().setGeometry({ angle: 0 })
+    vi.advanceTimersByTime(300)
+    expect(usePhotoEditorStore.getState().historyStack).toHaveLength(1)
+  })
+
+  it('turns 90° at a time, wrapping round', () => {
+    const { rotate90 } = usePhotoEditorStore.getState()
+    rotate90(1)
+    expect(geometry().quarterTurns).toBe(1)
+    rotate90(-1)
+    rotate90(-1)
+    expect(geometry().quarterTurns).toBe(3)
+  })
+
+  it('counts turns backwards while mirrored, so the button still turns the display the way it says', () => {
+    usePhotoEditorStore.getState().flip('h')
+    usePhotoEditorStore.getState().rotate90(1)
+    expect(geometry().quarterTurns).toBe(3)
+    // Mirrored both ways is a half turn, not a mirror: counts forwards again.
+    usePhotoEditorStore.getState().flip('v')
+    usePhotoEditorStore.getState().rotate90(1)
+    expect(geometry().quarterTurns).toBe(0)
+  })
+
+  it('resets every geometry field at once', () => {
+    usePhotoEditorStore.getState().setGeometry({ angle: 5, flipH: true, resizeScale: 0.5 })
+    usePhotoEditorStore.getState().resetAdjustment('geometry')
+    expect(geometry()).toEqual(DEFAULT_ADJUSTMENTS.geometry)
+  })
+
+  it('closes the crop tool and clears its ratio when a new image loads', () => {
+    usePhotoEditorStore.getState().setCropMode(true)
+    usePhotoEditorStore.getState().setCropAspect(1)
+    usePhotoEditorStore.getState().setImage('data:image/png;base64,other')
+    expect(usePhotoEditorStore.getState().cropMode).toBe(false)
+    expect(usePhotoEditorStore.getState().cropAspect).toBeNull()
+  })
+
+  it('keeps crop-tool state out of history', () => {
+    usePhotoEditorStore.getState().setCropMode(true)
+    vi.advanceTimersByTime(300)
+    expect(usePhotoEditorStore.getState().historyStack).toHaveLength(1)
+  })
+})
+
+describe('rotate and flip act on the displayed image (PHOTO-009)', () => {
+  const SRC_W = 400
+  const SRC_H = 300
+  const EDITED: Partial<PhotoGeometry> = {
+    crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6 },
+    perspectiveV: 30,
+    perspectiveH: -20,
+    straighten: 6,
+    angle: 12,
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ adjustments: DEFAULT_ADJUSTMENTS, cropAspect: null, ...NEUTRAL_HISTORY })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const plan = () => planGeometry(usePhotoEditorStore.getState().adjustments.geometry, SRC_W, SRC_H)
+
+  /** For sample points across the old output, the source pixel shown there
+   *  must now be shown at `moved(point)` in the new output. */
+  function expectSameContent(
+    before: ReturnType<typeof plan>,
+    after: ReturnType<typeof plan>,
+    moved: (u: number, v: number) => [number, number],
+  ) {
+    for (const [u, v] of [[0.1, 0.1], [0.9, 0.2], [0.5, 0.5], [0.3, 0.8], [0.8, 0.9]]) {
+      const was = apply(before.toSource, u * before.width, v * before.height)
+      const [nu, nv] = moved(u, v)
+      const now = apply(after.toSource, nu * after.width, nv * after.height)
+      expect(Math.hypot(now.x - was.x, now.y - was.y)).toBeLessThan(1.5)
+    }
+  }
+
+  for (const start of [{}, { flipH: true }, { flipV: true }, { flipH: true, flipV: true, quarterTurns: 1 as const }]) {
+    it(`turning clockwise turns the whole picture (start ${JSON.stringify(start)})`, () => {
+      usePhotoEditorStore.getState().setGeometry({ ...EDITED, ...start })
+      const before = plan()
+      usePhotoEditorStore.getState().rotate90(1)
+      const after = plan()
+      expect([after.width, after.height]).toEqual([before.height, before.width])
+      expectSameContent(before, after, (u, v) => [1 - v, u])
+    })
+
+    it(`turning anticlockwise turns the whole picture (start ${JSON.stringify(start)})`, () => {
+      usePhotoEditorStore.getState().setGeometry({ ...EDITED, ...start })
+      const before = plan()
+      usePhotoEditorStore.getState().rotate90(-1)
+      expectSameContent(before, plan(), (u, v) => [v, 1 - u])
+    })
+
+    it(`flipping mirrors the whole picture (start ${JSON.stringify(start)})`, () => {
+      usePhotoEditorStore.getState().setGeometry({ ...EDITED, ...start })
+      const before = plan()
+      usePhotoEditorStore.getState().flip('h')
+      expectSameContent(before, plan(), (u, v) => [1 - u, v])
+      const middle = plan()
+      usePhotoEditorStore.getState().flip('v')
+      expectSameContent(middle, plan(), (u, v) => [u, 1 - v])
+    })
+  }
+
+  it('turns a locked crop ratio with the image', () => {
+    usePhotoEditorStore.setState({ cropAspect: 16 / 9 })
+    usePhotoEditorStore.getState().rotate90(1)
+    expect(usePhotoEditorStore.getState().cropAspect).toBeCloseTo(9 / 16)
   })
 })

@@ -17,6 +17,8 @@ import { buildSheetLayout, productArtboardSize, productGuideSpec } from '../prod
 import { useHistoryStore } from './useHistoryStore'
 import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, pageSize } from './storeHelpers'
 import { downscaleDataUrl } from '../../lib/downscaleImage'
+import { placeOnCanvas } from '../../photo-editor/utils/geometryPlacement'
+import type { SerializedImageGeometry } from '../../photo-editor/utils/geometryPlacement'
 import type { CanvasState, ProjectSlice } from './storeTypes'
 
 export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice> = (set, get) => ({
@@ -320,18 +322,24 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     })
   },
 
-  portBackFromPhotoEditor: (sourceRef, newSrc, edits) => {
+  portBackFromPhotoEditor: (sourceRef, newSrc, edits, placement = null) => {
     const { pages, currentProjectId, designName, width, height, activePageId, guides } = get()
     if (!currentProjectId) return false
     // No live fabric canvas exists here — CanvasStage (and the `canvas` it
     // owns) is unmounted for the whole time the Photo Editor route is
     // active, so this patches the serialized page JSON directly rather than
-    // operating on a live object. Only `src` + `edits` change; width/height/
-    // cropX/cropY/left/top/scaleX/scaleY/angle are all left untouched —
-    // PHOTO-003 captured the source from originalSrc ?? getSrc(), the full
-    // underlying image unaffected by crop or display scale, and
-    // flattenImage.ts preserves that image's exact pixel dimensions, so the
-    // replacement fits the existing geometry with nothing to reconcile.
+    // operating on a live object.
+    //
+    // Without `placement` only `src` + `edits` change; width/height/cropX/
+    // cropY/left/top/scaleX/scaleY/angle are all left untouched — PHOTO-003
+    // captured the source from originalSrc ?? getSrc(), the full underlying
+    // image unaffected by crop or display scale, and flattenImage.ts
+    // preserves that image's exact pixel dimensions, so the replacement fits
+    // the existing geometry with nothing to reconcile.
+    //
+    // With it (PHOTO-009 cropped, rotated or resized the image), the object
+    // is re-placed so the content it keeps stays where it was on the page at
+    // the same size — see geometryPlacement.ts's placeOnCanvas.
     let replaced = false
     const nextPages = pages.map((p) => {
       if (p.id !== sourceRef.pageId) return p
@@ -340,7 +348,8 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       const nextObjects = canvasData.objects.map((obj) => {
         if (obj.id !== sourceRef.objectId) return obj
         replaced = true
-        return { ...obj, src: newSrc, edits }
+        const geometry = placement ? placeOnCanvas(obj as SerializedImageGeometry, placement) : {}
+        return { ...obj, ...geometry, src: newSrc, edits }
       })
       return { ...p, canvas: { ...canvasData, objects: nextObjects } }
     })

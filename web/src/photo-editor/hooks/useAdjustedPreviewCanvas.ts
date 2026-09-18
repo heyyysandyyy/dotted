@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { renderAdjustedImage } from '../utils/renderAdjustedImage'
+import { cappedSize, planGeometry } from '../utils/geometry'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
 /**
@@ -22,15 +23,24 @@ import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
  * way: flattenImage renders the original at its own size for PHOTO-006's
  * port-back, exactly as before.
  */
-const PREVIEW_MAX_EDGE = 1400
+export const PREVIEW_MAX_EDGE = 1400
 
 /**
  * Renders an already-decoded image (useDecodedImage) onto a canvas with
  * every live adjustment applied (PHOTO-004/PHOTO-007/PHOTO-008), so dragging
  * a slider redraws against the decoded element instead of re-decoding the
  * same data URL on every tick.
+ *
+ * The image goes through its geometry first (PHOTO-009), and the cap applies
+ * to the result — a crop previews at up to the full cap, not at the cropped
+ * fraction of it. While the crop tool is open (`cropEditing`) the preview
+ * shows the whole uncropped frame for the crop box to sit over.
  */
-export function useAdjustedPreviewCanvas(image: HTMLImageElement | null, adjustments: PhotoAdjustments) {
+export function useAdjustedPreviewCanvas(
+  image: HTMLImageElement | null,
+  adjustments: PhotoAdjustments,
+  cropEditing = false,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -42,14 +52,12 @@ export function useAdjustedPreviewCanvas(image: HTMLImageElement | null, adjustm
     // getImageData/LUT/putImageData pass, which on a large image is too slow
     // to redo on every single event without dropping frames.
     const rafId = requestAnimationFrame(() => {
-      const longest = Math.max(image.naturalWidth, image.naturalHeight)
-      const scale = longest > PREVIEW_MAX_EDGE ? PREVIEW_MAX_EDGE / longest : 1
-      const width = Math.max(1, Math.round(image.naturalWidth * scale))
-      const height = Math.max(1, Math.round(image.naturalHeight * scale))
-      renderAdjustedImage(canvas, image, width, height, adjustments)
+      const plan = planGeometry(adjustments.geometry, image.naturalWidth, image.naturalHeight, { cropEditing })
+      const { width, height } = cappedSize(plan, PREVIEW_MAX_EDGE)
+      renderAdjustedImage(canvas, image, width, height, adjustments, plan)
     })
     return () => cancelAnimationFrame(rafId)
-  }, [image, adjustments])
+  }, [image, adjustments, cropEditing])
 
   return canvasRef
 }

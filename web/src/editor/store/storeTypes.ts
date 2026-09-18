@@ -5,6 +5,7 @@ import type { StarterTemplate } from '../templates'
 import type { PresetTemplate, ProductSheetChoice } from '../products'
 import type { AlignMode, ShadowEffect } from '../utils'
 import type { PhotoEditorSourceRef, PhotoAdjustments } from '../../photo-editor/store/usePhotoEditorStore'
+import type { GeometryPlacement } from '../../photo-editor/utils/geometryPlacement'
 
 export type ShapeKind = 'rect' | 'roundedRect' | 'ellipse' | 'triangle' | 'line' | 'arrow'
 
@@ -93,12 +94,15 @@ export interface ProjectSlice {
   saveCurrentProject: () => void
   /** PHOTO-006: replace a Canvas image object in place with a Photo-Editor-
    *  flattened result, by page + object id (no live canvas involved — see
-   *  the implementation's own comment). Returns false if that page/object
-   *  can no longer be found. */
+   *  the implementation's own comment). `placement` (PHOTO-009) is set when
+   *  the edit cropped, rotated or resized the image, and re-places the
+   *  object to match. Returns false if that page/object can no longer be
+   *  found. */
   portBackFromPhotoEditor: (
     sourceRef: PhotoEditorSourceRef,
     newSrc: string,
     edits: PhotoAdjustments,
+    placement?: GeometryPlacement | null,
   ) => boolean
   /** Add a blank page after the active one and switch to it. */
   addPage: () => void

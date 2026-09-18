@@ -2,13 +2,18 @@ import { cssFilterFor } from './adjustmentFilter'
 import { buildChannelLUTs, applyChannelLUTs, needsChannelLUTs } from './channelLUT'
 import { applyColorPass, needsColorPass } from './colorPass'
 import { applySpatialPass, needsSpatialPass } from './spatialPass'
+import { drawGeometry } from './warp'
+import type { GeometryPlan } from './geometry'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
 /**
  * Draws `source` onto `canvas` at (width, height) with every adjustment
  * applied, in four stages:
  *
- * 1. brightness/contrast (PHOTO-004) as a cheap, GPU-composited CSS filter
+ * 1. brightness/contrast (PHOTO-004) as a cheap, GPU-composited CSS filter,
+ *    applied in the same draw that puts the image through its geometry
+ *    (PHOTO-009's crop/rotate/flip/perspective/resize — see geometry.ts) when
+ *    a non-identity `plan` is given
  * 2. the per-channel LUT trio (channelLUT.ts) — exposure/highlights/shadows
  *    plus white balance and colour balance
  * 3. the cross-channel colour pass (colorPass.ts) — hue, saturation,
@@ -25,6 +30,14 @@ import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
  * image that then got re-graded underneath the result, so the halos and
  * texture would no longer sit where they were judged.
  *
+ * Geometry comes first so every later stage works on the image as framed:
+ * the histogram counts only what survives the crop, and PHOTO-008's radii —
+ * fractions of the render's shorter edge — are fractions of the cropped
+ * result, the same at every render size.
+ *
+ * `width`×`height` is the render size of the plan's output (the plan's own
+ * size for the bake, capped for the preview and histogram).
+ *
  * Shared by the live preview canvas and flattenImage's bake (PHOTO-006) so
  * the two can never render differently. Returns false (nothing drawn) only
  * if a 2d context isn't available, so callers that need to report that
@@ -36,6 +49,7 @@ export function renderAdjustedImage(
   width: number,
   height: number,
   adjustments: PhotoAdjustments,
+  plan?: GeometryPlan | null,
 ): boolean {
   // Reassigning canvas.width/height resets its backing bitmap even when set
   // to the same value it already holds — skip that on every redraw tick when
@@ -45,7 +59,8 @@ export function renderAdjustedImage(
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
   ctx.filter = cssFilterFor(adjustments)
-  ctx.drawImage(source, 0, 0, width, height)
+  if (plan && !plan.identity) drawGeometry(ctx, source, plan, width, height)
+  else ctx.drawImage(source, 0, 0, width, height)
 
   const channels = needsChannelLUTs(adjustments)
   const color = needsColorPass(adjustments)
