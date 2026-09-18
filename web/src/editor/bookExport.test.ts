@@ -49,7 +49,7 @@ describe('exportBookPDF', () => {
     // The first page uses the constructor's own format; every page after
     // calls addPage to start a new one.
     expect(addPage).toHaveBeenCalledTimes(2)
-    expect(save).toHaveBeenCalledWith('my-book.pdf')
+    expect(save).toHaveBeenCalledWith('My Book.pdf')
   })
 
   it('draws no cut marks for a print-product page — its guides are screen-only (PROD-001)', async () => {

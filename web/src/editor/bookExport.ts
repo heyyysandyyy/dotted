@@ -1,7 +1,7 @@
 import * as fabric from 'fabric'
 import type { jsPDF } from 'jspdf'
 import type { PageData } from './storage'
-import { slugify } from './exporters'
+import { sanitizeFileName } from './exporters'
 import { migrateStrokeDefaults } from './store/storeHelpers'
 
 export type BookExportScope = 'all' | 'cover' | 'spreads'
@@ -101,5 +101,5 @@ export async function exportBookPDF(
     if (typeof page.bleed === 'number') drawCutMarks(pdf, size.width, size.height, page.bleed, page.type === 'spread')
   }
 
-  pdf.save(`${slugify(name)}.pdf`)
+  pdf.save(`${sanitizeFileName(name)}.pdf`)
 }
