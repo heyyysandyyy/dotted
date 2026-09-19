@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import { cappedSize } from '../utils/geometry'
 import type { GeometryPlan, NormRect } from '../utils/geometry'
 import { CORNER_HANDLES, EDGE_HANDLES, dragCrop } from '../utils/cropDrag'
@@ -27,6 +27,9 @@ interface Props {
   /** Locked crop aspect as width ÷ height in pixels, or null for free. */
   cropAspect: number | null
   onCropChange: (crop: NormRect) => void
+  /** Anything else laid exactly over the preview, given its on-screen size
+   *  — the selection outline and drawing surface (PHOTO-011). */
+  overlay?: (size: { width: number; height: number }) => ReactNode
 }
 
 /**
@@ -38,7 +41,7 @@ interface Props {
  * CSS `object-contain`, so the crop box can be laid over exactly the pixels
  * it's cropping.
  */
-export function PhotoStage({ canvasRef, plan, cropMode, crop, cropAspect, onCropChange }: Props) {
+export function PhotoStage({ canvasRef, plan, cropMode, crop, cropAspect, onCropChange, overlay }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
 
@@ -73,6 +76,7 @@ export function PhotoStage({ canvasRef, plan, cropMode, crop, cropAspect, onCrop
           }}
           className="block"
         />
+        {!cropMode && width > 0 && overlay?.({ width, height })}
         {cropMode && width > 0 && (
           <CropOverlay
             width={width}

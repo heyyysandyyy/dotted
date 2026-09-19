@@ -3,6 +3,8 @@ import { buildChannelLUTs, applyChannelLUTs, needsChannelLUTs } from './channelL
 import { applyColorPass, needsColorPass } from './colorPass'
 import { applySpatialPass, needsSpatialPass } from './spatialPass'
 import { drawGeometry } from './warp'
+import { blendByMask, hasSelection, renderSelectionMask } from './selection'
+import type { PhotoSelection } from './selection'
 import type { GeometryPlan } from './geometry'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
@@ -38,6 +40,11 @@ import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
  * `width`×`height` is the render size of the plan's output (the plan's own
  * size for the bake, capped for the preview and histogram).
  *
+ * A selection (PHOTO-011) confines stages 1 to 4 to part of the photo: the
+ * framed original is drawn once without them, and the adjusted result is
+ * blended back over it by the selection's feathered mask. Geometry is never
+ * confined — it reframes the whole photo.
+ *
  * Shared by the live preview canvas and flattenImage's bake (PHOTO-006) so
  * the two can never render differently. Returns false (nothing drawn) only
  * if a 2d context isn't available, so callers that need to report that
@@ -58,19 +65,69 @@ export function renderAdjustedImage(
   if (canvas.height !== height) canvas.height = height
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
-  ctx.filter = cssFilterFor(adjustments)
-  if (plan && !plan.identity) drawGeometry(ctx, source, plan, width, height)
-  else ctx.drawImage(source, 0, 0, width, height)
+  const draw = (filter: string) => {
+    ctx.filter = filter
+    if (plan && !plan.identity) {
+      drawGeometry(ctx, source, plan, width, height)
+      return
+    }
+    // Cleared first: a photo with transparency would otherwise composite
+    // over the previous frame left on a reused canvas.
+    ctx.clearRect(0, 0, width, height)
+    ctx.drawImage(source, 0, 0, width, height)
+  }
 
+  const selection = adjustments.selection
+  let original: ImageData | null = null
+  let mask: Uint8ClampedArray | null = null
+  if (hasSelection(selection)) {
+    mask = plan ? cachedMask(source, plan, width, height, selection) : null
+    if (mask) {
+      draw('none')
+      original = ctx.getImageData(0, 0, width, height)
+    }
+  }
+
+  draw(cssFilterFor(adjustments))
   const channels = needsChannelLUTs(adjustments)
   const color = needsColorPass(adjustments)
   const spatial = needsSpatialPass(adjustments)
-  if (channels || color || spatial) {
+  if (channels || color || spatial || (mask && original)) {
     const imageData = ctx.getImageData(0, 0, width, height)
     if (channels) applyChannelLUTs(imageData, buildChannelLUTs(adjustments))
     if (color) applyColorPass(imageData, adjustments)
     if (spatial) applySpatialPass(imageData, adjustments)
+    if (mask && original) blendByMask(imageData, original, mask)
     ctx.putImageData(imageData, 0, 0)
   }
   return true
+}
+
+/**
+ * The selection masks for recent renders, remembered against the selection
+ * object itself. A slider drag re-renders every frame with the same selection,
+ * so each mask (polygon fill, wand pick, feather blur) is built once per
+ * selection change and render size rather than once per frame. Keyed by size
+ * and framing within a selection, because the preview and the histogram
+ * render the same selection at two sizes on every frame.
+ */
+const maskCache = new WeakMap<PhotoSelection, Map<string, { source: CanvasImageSource; mask: Uint8ClampedArray | null }>>()
+const MASKS_PER_SELECTION = 4
+
+function cachedMask(
+  source: CanvasImageSource,
+  plan: GeometryPlan,
+  width: number,
+  height: number,
+  selection: PhotoSelection,
+): Uint8ClampedArray | null {
+  const key = `${width}x${height}|${plan.sourceWidth}x${plan.sourceHeight}|${plan.toSource.join(',')}`
+  let masks = maskCache.get(selection)
+  const hit = masks?.get(key)
+  if (hit && hit.source === source) return hit.mask
+  const mask = renderSelectionMask(source, plan, width, height, selection)
+  if (!masks) maskCache.set(selection, (masks = new Map()))
+  if (masks.size >= MASKS_PER_SELECTION) masks.clear()
+  masks.set(key, { source, mask })
+  return mask
 }

@@ -642,3 +642,72 @@ describe('rotate and flip act on the displayed image (PHOTO-009)', () => {
     expect(usePhotoEditorStore.getState().cropAspect).toBeCloseTo(9 / 16)
   })
 })
+
+describe('usePhotoEditorStore — selections (PHOTO-011)', () => {
+  const box = {
+    kind: 'polygon' as const,
+    mode: 'add' as const,
+    points: [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0 },
+      { x: 0.5, y: 0.5 },
+      { x: 0, y: 0.5 },
+    ],
+  }
+  const selection = () => usePhotoEditorStore.getState().adjustments.selection
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({
+      adjustments: DEFAULT_ADJUSTMENTS,
+      ...NEUTRAL_HISTORY,
+      cropMode: false,
+      selectionTool: null,
+    })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('builds the selection from finished shapes, as undo steps', () => {
+    const s = usePhotoEditorStore.getState()
+    s.applySelectionOp(box, 'new')
+    vi.advanceTimersByTime(300)
+    s.applySelectionOp(box, 'subtract')
+    vi.advanceTimersByTime(300)
+    expect(selection().ops.map((o) => o.mode)).toEqual(['add', 'subtract'])
+    s.undo()
+    expect(selection().ops).toHaveLength(1)
+    s.undo()
+    expect(selection().ops).toHaveLength(0)
+  })
+
+  it('inverts and deselects only when something is selected', () => {
+    const s = usePhotoEditorStore.getState()
+    s.invertSelection()
+    expect(selection().inverted).toBe(false)
+    s.applySelectionOp(box, 'new')
+    s.invertSelection()
+    expect(selection().inverted).toBe(true)
+    s.setSelectionFeather(30)
+    s.clearSelection()
+    expect(selection()).toEqual({ ops: [], inverted: false, feather: 30 })
+  })
+
+  it('never runs the crop and selection tools at once', () => {
+    const s = usePhotoEditorStore.getState()
+    s.setSelectionTool('lasso')
+    s.setCropMode(true)
+    expect(usePhotoEditorStore.getState().selectionTool).toBeNull()
+    s.setSelectionTool('wand')
+    expect(usePhotoEditorStore.getState().cropMode).toBe(false)
+  })
+
+  it('keeps the tool choice and wand settings out of history', () => {
+    const s = usePhotoEditorStore.getState()
+    s.setSelectionTool('rect')
+    s.setSelectionCombine('add')
+    s.setWandTolerance(500)
+    vi.advanceTimersByTime(300)
+    expect(usePhotoEditorStore.getState().historyStack).toHaveLength(1)
+    expect(usePhotoEditorStore.getState().wandTolerance).toBe(100)
+  })
+})

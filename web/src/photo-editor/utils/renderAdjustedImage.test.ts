@@ -7,6 +7,7 @@ function fakeCanvasContext() {
   const ctx = {
     filter: '',
     drawImage: vi.fn(),
+    clearRect: vi.fn(),
     getImageData: vi.fn().mockReturnValue(imageData),
     putImageData: vi.fn(),
   }

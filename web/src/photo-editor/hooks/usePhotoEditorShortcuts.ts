@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import { isTypingTarget } from '../../lib/isTypingTarget'
 
-/** Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo, for the adjustment history (PHOTO-005).
+/** Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo, for the adjustment history (PHOTO-005);
+ *  Cmd/Ctrl+D deselect (PHOTO-011).
  *  A range/number AdjustmentSlider is an <input> too, and stays focused after a
  *  drag — treating every <input> as "typing" swallowed Cmd+Z right after using
  *  any of the five Adjustments controls (bug found manually testing PHOTO-007's
@@ -14,7 +15,15 @@ export function usePhotoEditorShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
-      if (!mod || (e.key !== 'z' && e.key !== 'Z') || isTypingTarget()) return
+      if (!mod || isTypingTarget()) return
+      // Cmd/Ctrl+D deselects (PHOTO-011) — and must beat the browser's own
+      // "bookmark this page" on the same keys.
+      if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        usePhotoEditorStore.getState().clearSelection()
+        return
+      }
+      if (e.key !== 'z' && e.key !== 'Z') return
       e.preventDefault()
       if (e.shiftKey) usePhotoEditorStore.getState().redo()
       else usePhotoEditorStore.getState().undo()

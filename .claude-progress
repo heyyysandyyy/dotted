@@ -1,53 +1,43 @@
-PHOTO-009 (geometry tools for Photo Editor) is implemented on branch
-feat/PHOTO-009-geometry-tools — check `gh pr list` before assuming it's
-merged.
+PHOTO-011 phase 1 (selections) is implemented on branch
+feat/PHOTO-011-selections — check `gh pr list` before assuming it's merged.
+PHOTO-011 stays unticked in CLAUDE.md: layer masks, the local adjustment
+brush and graduated/radial filters are still to come.
 
-What it added, and what's worth knowing before touching this area:
-- geometry.ts turns every tool into one step of a fixed chain —
-  quarter turns → flip → keystone → straighten → free rotate → crop → resize
-  — and composes their inverse maps into a single 3×3 matrix (output pixel →
-  source pixel). The renderer, the crop overlay, the histogram and the
-  Canvas port-back all read that one plan; nothing else knows the order.
-- Geometry lives in PhotoAdjustments (`adjustments.geometry`), so undo/redo
-  and the `edits` metadata stored on port-back cover it with no second
-  history. Crop mode and the locked crop ratio are store state but NOT in
-  history.
-- warp.ts: affine plans draw through the canvas transform (fast, GPU);
-  only a keystone plan goes through the per-pixel homography warp, which
-  pre-scales the source to the render's density first.
-- The 90° and flip buttons act on the *displayed* image: they remap the
-  crop, keystone, straighten and rotate so the same content stays framed.
-  usePhotoEditorStore.test.ts has invariance tests for exactly this — any
-  new display-space field needs the same treatment in rotate90/flip.
-- Port-back (projectSlice.portBackFromPhotoEditor) now takes an optional
-  `placement`. With it, the Canvas object is re-placed so the kept content
-  stays where it was on the page at the same density (a crop shrinks the
-  object, a resample keeps its size), and any Canvas-side crop window is
-  dropped. Without it (untouched geometry) nothing about the object moves,
-  exactly as before.
-- A JPEG source rotated by a non-right angle is saved as PNG so the
-  uncovered corners stay clear.
+What phase 1 added, and what's worth knowing before phase 2:
+- utils/selection.ts: a selection is the *list of operations* that built it
+  (polygons for rectangle/ellipse/lasso, seeds for wand clicks; each add or
+  subtract), plus feather and inverted — never a bitmap. Coordinates are
+  normalized *source* pixels, so the same selection rasterizes at the capped
+  preview, the 256px histogram proxy and the full bake, and stays on the same
+  part of the photo through any later PHOTO-009 geometry change.
+- renderSelectionMask rasterizes it per render: polygons through the plan's
+  forward map (exact under homographies), wand picks drawn through the same
+  drawGeometry as the photo, then feather (fraction of the shorter edge,
+  3-box blur on one channel) and invert.
+- renderAdjustedImage: with a selection it draws the framed original first
+  (no filter), renders the adjusted image as before, then blendByMask. Masks
+  are cached per selection object and render size (preview and histogram
+  both hit it every frame). Geometry is never masked.
+- `selection` lives in PhotoAdjustments, so it's in undo/redo and in the
+  `edits` saved on port-back. Tool choice, combine mode and wand settings
+  are store UI state, NOT history. Crop and selection tools are mutually
+  exclusive.
+- Combining under an inverted selection flips the op's mode, so "add"
+  still adds to what's shown (combineSelection) — keep that invariant.
+- Lasso outlines are thinned to 400 points before storing (localStorage).
+- The wand samples the original source colours, not the adjusted image.
 
-Known limitations, deliberate:
-- The crop is stored as fractions of the post-rotation frame, so moving
-  straighten/rotate/keystone *after* cropping shifts the framed content a
-  little (free rotate grows the frame, so the crop grows with it). The 90°
-  and flip buttons are exact. Worth a ticket if it bites.
-- Perspective is keystone (vertical + horizontal sliders), not free
-  four-corner dragging.
-- Pre-existing, not from this ticket: fabric logs "ctx"/"clearRect" page
-  errors when switching between Canvas and Photo Editor (CanvasStage
-  dispose); reproducible on main with no Photo Editor edits.
+Suggested phase 2: layer masks / local adjustments — let a selection (or a
+painted mask) carry its *own* adjustment values instead of scoping the one
+global set, which is what the brush and graduated/radial filters need too.
+That means a list of adjustment layers each with a mask, rendered in order;
+decide the data model before building UI.
 
-Next ticket: no auto-pickable one. What's open, each needing a decision:
-- PHOTO-011 (selection and local masking) — foundational; unlocks locally
-  scoped versions of PHOTO-008/010/012, so worth sequencing before them.
-- PHOTO-010 (retouching brushes) and PHOTO-012 (filters/presets) — both
-  better after PHOTO-011.
-- PHOTO-013 (non-destructive adjustment stack) — `edits` on the Canvas
-  object now carries geometry too, which is what re-editing would reload.
-- PROD-002 (further product families) — not yet scoped; needs a shape
-  decision past circle/rect first.
-- BOOK-001 (page templates system) — large, needs its own phasing pass.
-- BOOK-004 (print export modal) — deferred by the user pending a rethink;
-  don't resume without them re-raising it.
+Other open tickets, each needing a decision:
+- PHOTO-010 (retouching brushes) and PHOTO-012 (filters/presets) — better
+  after PHOTO-011 is complete.
+- PHOTO-013 (non-destructive adjustment stack) — `edits` now carries
+  geometry and selection too.
+- PROD-002 (further product families) — not yet scoped.
+- BOOK-001 (page templates) — large, needs its own phasing pass.
+- BOOK-004 (print export modal) — deferred by the user pending a rethink.

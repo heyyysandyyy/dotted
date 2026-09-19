@@ -76,3 +76,22 @@ describe('usePhotoEditorShortcuts (PHOTO-005)', () => {
     document.body.removeChild(number)
   })
 })
+
+describe('usePhotoEditorShortcuts — deselect (PHOTO-011)', () => {
+  it('Cmd/Ctrl+D deselects and beats the browser’s bookmark shortcut', () => {
+    const selected = {
+      ...DEFAULT_ADJUSTMENTS,
+      selection: {
+        ops: [{ kind: 'polygon' as const, mode: 'add' as const, points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }] }],
+        feather: 0,
+        inverted: false,
+      },
+    }
+    usePhotoEditorStore.setState({ adjustments: selected, historyStack: [selected], historyIndex: 0 })
+    renderHook(() => usePhotoEditorShortcuts())
+    const event = new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true, cancelable: true })
+    document.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(usePhotoEditorStore.getState().adjustments.selection.ops).toHaveLength(0)
+  })
+})
