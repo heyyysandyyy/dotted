@@ -107,6 +107,24 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     expect(img).toMatchObject({ left: 5, top: 6, width: 200, height: 150, scaleX: 1, scaleY: 1, angle: 0, cropX: 10, cropY: 12 })
   })
 
+  it('re-places the object when the edit changed its framing (PHOTO-009)', () => {
+    const edits = { ...DEFAULT_ADJUSTMENTS }
+    // The flattened image is the source's top-left 100×75, at the same density.
+    const placement = { width: 100, height: 75, sourceCenter: { x: 50, y: 37.5 }, pixelScale: { x: 1, y: 1 } }
+    const ok = useCanvasStore
+      .getState()
+      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,cropped', edits, placement)
+
+    expect(ok).toBe(true)
+    const page = useCanvasStore.getState().pages.find((p) => p.id === 'page-1')!
+    const img = (page.canvas as { objects: Array<Record<string, unknown>> }).objects.find((o) => o.id === 'img-1')!
+    // The Canvas crop window no longer applies to the new pixels; the size is the new image's own.
+    expect(img).toMatchObject({ src: 'data:image/png;base64,cropped', width: 100, height: 75, cropX: 0, cropY: 0, scaleX: 1, scaleY: 1 })
+    // Source (50, 37.5) sat 90px left and 72.5px up of the old window's centre (10+100, 12+75).
+    expect(img.left).toBeCloseTo(5 - 60)
+    expect(img.top).toBeCloseTo(6 - 49.5)
+  })
+
   it('leaves other objects and other pages completely untouched', () => {
     useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
 

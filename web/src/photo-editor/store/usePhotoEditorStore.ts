@@ -8,6 +8,8 @@ import {
   normalizeCurvePoints,
 } from '../utils/levelsCurves'
 import type { CurveChannel, CurvePoint, PhotoCurves, PhotoLevels } from '../utils/levelsCurves'
+import { DEFAULT_GEOMETRY, normalizeGeometry, sameGeometry } from '../utils/geometry'
+import type { PhotoGeometry } from '../utils/geometry'
 
 /**
  * Identifies the Canvas object an image came from, captured at the moment
@@ -49,7 +51,8 @@ export interface PhotoEditorSourceRef {
  * levels is a black/white/gamma triple, neither of which a single -100..100
  * slider can express. They ride in the same snapshot regardless, so
  * PHOTO-005's undo/redo and PHOTO-006's stored edit metadata keep covering
- * every control with no second history stack.
+ * every control with no second history stack. `geometry` (PHOTO-009's crop,
+ * rotate, flip, perspective and resize) joins them on the same terms.
  */
 export interface PhotoAdjustments {
   brightness: number
@@ -76,6 +79,7 @@ export interface PhotoAdjustments {
   grain: number
   levels: PhotoLevels
   curves: PhotoCurves
+  geometry: PhotoGeometry
 }
 
 /** The -100..100 slider-backed fields, split off the on/off ones so
@@ -120,6 +124,7 @@ export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = {
   grain: 0,
   levels: DEFAULT_LEVELS,
   curves: DEFAULT_CURVES,
+  geometry: DEFAULT_GEOMETRY,
 }
 
 /**
@@ -167,6 +172,7 @@ function sameAdjustments(a: PhotoAdjustments, b: PhotoAdjustments): boolean {
       return a.levels.black === b.levels.black && a.levels.white === b.levels.white && a.levels.gamma === b.levels.gamma
     }
     if (key === 'curves') return CURVE_CHANNELS.every((channel) => samePoints(a.curves[channel], b.curves[channel]))
+    if (key === 'geometry') return sameGeometry(a.geometry, b.geometry)
     return a[key] === b[key]
   })
 }
@@ -215,8 +221,30 @@ interface PhotoEditorState {
   setCurve: (channel: CurveChannel, points: CurvePoint[]) => void
   /** Reset one curve back to the straight-through identity. */
   resetCurve: (channel: CurveChannel) => void
+  /** Change any geometry fields (PHOTO-009), normalized into range — undoable
+   *  on the same debounced path as every other control. Reset the lot with
+   *  resetAdjustment('geometry'). */
+  setGeometry: (patch: Partial<PhotoGeometry>) => void
+  /** Turn the displayed image 90° clockwise (1) or anticlockwise (-1) —
+   *  crop and keystone included, so the same content stays framed. */
+  rotate90: (direction: 1 | -1) => void
+  /** Mirror the displayed image across its vertical ('h') or horizontal ('v')
+   *  axis — crop, keystone, straighten and rotation included. */
+  flip: (axis: 'h' | 'v') => void
+  /** Whether the crop tool is open — the preview then shows the whole frame
+   *  with the crop box over it. UI state, not an edit: never in history. */
+  cropMode: boolean
+  setCropMode: (on: boolean) => void
+  /** The crop tool's locked aspect ratio (width ÷ height), or null for free. */
+  cropAspect: number | null
+  setCropAspect: (aspect: number | null) => void
   undo: () => void
   redo: () => void
+}
+
+/** Crop-tool UI state goes back to closed/free with every new image. */
+function resetTools(): { cropMode: boolean; cropAspect: number | null } {
+  return { cropMode: false, cropAspect: null }
 }
 
 function resetHistory(): { historyStack: PhotoAdjustments[]; historyIndex: number } {
@@ -251,9 +279,13 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     historyStack: [DEFAULT_ADJUSTMENTS],
     historyIndex: 0,
 
-    setImage: (image) => set({ image, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...resetHistory() }),
+    cropMode: false,
+    cropAspect: null,
+
+    setImage: (image) =>
+      set({ image, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...resetTools(), ...resetHistory() }),
     openFromCanvas: (image, sourceRef) =>
-      set({ image, sourceRef, adjustments: DEFAULT_ADJUSTMENTS, ...resetHistory() }),
+      set({ image, sourceRef, adjustments: DEFAULT_ADJUSTMENTS, ...resetTools(), ...resetHistory() }),
 
     setAdjustment: (key, value) => commit(key, clampAdjustment(key, value)),
 
@@ -280,6 +312,46 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
       commit('curves', { ...get().adjustments.curves, [channel]: normalizeCurvePoints(points) }),
 
     resetCurve: (channel) => commit('curves', { ...get().adjustments.curves, [channel]: IDENTITY_CURVE }),
+
+    setGeometry: (patch) => commit('geometry', normalizeGeometry({ ...get().adjustments.geometry, ...patch })),
+
+    // The 90° and flip buttons act on the image as it's displayed — framing,
+    // keystone and all — not on the source underneath. The quarter turn and
+    // flip themselves run early in the pipeline (geometry.ts), so everything
+    // after them that's expressed in display terms is carried along: the
+    // crop turns or mirrors with the image (else a crop taken before a turn
+    // would suddenly frame a different part of the photo), keystone moves to
+    // whichever edges are now top/left, and a mirror reverses the direction
+    // of straighten and free rotation.
+    rotate90: (direction) => {
+      const g = get().adjustments.geometry
+      // A quarter turn made under a single mirror comes out the other way
+      // round on screen — count it backwards.
+      const mirrored = g.flipH !== g.flipV
+      const step = mirrored ? -direction : direction
+      const { x, y, w, h } = g.crop
+      const turned =
+        direction === 1
+          ? { crop: { x: 1 - y - h, y: x, w: h, h: w }, perspectiveV: g.perspectiveH, perspectiveH: -g.perspectiveV }
+          : { crop: { x: y, y: 1 - x - w, w: h, h: w }, perspectiveV: -g.perspectiveH, perspectiveH: g.perspectiveV }
+      get().setGeometry({ quarterTurns: ((g.quarterTurns + step + 4) % 4) as PhotoGeometry['quarterTurns'], ...turned })
+      const aspect = get().cropAspect
+      if (aspect !== null) set({ cropAspect: 1 / aspect })
+    },
+
+    flip: (axis) => {
+      const g = get().adjustments.geometry
+      const { x, y, w, h } = g.crop
+      const mirrored = { straighten: -g.straighten, angle: -g.angle }
+      get().setGeometry(
+        axis === 'h'
+          ? { ...mirrored, flipH: !g.flipH, perspectiveH: -g.perspectiveH, crop: { x: 1 - x - w, y, w, h } }
+          : { ...mirrored, flipV: !g.flipV, perspectiveV: -g.perspectiveV, crop: { x, y: 1 - y - h, w, h } },
+      )
+    },
+
+    setCropMode: (on) => set({ cropMode: on }),
+    setCropAspect: (aspect) => set({ cropAspect: aspect }),
 
     undo: () => {
       if (historyDebounceTimer) {

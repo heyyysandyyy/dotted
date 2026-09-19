@@ -44,8 +44,8 @@ export function PhotoEditorTopBar() {
     setSaving(true)
     setError(null)
     try {
-      const flattened = await flattenImage(image, adjustments)
-      const ok = useCanvasStore.getState().portBackFromPhotoEditor(sourceRef, flattened, adjustments)
+      const { dataUrl, placement } = await flattenImage(image, adjustments)
+      const ok = useCanvasStore.getState().portBackFromPhotoEditor(sourceRef, dataUrl, adjustments, placement)
       if (!ok) {
         setError("Couldn't find that image on Canvas anymore — it may have been deleted.")
         return

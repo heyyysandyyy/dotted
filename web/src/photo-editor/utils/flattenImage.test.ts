@@ -93,14 +93,14 @@ describe('flattenImage', () => {
     fakeImage(10, 10)
     fakeCanvasContext()
     const result = await flattenImage('data:image/png;base64,orig', DEFAULT_ADJUSTMENTS)
-    expect(result.startsWith('data:image/png')).toBe(true)
+    expect(result.dataUrl.startsWith('data:image/png')).toBe(true)
   })
 
   it('re-encodes as JPEG for a non-PNG source', async () => {
     fakeImage(10, 10)
     fakeCanvasContext()
     const result = await flattenImage('data:image/jpeg;base64,orig', DEFAULT_ADJUSTMENTS)
-    expect(result.startsWith('data:image/jpeg')).toBe(true)
+    expect(result.dataUrl.startsWith('data:image/jpeg')).toBe(true)
   })
 
   it('rejects when the image fails to load', async () => {

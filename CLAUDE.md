@@ -55,7 +55,7 @@ checklist of the *active* batch only.
 - [x] BUG-003 Zoom slider not functional in stack view (issue #128)
 - [x] BUG-004 Stack view — cover/spread pages render at inconsistent sizes (issue #129)
 - [x] BUG-005 Stack view — cover page right-aligned to spread's right edge (issue #130; back-cover mirroring left as a documented no-op — no back-cover PageType variant exists yet)
-- [ ] BUG-006 SVG export substitutes a default font for the design's Google font — embed the used faces as `@font-face` data URIs, subsetted by the characters actually typed (issue #239)
+- [x] BUG-006 SVG export substitutes a default font for the design's Google font — embed the used faces as `@font-face` data URIs, subsetted by the characters actually typed (issue #239)
 - [x] UX-020 Shadow effects (issue #113) — spread control (phase 1, #133), multiple simultaneous effects (phase 2), inner shadow via real raster compositing (phase 3)
 - [x] UX-021 Crop rotated images (issue #115)
 - [x] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
@@ -74,7 +74,7 @@ checklist of the *active* batch only.
 - [x] PHOTO-006 Flatten-on-exit + port back to Canvas — replaces the original element in place, stores edit metadata for a future non-destructive re-edit (issue #168)
 - [x] PHOTO-007 Tonal and color adjustment tools (large — shipped in three phases: tone controls (exposure, highlights, shadows), color controls (saturation/vibrance, hue shift, white balance, color balance, black & white, invert), and levels/curves (live histogram of the adjusted image, input black/white/gamma, point-based per-channel tone curves))
 - [x] PHOTO-008 Sharpen, blur and noise tools — unsharp mask sharpen (amount + radius), gaussian and motion blur (with a direction control), edge-preserving noise reduction, add grain; the first photo pass that reads a pixel's neighbours rather than mapping each one on its own (spatialPass.ts, a box-blur-approximated gaussian). Every spatial radius is a fraction of the render's shorter edge, so the capped preview, the 256px histogram proxy and the full-resolution bake all show the same look; the preview renders at a 1400px cap because a full-size blur ran to seconds per frame
-- [ ] PHOTO-009 Geometry tools for Photo Editor — crop, straighten, rotate to an arbitrary angle, flip, resize/resample, perspective correction; a separate raster pipeline from Canvas's existing crop tools (UX-009, UX-021)
+- [x] PHOTO-009 Geometry tools for Photo Editor — crop, straighten, rotate to an arbitrary angle, flip, resize/resample, perspective correction; a separate raster pipeline from Canvas's existing crop tools (UX-009, UX-021)
 - [ ] PHOTO-010 Retouching brushes (large — spot/blemish removal, clone stamp, red-eye removal, dodge/burn; liquify likely split into its own ticket given warp-mesh complexity)
 - [ ] PHOTO-011 Selection and local masking (large, foundational — marquee/lasso/magic wand selection, layer masks, graduated/radial local adjustment brush; unlocks locally-scoped versions of PHOTO-007/008/010 tools, so worth sequencing before those where possible)
 - [ ] PHOTO-012 Filters and preset effects — vignette, duotone/color grading, sepia, preset filter gallery (vintage, warm/cool looks)

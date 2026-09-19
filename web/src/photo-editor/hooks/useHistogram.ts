@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { renderAdjustedImage } from '../utils/renderAdjustedImage'
+import { cappedSize, planGeometry } from '../utils/geometry'
 import { computeHistogram, type Histogram } from '../utils/histogram'
 import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
 
@@ -35,12 +36,12 @@ export function useHistogram(image: HTMLImageElement | null, adjustments: PhotoA
     // Coalesced to one recount per frame, for the same reason the preview
     // redraw is: a slider drag fires far faster than that.
     const rafId = requestAnimationFrame(() => {
-      const longest = Math.max(image.naturalWidth, image.naturalHeight)
-      const scale = longest > SAMPLE_MAX_EDGE ? SAMPLE_MAX_EDGE / longest : 1
-      const width = Math.max(1, Math.round(image.naturalWidth * scale))
-      const height = Math.max(1, Math.round(image.naturalHeight * scale))
+      // Counted from the finished framing (PHOTO-009): what the crop cuts
+      // away isn't part of the image any more.
+      const plan = planGeometry(adjustments.geometry, image.naturalWidth, image.naturalHeight)
+      const { width, height } = cappedSize(plan, SAMPLE_MAX_EDGE)
       const canvas = (scratch.current ??= document.createElement('canvas'))
-      if (!renderAdjustedImage(canvas, image, width, height, adjustments)) return
+      if (!renderAdjustedImage(canvas, image, width, height, adjustments, plan)) return
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       setCounted({ source: image, histogram: computeHistogram(ctx.getImageData(0, 0, width, height)) })

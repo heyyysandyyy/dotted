@@ -1,43 +1,53 @@
-UX-028 (expand export dialog options) is implemented on branch
-feat/UX-028-export-dialog-options — check `gh pr list` before assuming it's
+PHOTO-009 (geometry tools for Photo Editor) is implemented on branch
+feat/PHOTO-009-geometry-tools — check `gh pr list` before assuming it's
 merged.
 
-What it changed, and what's worth knowing before touching exports again:
-- Every single-page export (PNG/JPEG/PDF/SVG) now crops to one ExportBounds
-  from exportBounds() in exporters.ts — the full artboard, or the selection's
-  box (plus its effect clones) clipped to the artboard. Rasters crop via
-  toDataURL/toCanvasElement left/top/width/height, the PDF page is sized to
-  it, SVG crops with the viewBox. All in untransformed artboard coordinates.
-- Selection-only exports hide everything else for the duration of the render
-  (withOnlySelection), including a group's other children during in-place
-  group editing. For SVG this has to stub each dropped object's own toSVG:
-  fabric's Group serializes every child regardless of excludeFromExport, a
-  hidden one just gets `visibility: hidden`. exporters.fabric.test.ts pins
-  that against real fabric (node-canvas).
-- PNG's "Transparent background" toggle defaults ON, per the ticket: the
-  background colour goes to '' and the background image is dropped for the
-  export. Off flattens onto the background colour, or white. A behaviour
-  change from the old as-is PNG — revisit the default if users trip on it.
-- Exporters now take an options object, not positional scale/quality/cutLines.
-  slugify is gone; sanitizeFileName keeps the user's case and spaces, and the
-  book PDF uses it too ("My Book.pdf", no longer "my-book.pdf").
-- A selection export carries no product cut line — that's a print-file thing.
+What it added, and what's worth knowing before touching this area:
+- geometry.ts turns every tool into one step of a fixed chain —
+  quarter turns → flip → keystone → straighten → free rotate → crop → resize
+  — and composes their inverse maps into a single 3×3 matrix (output pixel →
+  source pixel). The renderer, the crop overlay, the histogram and the
+  Canvas port-back all read that one plan; nothing else knows the order.
+- Geometry lives in PhotoAdjustments (`adjustments.geometry`), so undo/redo
+  and the `edits` metadata stored on port-back cover it with no second
+  history. Crop mode and the locked crop ratio are store state but NOT in
+  history.
+- warp.ts: affine plans draw through the canvas transform (fast, GPU);
+  only a keystone plan goes through the per-pixel homography warp, which
+  pre-scales the source to the render's density first.
+- The 90° and flip buttons act on the *displayed* image: they remap the
+  crop, keystone, straighten and rotate so the same content stays framed.
+  usePhotoEditorStore.test.ts has invariance tests for exactly this — any
+  new display-space field needs the same treatment in rotate90/flip.
+- Port-back (projectSlice.portBackFromPhotoEditor) now takes an optional
+  `placement`. With it, the Canvas object is re-placed so the kept content
+  stays where it was on the page at the same density (a crop shrinks the
+  object, a resample keeps its size), and any Canvas-side crop window is
+  dropped. Without it (untouched geometry) nothing about the object moves,
+  exactly as before.
+- A JPEG source rotated by a non-right angle is saved as PNG so the
+  uncovered corners stay clear.
 
-Bookkeeping gap on main: BUG-006 merged as #240 (issue #239 is closed) but its
-CLAUDE.md checkbox was never ticked. Tick it in the next ticket's bookkeeping
-commit.
+Known limitations, deliberate:
+- The crop is stored as fractions of the post-rotation frame, so moving
+  straighten/rotate/keystone *after* cropping shifts the framed content a
+  little (free rotate grows the frame, so the crop grows with it). The 90°
+  and flip buttons are exact. Worth a ticket if it bites.
+- Perspective is keystone (vertical + horizontal sliders), not free
+  four-corner dragging.
+- Pre-existing, not from this ticket: fabric logs "ctx"/"clearRect" page
+  errors when switching between Canvas and Photo Editor (CanvasStage
+  dispose); reproducible on main with no Photo Editor edits.
 
 Next ticket: no auto-pickable one. What's open, each needing a decision:
-- PHOTO-009 (geometry tools: crop, straighten, arbitrary rotate, flip,
-  resize/resample, perspective) — the natural next in the photo sequence. It
-  is a separate raster pipeline from Canvas's existing crop tools (UX-009,
-  UX-021), so decide up front whether the two share geometry code or stay
-  apart.
-- PHOTO-011 (selection and local masking) is foundational and unlocks locally
-  scoped versions of the PHOTO-008/010/012 tools, so it is worth sequencing
-  before those where possible — including before PHOTO-012's filters.
-- PROD-002 (further product families) — explicitly "not yet scoped". Extends
-  PROD-001's preset model past circles, so it needs a shape decision first.
+- PHOTO-011 (selection and local masking) — foundational; unlocks locally
+  scoped versions of PHOTO-008/010/012, so worth sequencing before them.
+- PHOTO-010 (retouching brushes) and PHOTO-012 (filters/presets) — both
+  better after PHOTO-011.
+- PHOTO-013 (non-destructive adjustment stack) — `edits` on the Canvas
+  object now carries geometry too, which is what re-editing would reload.
+- PROD-002 (further product families) — not yet scoped; needs a shape
+  decision past circle/rect first.
 - BOOK-001 (page templates system) — large, needs its own phasing pass.
 - BOOK-004 (print export modal) — deferred by the user pending a rethink;
   don't resume without them re-raising it.

@@ -20,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
 // button wiring, not the flatten pipeline itself (covered by
 // utils/flattenImage.test.ts).
 vi.mock('../utils/flattenImage', () => ({
-  flattenImage: vi.fn(() => Promise.resolve('data:image/png;base64,flattened')),
+  flattenImage: vi.fn(() => Promise.resolve({ dataUrl: 'data:image/png;base64,flattened', placement: null })),
 }))
 
 const REF: PhotoEditorSourceRef = {
@@ -127,7 +127,7 @@ describe('PhotoEditorTopBar — Save/Cancel (PHOTO-006)', () => {
     fireEvent.click(screen.getByText('Save'))
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: '/' }))
-    expect(portBack).toHaveBeenCalledWith(REF, 'data:image/png;base64,flattened', adjustments)
+    expect(portBack).toHaveBeenCalledWith(REF, 'data:image/png;base64,flattened', adjustments, null)
     expect(usePhotoEditorStore.getState().image).toBeNull()
   })
 
