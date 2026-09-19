@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { apply, cappedSize } from '../utils/geometry'
 import type { GeometryPlan } from '../utils/geometry'
-import { gestureOutline, renderSelectionMask, selectionEdges } from '../utils/selection'
+import { gestureOutline, renderSelectionMask, selectionEdges, simplifyPath } from '../utils/selection'
 import type { PhotoSelection, Point, SelectionOp } from '../utils/selection'
 
 /** Lasso points closer together than this are dropped as noise. */
@@ -76,7 +76,12 @@ export function SelectionLayer({
     const p = local(e)
     const how = combineFor(e, combine)
     if (tool === 'wand') {
-      onOp({ kind: 'wand', mode: 'add', seed: toSource(p), tolerance: wandTolerance, contiguous: wandContiguous }, how)
+      const seed = toSource(p)
+      // Off the photo — the clear corners a free rotation leaves — there's
+      // no colour to match; the wand would otherwise clamp to an edge pixel
+      // and pick something that was never clicked.
+      if (seed.x < 0 || seed.y < 0 || seed.x > 1 || seed.y > 1) return
+      onOp({ kind: 'wand', mode: 'add', seed, tolerance: wandTolerance, contiguous: wandContiguous }, how)
       return
     }
     surfaceRef.current?.setPointerCapture?.(e.pointerId)
@@ -107,7 +112,7 @@ export function SelectionLayer({
       if (g.combine === 'new') onDeselect()
       return
     }
-    onOp({ kind: 'polygon', mode: 'add', points: outline.map(toSource) }, g.combine)
+    onOp({ kind: 'polygon', mode: 'add', points: simplifyPath(outline).map(toSource) }, g.combine)
   }
 
   const inProgress = gesture ? gestureOutline(tool, gesture.points, true) : null

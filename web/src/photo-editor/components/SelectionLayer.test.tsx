@@ -98,6 +98,25 @@ describe('SelectionLayer (PHOTO-011)', () => {
     expect(onOp.mock.calls[0][0]).toMatchObject({ kind: 'wand', seed: { x: 0.5, y: 0.5 }, tolerance: 20, contiguous: false })
   })
 
+  it('ignores a wand click off the photo', () => {
+    const { surface, onOp } = layer('wand', { ...DEFAULT_GEOMETRY, angle: 45 })
+    // The top-left corner of a 45°-turned photo's frame is empty.
+    fireEvent.pointerDown(surface, { clientX: 1, clientY: 1, button: 0, pointerId: 1 })
+    expect(onOp).not.toHaveBeenCalled()
+  })
+
+  it('thins a very long lasso before storing it', () => {
+    const { surface, onOp } = layer('lasso')
+    const path: [number, number][] = Array.from({ length: 1200 }, (_, i) => {
+      const t = (i / 1200) * Math.PI * 2
+      return [100 + 60 * Math.cos(t) + (i % 2) * 3, 50 + 40 * Math.sin(t)]
+    })
+    drag(surface, path)
+    const pts = (onOp.mock.calls[0][0] as PolygonOp).points
+    expect(pts.length).toBeLessThanOrEqual(400)
+    expect(pts.length).toBeGreaterThan(100)
+  })
+
   it('deselects on a plain click', () => {
     const { surface, onOp, onDeselect } = layer('rect')
     drag(surface, [[30, 30], [31, 31]])

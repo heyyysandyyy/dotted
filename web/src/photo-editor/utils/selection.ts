@@ -428,3 +428,19 @@ export function gestureOutline(tool: 'rect' | 'ellipse' | 'lasso' | 'wand' | nul
   })
 }
 
+
+/** The most vertices a stored outline keeps. Every point is saved with the
+ *  edit (PHOTO-006's `edits` metadata, in localStorage), so a long freehand
+ *  lasso is thinned to this rather than stored point for point. */
+export const MAX_OUTLINE_POINTS = 400
+
+/**
+ * Thin an outline to at most MAX_OUTLINE_POINTS by keeping evenly spaced
+ * vertices (always including the first). At screen resolution a lasso that
+ * long is already far denser than the eye can follow, so the shape survives.
+ */
+export function simplifyPath(points: Point[]): Point[] {
+  if (points.length <= MAX_OUTLINE_POINTS) return points
+  const step = points.length / MAX_OUTLINE_POINTS
+  return Array.from({ length: MAX_OUTLINE_POINTS }, (_, i) => points[Math.floor(i * step)])
+}
