@@ -1,5 +1,5 @@
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
-import { usePhotoEditorStore, type NumericAdjustmentKey } from '../store/usePhotoEditorStore'
+import { selectActiveTone, usePhotoEditorStore, type NumericAdjustmentKey } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 
 /** A control's range, where it differs from the shared -100..100. Mirrors
@@ -42,7 +42,9 @@ const NOISE: SliderSpec[] = [
  * control too.
  */
 export function DetailPanel() {
-  const adjustments = usePhotoEditorStore((s) => s.adjustments)
+  // The active target's settings: the base image's, or the adjustment
+  // layer being edited (PHOTO-011 phase 2).
+  const adjustments = usePhotoEditorStore(selectActiveTone)
   const setAdjustment = usePhotoEditorStore((s) => s.setAdjustment)
   const resetAdjustment = usePhotoEditorStore((s) => s.resetAdjustment)
 

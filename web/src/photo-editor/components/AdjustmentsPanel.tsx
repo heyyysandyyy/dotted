@@ -1,5 +1,5 @@
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
-import { usePhotoEditorStore, type NumericAdjustmentKey } from '../store/usePhotoEditorStore'
+import { selectActiveTone, usePhotoEditorStore, type NumericAdjustmentKey } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 
 /** Field/label pairs, in display order — the single place a further tonal
@@ -18,7 +18,9 @@ const CONTROLS: { key: NumericAdjustmentKey; label: string }[] = [
  *  of that set lives in its own panels: LevelsPanel and CurvesPanel (the
  *  histogram-backed controls) and ColorPanel (the colour half). */
 export function AdjustmentsPanel() {
-  const adjustments = usePhotoEditorStore((s) => s.adjustments)
+  // The active target's settings: the base image's, or the adjustment
+  // layer being edited (PHOTO-011 phase 2).
+  const adjustments = usePhotoEditorStore(selectActiveTone)
   const setAdjustment = usePhotoEditorStore((s) => s.setAdjustment)
   const resetAdjustment = usePhotoEditorStore((s) => s.resetAdjustment)
 

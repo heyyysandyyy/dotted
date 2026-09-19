@@ -3,7 +3,7 @@ import { RotateCcw } from 'lucide-react'
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
 import { CurveEditor } from './CurveEditor'
 import { isIdentityCurve, CURVE_CHANNELS, type CurveChannel } from '../utils/levelsCurves'
-import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
+import { selectActiveTone, usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import type { Histogram as HistogramData } from '../utils/histogram'
 
 const CHANNEL_LABELS: Record<CurveChannel, string> = {
@@ -28,7 +28,7 @@ interface Props {
  * stay live regardless of which one is on screen.
  */
 export function CurvesPanel({ histogram }: Props) {
-  const curves = usePhotoEditorStore((s) => s.adjustments.curves)
+  const curves = usePhotoEditorStore((s) => selectActiveTone(s).curves)
   const setCurve = usePhotoEditorStore((s) => s.setCurve)
   const resetCurve = usePhotoEditorStore((s) => s.resetCurve)
   const [channel, setChannel] = useState<CurveChannel>('rgb')
