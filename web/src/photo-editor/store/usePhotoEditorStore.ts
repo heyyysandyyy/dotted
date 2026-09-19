@@ -10,6 +10,8 @@ import {
 import type { CurveChannel, CurvePoint, PhotoCurves, PhotoLevels } from '../utils/levelsCurves'
 import { DEFAULT_GEOMETRY, normalizeGeometry, sameGeometry } from '../utils/geometry'
 import type { PhotoGeometry } from '../utils/geometry'
+import { EMPTY_SELECTION, combineSelection, hasSelection, normalizeSelection, sameSelection } from '../utils/selection'
+import type { PhotoSelection, SelectionOp } from '../utils/selection'
 
 /**
  * Identifies the Canvas object an image came from, captured at the moment
@@ -52,7 +54,9 @@ export interface PhotoEditorSourceRef {
  * slider can express. They ride in the same snapshot regardless, so
  * PHOTO-005's undo/redo and PHOTO-006's stored edit metadata keep covering
  * every control with no second history stack. `geometry` (PHOTO-009's crop,
- * rotate, flip, perspective and resize) joins them on the same terms.
+ * rotate, flip, perspective and resize) joins them on the same terms, and so
+ * does `selection` (PHOTO-011) — making or changing a selection is an undo
+ * step, and the selection the adjustments were confined to is saved with them.
  */
 export interface PhotoAdjustments {
   brightness: number
@@ -80,6 +84,7 @@ export interface PhotoAdjustments {
   levels: PhotoLevels
   curves: PhotoCurves
   geometry: PhotoGeometry
+  selection: PhotoSelection
 }
 
 /** The -100..100 slider-backed fields, split off the on/off ones so
@@ -125,6 +130,7 @@ export const DEFAULT_ADJUSTMENTS: PhotoAdjustments = {
   levels: DEFAULT_LEVELS,
   curves: DEFAULT_CURVES,
   geometry: DEFAULT_GEOMETRY,
+  selection: EMPTY_SELECTION,
 }
 
 /**
@@ -173,6 +179,7 @@ function sameAdjustments(a: PhotoAdjustments, b: PhotoAdjustments): boolean {
     }
     if (key === 'curves') return CURVE_CHANNELS.every((channel) => samePoints(a.curves[channel], b.curves[channel]))
     if (key === 'geometry') return sameGeometry(a.geometry, b.geometry)
+    if (key === 'selection') return sameSelection(a.selection, b.selection)
     return a[key] === b[key]
   })
 }
@@ -189,6 +196,12 @@ function sameAdjustments(a: PhotoAdjustments, b: PhotoAdjustments): boolean {
  * linear stack of adjustment snapshots, session-scoped only (reset whenever
  * a new image loads, same as the adjustments themselves).
  */
+export type SelectionTool = 'rect' | 'ellipse' | 'lasso' | 'wand'
+export type SelectionCombine = 'new' | 'add' | 'subtract'
+
+/** The wand's default reach: a colour within about an eighth of the range. */
+export const DEFAULT_WAND_TOLERANCE = 12
+
 interface PhotoEditorState {
   /** The loaded image, as a data URL — null means the empty state shows. */
   image: string | null
@@ -238,13 +251,40 @@ interface PhotoEditorState {
   /** The crop tool's locked aspect ratio (width ÷ height), or null for free. */
   cropAspect: number | null
   setCropAspect: (aspect: number | null) => void
+  /** Add a finished marquee/lasso/wand operation to the selection
+   *  (PHOTO-011): 'new' replaces it, 'add'/'subtract' combine with it. */
+  applySelectionOp: (op: SelectionOp, combine: SelectionCombine) => void
+  setSelectionFeather: (feather: number) => void
+  invertSelection: () => void
+  /** Deselect — adjustments go back to applying to the whole photo. */
+  clearSelection: () => void
+  /** The selection tool drawing on the preview, if any. UI state, not an
+   *  edit: never in history. Mutually exclusive with the crop tool. */
+  selectionTool: SelectionTool | null
+  setSelectionTool: (tool: SelectionTool | null) => void
+  /** How the next finished shape combines with the selection. */
+  selectionCombine: SelectionCombine
+  setSelectionCombine: (combine: SelectionCombine) => void
+  /** The magic wand's settings for its next click. */
+  wandTolerance: number
+  wandContiguous: boolean
+  setWandTolerance: (tolerance: number) => void
+  setWandContiguous: (contiguous: boolean) => void
   undo: () => void
   redo: () => void
 }
 
-/** Crop-tool UI state goes back to closed/free with every new image. */
-function resetTools(): { cropMode: boolean; cropAspect: number | null } {
-  return { cropMode: false, cropAspect: null }
+/** Crop- and selection-tool UI state goes back to closed/defaults with
+ *  every new image. */
+function resetTools() {
+  return {
+    cropMode: false,
+    cropAspect: null,
+    selectionTool: null,
+    selectionCombine: 'new' as SelectionCombine,
+    wandTolerance: DEFAULT_WAND_TOLERANCE,
+    wandContiguous: true,
+  }
 }
 
 function resetHistory(): { historyStack: PhotoAdjustments[]; historyIndex: number } {
@@ -279,8 +319,7 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     historyStack: [DEFAULT_ADJUSTMENTS],
     historyIndex: 0,
 
-    cropMode: false,
-    cropAspect: null,
+    ...resetTools(),
 
     setImage: (image) =>
       set({ image, sourceRef: null, adjustments: DEFAULT_ADJUSTMENTS, ...resetTools(), ...resetHistory() }),
@@ -350,8 +389,29 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
       )
     },
 
-    setCropMode: (on) => set({ cropMode: on }),
+    // Cropping shows the uncropped frame, where a selection drawn on screen
+    // would be measured against the wrong picture — the two tools never run
+    // at once.
+    setCropMode: (on) => set(on ? { cropMode: true, selectionTool: null } : { cropMode: false }),
     setCropAspect: (aspect) => set({ cropAspect: aspect }),
+
+    applySelectionOp: (op, combine) =>
+      commit('selection', normalizeSelection(combineSelection(get().adjustments.selection, op, combine))),
+    setSelectionFeather: (feather) =>
+      commit('selection', normalizeSelection({ ...get().adjustments.selection, feather })),
+    invertSelection: () => {
+      const s = get().adjustments.selection
+      if (!hasSelection(s)) return
+      commit('selection', { ...s, inverted: !s.inverted })
+    },
+    clearSelection: () => {
+      if (!hasSelection(get().adjustments.selection)) return
+      commit('selection', { ...EMPTY_SELECTION, feather: get().adjustments.selection.feather })
+    },
+    setSelectionTool: (tool) => set(tool ? { selectionTool: tool, cropMode: false } : { selectionTool: null }),
+    setSelectionCombine: (combine) => set({ selectionCombine: combine }),
+    setWandTolerance: (tolerance) => set({ wandTolerance: Math.max(0, Math.min(100, tolerance)) }),
+    setWandContiguous: (contiguous) => set({ wandContiguous: contiguous }),
 
     undo: () => {
       if (historyDebounceTimer) {
