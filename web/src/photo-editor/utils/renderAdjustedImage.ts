@@ -124,13 +124,20 @@ function applyPixelPasses(imageData: ImageData, tone: ToneAdjustments): void {
 }
 
 /** Two reusable off-screen canvases for the CSS-filter step of a masked or
- *  layered render — allocated once, not once per frame. */
+ *  layered render — allocated once, not once per frame, for the renders that
+ *  repeat every frame (the capped preview, the histogram proxy). */
 const scratch: HTMLCanvasElement[] = []
-function scratchContext(i: number, width: number, height: number): CanvasRenderingContext2D | null {
-  const canvas = (scratch[i] ??= document.createElement('canvas'))
+/** Above this many pixels (a full-size bake, not a preview) the scratch
+ *  canvases are one-off: keeping a full-resolution pair alive for the rest of
+ *  the session would hold tens of megabytes for a render that happens once. */
+const REUSE_SCRATCH_MAX_PIXELS = 2_500_000
+
+function scratchCanvas(i: number, width: number, height: number): HTMLCanvasElement {
+  const reuse = width * height <= REUSE_SCRATCH_MAX_PIXELS
+  const canvas = reuse ? (scratch[i] ??= document.createElement('canvas')) : document.createElement('canvas')
   if (canvas.width !== width) canvas.width = width
   if (canvas.height !== height) canvas.height = height
-  return canvas.getContext('2d')
+  return canvas
 }
 
 /**
@@ -148,22 +155,23 @@ function applyTone(
   if (isNeutralTone(tone)) return input
   const { width, height } = input
   let out: ImageData | null = null
+  const toCanvas = scratchCanvas(1, width, height)
+  const to = toCanvas.getContext('2d')
+  if (!to) return input
   if (tone.brightness !== 0 || tone.contrast !== 0) {
-    const from = scratchContext(0, width, height)
-    const to = scratchContext(1, width, height)
-    if (from && to) {
+    const fromCanvas = scratchCanvas(0, width, height)
+    const from = fromCanvas.getContext('2d')
+    if (from) {
       from.putImageData(input, 0, 0)
       to.clearRect(0, 0, width, height)
       to.filter = cssFilterFor(tone)
-      to.drawImage(scratch[0], 0, 0)
+      to.drawImage(fromCanvas, 0, 0)
       to.filter = 'none'
       out = to.getImageData(0, 0, width, height)
     }
   }
   if (!out) {
-    const ctx = scratchContext(1, width, height)
-    if (!ctx) return input
-    out = ctx.createImageData(width, height)
+    out = to.createImageData(width, height)
     out.data.set(input.data)
   }
   applyPixelPasses(out, tone)
