@@ -6,7 +6,8 @@ import { drawGeometry } from './warp'
 import { blendByMask, hasSelection, renderSelectionMask } from './selection'
 import type { PhotoSelection } from './selection'
 import type { GeometryPlan } from './geometry'
-import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
+import { isNeutralTone } from '../store/usePhotoEditorStore'
+import type { PhotoAdjustments, ToneAdjustments } from '../store/usePhotoEditorStore'
 
 /**
  * Draws `source` onto `canvas` at (width, height) with every adjustment
@@ -42,8 +43,10 @@ import type { PhotoAdjustments } from '../store/usePhotoEditorStore'
  *
  * A selection (PHOTO-011) confines stages 1 to 4 to part of the photo: the
  * framed original is drawn once without them, and the adjusted result is
- * blended back over it by the selection's feathered mask. Geometry is never
- * confined — it reframes the whole photo.
+ * blended back over it by the selection's feathered mask. Adjustment layers
+ * (PHOTO-011 phase 2) then repeat stages 1 to 4 with their own settings, each
+ * on the result so far, inside its own mask and at its own opacity. Geometry
+ * is never confined — it reframes the whole photo.
  *
  * Shared by the live preview canvas and flattenImage's bake (PHOTO-006) so
  * the two can never render differently. Returns false (nothing drawn) only
@@ -77,30 +80,114 @@ export function renderAdjustedImage(
     ctx.drawImage(source, 0, 0, width, height)
   }
 
-  const selection = adjustments.selection
-  let original: ImageData | null = null
-  let mask: Uint8ClampedArray | null = null
-  if (hasSelection(selection)) {
-    mask = plan ? cachedMask(source, plan, width, height, selection) : null
-    if (mask) {
-      draw('none')
-      original = ctx.getImageData(0, 0, width, height)
+  const layers = adjustments.layers.filter((l) => l.visible && l.opacity > 0 && !isNeutralTone(l.adjustments))
+  const baseMask =
+    plan && hasSelection(adjustments.selection) ? cachedMask(source, plan, width, height, adjustments.selection) : null
+
+  // The common case — no selection, no layers: one filtered draw and, only
+  // when a per-pixel control is touched, one getImageData round trip.
+  if (!baseMask && layers.length === 0) {
+    draw(cssFilterFor(adjustments))
+    if (needsPixelPasses(adjustments)) {
+      const imageData = ctx.getImageData(0, 0, width, height)
+      applyPixelPasses(imageData, adjustments)
+      ctx.putImageData(imageData, 0, 0)
     }
+    return true
   }
 
-  draw(cssFilterFor(adjustments))
-  const channels = needsChannelLUTs(adjustments)
-  const color = needsColorPass(adjustments)
-  const spatial = needsSpatialPass(adjustments)
-  if (channels || color || spatial || (mask && original)) {
-    const imageData = ctx.getImageData(0, 0, width, height)
-    if (channels) applyChannelLUTs(imageData, buildChannelLUTs(adjustments))
-    if (color) applyColorPass(imageData, adjustments)
-    if (spatial) applySpatialPass(imageData, adjustments)
-    if (mask && original) blendByMask(imageData, original, mask)
-    ctx.putImageData(imageData, 0, 0)
+  // Confined or layered (PHOTO-011): work from the framed original's pixels.
+  // The base settings apply first, inside the base selection; then each
+  // visible layer applies to the result so far, inside its own mask and at
+  // its own opacity, in stack order.
+  draw('none')
+  let current = applyTone(ctx.getImageData(0, 0, width, height), adjustments, baseMask, 100)
+  for (const layer of layers) {
+    const masked = hasSelection(layer.selection)
+    const mask = masked && plan ? cachedMask(source, plan, width, height, layer.selection) : null
+    // A mask that can't be built must not turn into "the whole photo".
+    if (masked && !mask) continue
+    current = applyTone(current, layer.adjustments, mask, layer.opacity)
   }
+  ctx.putImageData(current, 0, 0)
   return true
+}
+
+function needsPixelPasses(tone: ToneAdjustments): boolean {
+  return needsChannelLUTs(tone) || needsColorPass(tone) || needsSpatialPass(tone)
+}
+
+function applyPixelPasses(imageData: ImageData, tone: ToneAdjustments): void {
+  if (needsChannelLUTs(tone)) applyChannelLUTs(imageData, buildChannelLUTs(tone))
+  if (needsColorPass(tone)) applyColorPass(imageData, tone)
+  if (needsSpatialPass(tone)) applySpatialPass(imageData, tone)
+}
+
+/** Two reusable off-screen canvases for the CSS-filter step of a masked or
+ *  layered render — allocated once, not once per frame, for the renders that
+ *  repeat every frame (the capped preview, the histogram proxy). */
+const scratch: HTMLCanvasElement[] = []
+/** Above this many pixels (a full-size bake, not a preview) the scratch
+ *  canvases are one-off: keeping a full-resolution pair alive for the rest of
+ *  the session would hold tens of megabytes for a render that happens once. */
+const REUSE_SCRATCH_MAX_PIXELS = 2_500_000
+
+function scratchCanvas(i: number, width: number, height: number): HTMLCanvasElement {
+  const reuse = width * height <= REUSE_SCRATCH_MAX_PIXELS
+  const canvas = reuse ? (scratch[i] ??= document.createElement('canvas')) : document.createElement('canvas')
+  if (canvas.width !== width) canvas.width = width
+  if (canvas.height !== height) canvas.height = height
+  return canvas
+}
+
+/**
+ * One tone set applied to `input`, returned as new pixels: brightness and
+ * contrast through the CSS filter (drawn between two scratch canvases, since
+ * a filter only applies to a draw), then the per-pixel passes, then blended
+ * back towards `input` by the mask and opacity. `input` is left untouched.
+ */
+function applyTone(
+  input: ImageData,
+  tone: ToneAdjustments,
+  mask: Uint8ClampedArray | null,
+  opacity: number,
+): ImageData {
+  if (isNeutralTone(tone)) return input
+  const { width, height } = input
+  let out: ImageData | null = null
+  const toCanvas = scratchCanvas(1, width, height)
+  const to = toCanvas.getContext('2d')
+  if (!to) return input
+  if (tone.brightness !== 0 || tone.contrast !== 0) {
+    const fromCanvas = scratchCanvas(0, width, height)
+    const from = fromCanvas.getContext('2d')
+    if (from) {
+      from.putImageData(input, 0, 0)
+      to.clearRect(0, 0, width, height)
+      to.filter = cssFilterFor(tone)
+      to.drawImage(fromCanvas, 0, 0)
+      to.filter = 'none'
+      out = to.getImageData(0, 0, width, height)
+    }
+  }
+  if (!out) {
+    out = to.createImageData(width, height)
+    out.data.set(input.data)
+  }
+  applyPixelPasses(out, tone)
+  const coverage = coverageFor(mask, opacity, width * height)
+  if (coverage) blendByMask(out, input, coverage)
+  return out
+}
+
+/** The mask scaled by opacity (0..100) — null when that's full coverage. */
+function coverageFor(mask: Uint8ClampedArray | null, opacity: number, length: number): Uint8ClampedArray | null {
+  if (opacity >= 100) return mask
+  const k = Math.max(0, opacity) / 100
+  if (!mask) return new Uint8ClampedArray(length).fill(Math.round(255 * k))
+  const scaled = new Uint8ClampedArray(mask.length)
+  for (let i = 0; i < mask.length; i++) scaled[i] = mask[i] * k
+  return scaled
 }
 
 /**

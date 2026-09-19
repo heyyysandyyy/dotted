@@ -711,3 +711,106 @@ describe('usePhotoEditorStore — selections (PHOTO-011)', () => {
     expect(usePhotoEditorStore.getState().wandTolerance).toBe(100)
   })
 })
+
+describe('usePhotoEditorStore — adjustment layers (PHOTO-011 phase 2)', () => {
+  const mask = {
+    kind: 'polygon' as const,
+    mode: 'add' as const,
+    points: [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0 },
+      { x: 0.5, y: 0.5 },
+    ],
+  }
+  const state = () => usePhotoEditorStore.getState()
+  const layers = () => state().adjustments.layers
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    usePhotoEditorStore.setState({ adjustments: DEFAULT_ADJUSTMENTS, ...NEUTRAL_HISTORY, activeLayerId: null })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('adds a layer on top, makes it the target, and moves the base selection into it', () => {
+    state().applySelectionOp(mask, 'new')
+    state().addLayer()
+    expect(layers()).toHaveLength(1)
+    expect(layers()[0]).toMatchObject({ name: 'Layer 1', visible: true, opacity: 100 })
+    expect(layers()[0].selection.ops).toHaveLength(1)
+    expect(state().adjustments.selection.ops).toHaveLength(0)
+    expect(state().activeLayerId).toBe(layers()[0].id)
+  })
+
+  it('routes the tone setters and the selection tools to the active layer', () => {
+    state().addLayer()
+    state().setAdjustment('brightness', 40)
+    state().setToggle('invert', true)
+    state().setLevel('gamma', 1.5)
+    state().setCurve('rgb', [{ x: 0, y: 0 }, { x: 128, y: 180 }, { x: 255, y: 255 }])
+    state().applySelectionOp(mask, 'new')
+    const l = layers()[0]
+    expect(l.adjustments).toMatchObject({ brightness: 40, invert: true, levels: { gamma: 1.5 } })
+    expect(l.adjustments.curves.rgb).toHaveLength(3)
+    expect(l.selection.ops).toHaveLength(1)
+    // The base is untouched.
+    expect(state().adjustments.brightness).toBe(0)
+    expect(state().adjustments.invert).toBe(false)
+    expect(state().adjustments.selection.ops).toHaveLength(0)
+
+    state().selectLayer(null)
+    state().setAdjustment('brightness', -10)
+    expect(state().adjustments.brightness).toBe(-10)
+    expect(layers()[0].adjustments.brightness).toBe(40)
+  })
+
+  it('resets a tone field on the target but geometry on the photo', () => {
+    state().addLayer()
+    state().setAdjustment('contrast', 30)
+    state().setGeometry({ angle: 10 })
+    state().resetAdjustment('contrast')
+    state().resetAdjustment('geometry')
+    expect(layers()[0].adjustments.contrast).toBe(0)
+    expect(state().adjustments.geometry.angle).toBe(0)
+  })
+
+  it('makes adding and changing a layer undoable, falling back to the base when the layer goes', () => {
+    state().addLayer()
+    vi.advanceTimersByTime(300)
+    state().setAdjustment('saturation', 50)
+    vi.advanceTimersByTime(300)
+    state().undo()
+    expect(layers()[0].adjustments.saturation).toBe(0)
+    state().undo()
+    expect(layers()).toHaveLength(0)
+    // The active id now points at nothing: edits land on the base.
+    state().setAdjustment('saturation', 20)
+    expect(state().adjustments.saturation).toBe(20)
+  })
+
+  it('deletes, hides, fades, renames and reorders layers', () => {
+    state().addLayer()
+    state().addLayer()
+    const [a, b] = layers()
+    expect(b.name).toBe('Layer 2')
+    state().setLayerVisible(a.id, false)
+    state().setLayerOpacity(a.id, 250)
+    state().renameLayer(a.id, '  Sky  ')
+    state().renameLayer(a.id, '   ')
+    expect(layers()[0]).toMatchObject({ visible: false, opacity: 100, name: 'Sky' })
+    state().moveLayer(a.id, 1)
+    expect(layers().map((l) => l.id)).toEqual([b.id, a.id])
+    state().moveLayer(a.id, 1)
+    expect(layers().map((l) => l.id)).toEqual([b.id, a.id])
+    state().selectLayer(a.id)
+    state().deleteLayer(a.id)
+    expect(layers().map((l) => l.id)).toEqual([b.id])
+    expect(state().activeLayerId).toBeNull()
+  })
+
+  it('starts each new image on the base with no layers', () => {
+    state().addLayer()
+    state().setImage('data:image/png;base64,next')
+    expect(state().activeLayerId).toBeNull()
+    expect(layers()).toHaveLength(0)
+  })
+})

@@ -1,7 +1,7 @@
 import { Circle, Lasso, Square, WandSparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
-import { DEFAULT_WAND_TOLERANCE, usePhotoEditorStore } from '../store/usePhotoEditorStore'
+import { DEFAULT_WAND_TOLERANCE, activeLayer, selectActiveSelection, usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import type { SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import { hasSelection } from '../utils/selection'
@@ -38,7 +38,9 @@ const chip = (active: boolean) =>
  * those is an undo step; which tool is active is not.
  */
 export function SelectionPanel() {
-  const selection = usePhotoEditorStore((s) => s.adjustments.selection)
+  // The base selection, or the active adjustment layer's mask (phase 2).
+  const selection = usePhotoEditorStore(selectActiveSelection)
+  const layerName = usePhotoEditorStore((s) => activeLayer(s)?.name ?? null)
   const tool = usePhotoEditorStore((s) => s.selectionTool)
   const setTool = usePhotoEditorStore((s) => s.setSelectionTool)
   const combine = usePhotoEditorStore((s) => s.selectionCombine)
@@ -133,10 +135,18 @@ export function SelectionPanel() {
         </button>
       </div>
 
-      {selected && (
+      {layerName ? (
         <p className="text-[11px] leading-snug text-indigo-400">
-          Adjustments below apply only inside the selection.
+          {selected
+            ? `This is ${layerName}'s mask: the layer applies only inside it.`
+            : `${layerName} has no mask, so it applies to the whole photo. Select an area to mask it.`}
         </p>
+      ) : (
+        selected && (
+          <p className="text-[11px] leading-snug text-indigo-400">
+            Adjustments below apply only inside the selection.
+          </p>
+        )
       )}
     </CollapsibleSection>
   )
