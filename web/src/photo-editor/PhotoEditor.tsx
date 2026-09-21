@@ -56,6 +56,7 @@ export function PhotoEditor() {
   const brushSize = usePhotoEditorStore((s) => s.brushSize)
   const brushHardness = usePhotoEditorStore((s) => s.brushHardness)
   const gradientShape = usePhotoEditorStore((s) => s.gradientShape)
+  const showMask = usePhotoEditorStore((s) => s.showMask)
   const applySelectionOp = usePhotoEditorStore((s) => s.applySelectionOp)
   const clearSelection = usePhotoEditorStore((s) => s.clearSelection)
   const activeSelection = usePhotoEditorStore(selectActiveSelection)
@@ -109,6 +110,7 @@ export function PhotoEditor() {
                     brushSize={brushSize}
                     brushHardness={brushHardness}
                     gradientShape={gradientShape}
+                    showMask={showMask}
                     onOp={applySelectionOp}
                     onDeselect={clearSelection}
                   />
@@ -122,6 +124,7 @@ export function PhotoEditor() {
             {plan && <GeometryPanel plan={plan} />}
             <LayersPanel />
             <SelectionPanel />
+            <div id="photo-adjust-anchor" />
             <AdjustmentsPanel />
             <LevelsPanel histogram={histogram} />
             <CurvesPanel histogram={histogram} />

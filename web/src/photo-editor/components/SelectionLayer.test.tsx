@@ -43,6 +43,7 @@ function layer(tool: SelectionTool, geometry = DEFAULT_GEOMETRY, extra: { gradie
       brushSize={25}
       brushHardness={50}
       gradientShape={extra.gradientShape ?? 'linear'}
+      showMask={false}
         onOp={onOp}
         onDeselect={onDeselect}
       />

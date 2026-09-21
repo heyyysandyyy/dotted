@@ -377,6 +377,10 @@ interface PhotoEditorState {
   /** Whether the gradient tool draws a graduated (linear) or radial mask. */
   gradientShape: GradientShape
   setGradientShape: (shape: GradientShape) => void
+  /** Tint the selected area on the preview, so a mask can be seen rather
+   *  than guessed at from its outline. */
+  showMask: boolean
+  setShowMask: (show: boolean) => void
   undo: () => void
   redo: () => void
 }
@@ -394,6 +398,7 @@ function resetTools() {
     brushSize: DEFAULT_BRUSH_SIZE,
     brushHardness: DEFAULT_BRUSH_HARDNESS,
     gradientShape: 'linear' as GradientShape,
+    showMask: true,
     activeLayerId: null,
   }
 }
@@ -608,6 +613,7 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     setBrushSize: (size) => set({ brushSize: Math.max(1, Math.min(100, size)) }),
     setBrushHardness: (hardness) => set({ brushHardness: Math.max(0, Math.min(100, hardness)) }),
     setGradientShape: (shape) => set({ gradientShape: shape }),
+    setShowMask: (show) => set({ showMask: show }),
 
     undo: () => {
       if (historyDebounceTimer) {

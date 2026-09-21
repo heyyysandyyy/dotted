@@ -23,9 +23,41 @@ describe('SelectionPanel (PHOTO-011)', () => {
       selectionTool: null,
       selectionCombine: 'new',
       cropMode: false,
+      activeLayerId: null,
+      showMask: true,
     })
   })
   afterEach(() => vi.useRealTimers())
+
+  it('walks through the steps as the selection is made', () => {
+    const { rerender } = render(<SelectionPanel />)
+    expect(screen.getByText(/Pick a tool above/)).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Rectangle marquee'))
+    rerender(<SelectionPanel />)
+    expect(screen.getByText(/Drag on.*the photo/)).toBeTruthy()
+    usePhotoEditorStore.getState().applySelectionOp(BOX, 'new')
+    rerender(<SelectionPanel />)
+    expect(screen.getByText(/Move any slider below/)).toBeTruthy()
+  })
+
+  it('turns the selection into its own layer in one click', () => {
+    usePhotoEditorStore.getState().applySelectionOp(BOX, 'new')
+    render(<SelectionPanel />)
+    fireEvent.click(screen.getByText('Adjust this area separately'))
+    const { adjustments, activeLayerId } = usePhotoEditorStore.getState()
+    expect(adjustments.layers).toHaveLength(1)
+    expect(activeLayerId).toBe(adjustments.layers[0].id)
+    // The mask moved onto the layer, so the base isn't adjusted too.
+    expect(adjustments.layers[0].selection.ops).toHaveLength(1)
+    expect(adjustments.selection.ops).toHaveLength(0)
+  })
+
+  it('toggles the mask tint', () => {
+    render(<SelectionPanel />)
+    expect(usePhotoEditorStore.getState().showMask).toBe(true)
+    fireEvent.click(screen.getByLabelText('Show mask'))
+    expect(usePhotoEditorStore.getState().showMask).toBe(false)
+  })
 
   it('picks a tool, and picking it again puts it down', () => {
     render(<SelectionPanel />)
