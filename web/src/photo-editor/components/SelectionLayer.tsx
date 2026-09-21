@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { apply, cappedSize } from '../utils/geometry'
+import { apply, cappedSize, invert } from '../utils/geometry'
 import type { GeometryPlan } from '../utils/geometry'
 import { brushRadius, gestureOutline, renderSelectionMask, selectionEdges, simplifyPath } from '../utils/selection'
 import type { PhotoSelection, Point, SelectionOp } from '../utils/selection'
@@ -10,12 +10,19 @@ const LASSO_STEP_PX = 2
 /** A drag shorter than this is a click, not a shape. */
 const CLICK_PX = 3
 
-/** The brush's on-screen width, so the preview line matches what it paints:
- *  the stored radius is a fraction of the source's shorter edge. */
-function brushStrokeWidth(size: number, width: number, height: number, plan: GeometryPlan): number {
+/**
+ * The brush's on-screen width, so the preview line matches what it paints.
+ * The stored radius is a fraction of the source's shorter edge, so the
+ * screen width has to come from the plan's own source→output scale (the
+ * matrix, not the output size: a crop changes the size without scaling
+ * anything) times the preview's on-screen scale.
+ */
+function brushStrokeWidth(size: number, width: number, plan: GeometryPlan): number {
+  const m = invert(plan.toSource)
+  const outputPerSource = Math.sqrt(Math.abs(m[0] * m[4] - m[1] * m[3])) || 1
+  const screenPerOutput = width / plan.width
   const shortSource = Math.min(plan.sourceWidth, plan.sourceHeight)
-  const perSource = Math.min(width / plan.width, height / plan.height) * (plan.width / plan.sourceWidth)
-  return Math.max(2, brushRadius(size) * shortSource * perSource * 2)
+  return Math.max(2, brushRadius(size) * shortSource * outputPerSource * screenPerOutput * 2)
 }
 import { PREVIEW_MAX_EDGE } from '../hooks/useAdjustedPreviewCanvas'
 import type { GradientShape, SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
@@ -131,7 +138,11 @@ export function SelectionLayer({
           radius: brushRadius(brushSize),
           hardness: brushHardness,
         },
-        g.combine,
+        // Paint builds up: a stroke adds to the mask (or erases with Alt),
+        // never replaces it, whatever the combine mode says. Replacing would
+        // wipe the previous stroke every time the pointer went down, which
+        // is no use for painting a mask.
+        g.combine === 'subtract' ? 'subtract' : 'add',
       )
       return
     }
@@ -178,7 +189,7 @@ export function SelectionLayer({
                 points={brushPath.map((p) => `${p.x},${p.y}`).join(' ')}
                 fill="none"
                 stroke="rgba(255,255,255,0.75)"
-                strokeWidth={brushStrokeWidth(brushSize, width, height, plan)}
+                strokeWidth={brushStrokeWidth(brushSize, width, plan)}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />

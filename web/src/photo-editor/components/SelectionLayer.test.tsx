@@ -126,12 +126,20 @@ describe('SelectionLayer (PHOTO-011)', () => {
     const [op, combine] = onOp.mock.calls[0]
     const stroke = op as StrokeOp
     expect(stroke.kind).toBe('stroke')
-    expect(combine).toBe('new')
+    expect(combine).toBe('add')
     expect(stroke.hardness).toBe(50)
     expect(stroke.radius).toBeCloseTo(0.05) // brush size 25 of a 20% maximum
     expect(stroke.points.length).toBeGreaterThanOrEqual(3)
     expect(stroke.points[0].x).toBeCloseTo(0.1)
     expect(stroke.points[0].y).toBeCloseTo(0.1)
+  })
+
+  it('builds strokes up instead of replacing, whatever the combine mode', () => {
+    const { surface, onOp } = layer('brush')
+    drag(surface, [[20, 10], [60, 20]])
+    drag(surface, [[20, 30], [60, 40]])
+    // The panel's mode here is "new"; painting must still add.
+    expect(onOp.mock.calls.map((c) => c[1])).toEqual(['add', 'add'])
   })
 
   it('dabs a single point when the brush is clicked, not dragged', () => {
