@@ -116,3 +116,28 @@ describe('useHistoryStore — flushPendingSave (data-loss fix for route navigati
 })
 
 const DEBOUNCE_MS_FOR_TEST = 300
+
+describe('seedPreviousState (BUG-009)', () => {
+  it('puts the handed-in state behind the current one as one undo step', () => {
+    useHistoryStore.getState().reset()
+    const history = useHistoryStore.getState()
+    const current = history.stack[history.index]
+    const before = JSON.stringify({ pages: [{ id: 'page-1', canvas: { objects: [] } }], activePageId: 'page-1', width: 800, height: 600 })
+
+    history.seedPreviousState(before, 'Photo Editor edit')
+
+    const after = useHistoryStore.getState()
+    expect(after.stack).toEqual([before, current])
+    expect(after.labels).toEqual(['Before the Photo Editor edit', 'Photo Editor edit'])
+    expect(after.index).toBe(1)
+    expect(after.canUndo).toBe(true)
+    expect(after.canRedo).toBe(false)
+  })
+
+  it('does nothing when the state handed in is already what is on screen', () => {
+    useHistoryStore.getState().reset()
+    const current = useHistoryStore.getState().stack[0]
+    useHistoryStore.getState().seedPreviousState(current, 'Photo Editor edit')
+    expect(useHistoryStore.getState().stack).toEqual([current])
+  })
+})

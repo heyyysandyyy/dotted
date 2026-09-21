@@ -30,6 +30,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
   height: DEFAULT_HEIGHT,
   designName: DEFAULT_NAME,
   currentProjectId: null,
+  pendingPhotoEdit: null,
   pages: [],
   activePageId: '',
   viewMode: 'single',
@@ -352,6 +353,10 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     // object sits in — a group child's left/top are relative to its group,
     // and the rule ("keep the content where it was, at the same density") is
     // the same there.
+    // What the project looked like before this edit, so the replacement can
+    // be undone once Canvas is mounted again (it isn't now, so nothing else
+    // can record it) — see useHistoryStore.seedPreviousState.
+    const before = JSON.stringify({ pages, activePageId, width, height })
     let replaced = false
     const replaceIn = (objects: SerializedObject[]): SerializedObject[] =>
       objects.map((obj) => {
@@ -375,7 +380,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
       return { ...p, canvas: { ...canvasData, objects: replaceIn(canvasData.objects) } }
     })
     if (!replaced) return false
-    set({ pages: nextPages })
+    set({ pages: nextPages, pendingPhotoEdit: { before, label: 'Photo Editor edit' } })
     const ok = saveProject({ id: currentProjectId, name: designName, width, height, pages: nextPages, activePageId, guides })
     set({ saveError: ok ? null : "Couldn't save — your browser's storage is full." })
     return true

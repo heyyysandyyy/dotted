@@ -206,6 +206,7 @@ export function CanvasStage() {
     if (!id || !loadProject(id)) id = listProjects()[0]?.id ?? null
     if (id) store.openProject(id)
     else store.newProject(width, height)
+
     // A change inside the 300ms autosave debounce (scheduleRecord) must not
     // be lost to a full page close/refresh, or to navigating away from this
     // route entirely (e.g. to Photo Editor, PHOTO-003) — both tear the
