@@ -12,6 +12,7 @@ import {
 import type { GradientShape, SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import { hasSelection } from '../utils/selection'
+import { ALT_KEY, shortcut } from '../../lib/keyLabels'
 
 const TOOLS: { tool: SelectionTool; label: string; short: string; icon: LucideIcon }[] = [
   { tool: 'rect', label: 'Rectangle marquee', short: 'Box', icon: Square },
@@ -48,7 +49,8 @@ const chip = (active: boolean) =>
  *
  * Shapes combine with the selection as New / Add / Subtract (Shift and Alt
  * do the same for one gesture). Feather softens the edge, Invert swaps what's
- * selected, and Deselect (Cmd/Ctrl+D) goes back to the whole photo. Each of
+ * selected, and Deselect (Cmd/Ctrl+D — shown as the platform's own keys)
+ * goes back to the whole photo. Each of
  * those is an undo step; which tool is active is not.
  */
 export function SelectionPanel() {
@@ -127,10 +129,10 @@ export function SelectionPanel() {
       </div>
       <p className="text-[11px] leading-snug text-editor-text-subtle">
         {tool === 'brush'
-          ? 'Paint to add; hold Alt to erase.'
+          ? `Paint to add; hold ${ALT_KEY} to erase.`
           : tool === 'gradient'
             ? 'Drag from the full-strength end to where it should fade out.'
-            : 'Hold Shift to add, Alt to subtract.'}
+            : `Hold Shift to add, ${ALT_KEY} to subtract.`}
       </p>
 
       {tool === 'wand' && (
@@ -232,7 +234,7 @@ export function SelectionPanel() {
         <button
           onClick={clear}
           disabled={!selected}
-          title="Deselect (Cmd/Ctrl+D)"
+          title={`Deselect (${shortcut('D')})`}
           className="flex-1 rounded border border-editor-strong py-1.5 text-xs hover:border-editor-input disabled:cursor-not-allowed disabled:opacity-40"
         >
           Deselect

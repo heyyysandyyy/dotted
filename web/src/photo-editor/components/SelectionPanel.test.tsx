@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SelectionPanel } from './SelectionPanel'
 import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS } from '../store/usePhotoEditorStore'
+import { ALT_KEY } from '../../lib/keyLabels'
 
 const BOX = {
   kind: 'polygon' as const,
@@ -82,7 +83,8 @@ describe('SelectionPanel (PHOTO-011)', () => {
     fireEvent.click(screen.getByLabelText('Brush'))
     expect(screen.getByText('Brush size')).toBeTruthy()
     expect(screen.getByText('Hardness')).toBeTruthy()
-    expect(screen.getByText('Paint to add; hold Alt to erase.')).toBeTruthy()
+    // "Option" on a Mac, "Alt" elsewhere — never a key the keyboard lacks.
+    expect(screen.getByText(`Paint to add; hold ${ALT_KEY} to erase.`)).toBeTruthy()
     const [size] = screen.getAllByRole('slider')
     fireEvent.change(size, { target: { value: '80' } })
     expect(usePhotoEditorStore.getState().brushSize).toBe(80)
