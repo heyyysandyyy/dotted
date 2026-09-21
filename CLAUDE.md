@@ -57,6 +57,7 @@ checklist of the *active* batch only.
 - [x] BUG-005 Stack view — cover page right-aligned to spread's right edge (issue #130; back-cover mirroring left as a documented no-op — no back-cover PageType variant exists yet)
 - [x] BUG-006 SVG export substitutes a default font for the design's Google font — embed the used faces as `@font-face` data URIs, subsetted by the characters actually typed (issue #239)
 - [x] BUG-007 Photo Editor Save failed for an image inside a group — "Couldn't find that image on Canvas anymore": port-back only searched a page's top-level objects, but "Edit in Photo Editor" is offered on an image drilled into inside a group (UX-016), whose JSON lives in the group's own `objects` array; the lookup now recurses into groups and re-places the image in its group's coordinate space
+- [x] BUG-008 Delete did nothing to a shape inside a group — deleteActive called canvas.remove() on objects that belong to a group, not to the canvas, so deleting a child drilled into in place (UX-016) silently cleared the selection and left the shape; it now removes the child from its group, takes away any group left empty, and records the deletion (a group's own removal event never reaches the canvas listeners history and autosave hang off)
 - [x] UX-020 Shadow effects (issue #113) — spread control (phase 1, #133), multiple simultaneous effects (phase 2), inner shadow via real raster compositing (phase 3)
 - [x] UX-021 Crop rotated images (issue #115)
 - [x] REFACTOR-003 Contain the type-cast escape hatches (issue #97)
