@@ -1,43 +1,37 @@
-PHOTO-011 phase 1 (selections) is implemented on branch
-feat/PHOTO-011-selections — check `gh pr list` before assuming it's merged.
-PHOTO-011 stays unticked in CLAUDE.md: layer masks, the local adjustment
-brush and graduated/radial filters are still to come.
+PHOTO-011 phase 2 (adjustment layers) is implemented on branch
+feat/PHOTO-011-adjustment-layers — check `gh pr list` before assuming it's
+merged. PHOTO-011 stays unticked: the local adjustment brush and
+graduated/radial filters are still to come.
 
-What phase 1 added, and what's worth knowing before phase 2:
-- utils/selection.ts: a selection is the *list of operations* that built it
-  (polygons for rectangle/ellipse/lasso, seeds for wand clicks; each add or
-  subtract), plus feather and inverted — never a bitmap. Coordinates are
-  normalized *source* pixels, so the same selection rasterizes at the capped
-  preview, the 256px histogram proxy and the full bake, and stays on the same
-  part of the photo through any later PHOTO-009 geometry change.
-- renderSelectionMask rasterizes it per render: polygons through the plan's
-  forward map (exact under homographies), wand picks drawn through the same
-  drawGeometry as the photo, then feather (fraction of the shorter edge,
-  3-box blur on one channel) and invert.
-- renderAdjustedImage: with a selection it draws the framed original first
-  (no filter), renders the adjusted image as before, then blendByMask. Masks
-  are cached per selection object and render size (preview and histogram
-  both hit it every frame). Geometry is never masked.
-- `selection` lives in PhotoAdjustments, so it's in undo/redo and in the
-  `edits` saved on port-back. Tool choice, combine mode and wand settings
-  are store UI state, NOT history. Crop and selection tools are mutually
-  exclusive.
-- Combining under an inverted selection flips the op's mode, so "add"
-  still adds to what's shown (combineSelection) — keep that invariant.
-- Lasso outlines are thinned to 400 points before storing (localStorage).
-- The wand samples the original source colours, not the adjusted image.
+What phase 2 added, and what's worth knowing before phase 3:
+- Store: ToneAdjustments is now its own type (every tone/colour/levels/
+  curves/detail field). PhotoAdjustments extends it with geometry, the base
+  selection, and `layers: AdjustmentLayer[]` (id, name, visible, opacity,
+  selection = its mask, adjustments: ToneAdjustments).
+- The *active target* (activeLayerId, UI state, not history) decides what
+  the panels and selection tools edit. Every tone setter goes through
+  commitTone, every selection action through commitSelection; the panels read
+  selectActiveTone / selectActiveSelection. A dangling id falls back to base.
+- addLayer moves the base selection (if any) into the new layer's mask, so
+  "select, add layer, adjust" is the flow. No mask = whole photo.
+- renderAdjustedImage: fast path unchanged when there's no base selection
+  and no visible non-neutral layer. Otherwise it works from the framed
+  original's pixels: base tone inside the base selection, then each layer on
+  the result so far, inside its mask and at its opacity (applyTone). Masks
+  are cached per selection object and render size.
+- Scratch canvases for the CSS-filter step are reused only up to 2.5 MP; a
+  full-size bake uses one-off canvases (memory).
 
-Suggested phase 2: layer masks / local adjustments — let a selection (or a
-painted mask) carry its *own* adjustment values instead of scoping the one
-global set, which is what the brush and graduated/radial filters need too.
-That means a list of adjustment layers each with a mask, rendered in order;
-decide the data model before building UI.
+Suggested phase 3: the local adjustment brush and graduated/radial filters
+as *new mask kinds* on the same layers — extend PhotoSelection's op list with
+'stroke' (brush dabs: points + radius + hardness, add/erase) and 'gradient'
+(linear: two points; radial: centre + radii + feather) ops, rasterized in
+renderSelectionMask like polygons. No new layer model needed.
+
+PHOTO-014 (cut/copy/paste a selection as a movable layer) builds on this
+layer stack — but these are *adjustment* layers; a pixel layer is new.
 
 Other open tickets, each needing a decision:
-- PHOTO-010 (retouching brushes) and PHOTO-012 (filters/presets) — better
-  after PHOTO-011 is complete.
-- PHOTO-013 (non-destructive adjustment stack) — `edits` now carries
-  geometry and selection too.
-- PROD-002 (further product families) — not yet scoped.
-- BOOK-001 (page templates) — large, needs its own phasing pass.
-- BOOK-004 (print export modal) — deferred by the user pending a rethink.
+- PHOTO-010 (retouching brushes), PHOTO-012 (filters/presets), PHOTO-013
+  (non-destructive stack — `edits` now carries geometry, selection, layers).
+- PROD-002 (not yet scoped), BOOK-001 (needs phasing), BOOK-004 (deferred).

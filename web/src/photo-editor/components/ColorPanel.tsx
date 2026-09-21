@@ -1,5 +1,5 @@
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
-import { usePhotoEditorStore, type NumericAdjustmentKey, type ToggleAdjustmentKey } from '../store/usePhotoEditorStore'
+import { selectActiveTone, usePhotoEditorStore, type NumericAdjustmentKey, type ToggleAdjustmentKey } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import { AdjustmentToggle } from './AdjustmentToggle'
 
@@ -38,7 +38,9 @@ const TOGGLES: { key: ToggleAdjustmentKey; label: string }[] = [
  *  Sits below AdjustmentsPanel's tonal controls and the histogram-backed
  *  Levels and Curves sections. */
 export function ColorPanel() {
-  const adjustments = usePhotoEditorStore((s) => s.adjustments)
+  // The active target's settings: the base image's, or the adjustment
+  // layer being edited (PHOTO-011 phase 2).
+  const adjustments = usePhotoEditorStore(selectActiveTone)
   const setAdjustment = usePhotoEditorStore((s) => s.setAdjustment)
   const setToggle = usePhotoEditorStore((s) => s.setToggle)
   const resetAdjustment = usePhotoEditorStore((s) => s.resetAdjustment)
