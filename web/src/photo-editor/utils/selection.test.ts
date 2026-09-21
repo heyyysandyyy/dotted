@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   EMPTY_SELECTION,
+  brushRadius,
   blendByMask,
   combineSelection,
   featherMask,
@@ -11,7 +12,7 @@ import {
   selectionEdges,
   wandSelect,
 } from './selection'
-import type { PhotoSelection, PolygonOp, WandOp } from './selection'
+import type { GradientOp, PhotoSelection, PolygonOp, StrokeOp, WandOp } from './selection'
 import { DEFAULT_GEOMETRY, planGeometry } from './geometry'
 import { renderAdjustedImage } from './renderAdjustedImage'
 import { DEFAULT_ADJUSTMENTS } from '../store/usePhotoEditorStore'
@@ -237,5 +238,105 @@ describe('mask caching (PHOTO-011)', () => {
     }
     expect(spy).toHaveBeenCalledTimes(2)
     spy.mockRestore()
+  })
+})
+
+describe('brush strokes (PHOTO-011 phase 3)', () => {
+  const source = splitSource()
+  const identity = planGeometry(DEFAULT_GEOMETRY, 100, 50)
+  const stroke = (patch: Partial<StrokeOp> = {}): StrokeOp => ({
+    kind: 'stroke',
+    mode: 'add',
+    points: [
+      { x: 0.2, y: 0.5 },
+      { x: 0.4, y: 0.5 },
+    ],
+    radius: brushRadius(25),
+    hardness: 100,
+    ...patch,
+  })
+
+  it('paints along the path, at the stored radius, and nowhere else', () => {
+    const mask = renderSelectionMask(source, identity, 100, 50, sel({ ops: [stroke()] }))!
+    const at = (x: number, y: number) => mask[y * 100 + x]
+    // radius = 25% of 0.2 × the shorter edge (50px) = 2.5px around the path.
+    expect(at(30, 25)).toBe(255)
+    expect(at(20, 25)).toBe(255)
+    expect(at(30, 32)).toBe(0)
+    expect(at(80, 25)).toBe(0)
+  })
+
+  it('dabs a single point for a click', () => {
+    const mask = renderSelectionMask(source, identity, 100, 50, sel({ ops: [stroke({ points: [{ x: 0.5, y: 0.5 }] })] }))!
+    expect(mask[25 * 100 + 50]).toBe(255)
+    expect(mask[25 * 100 + 70]).toBe(0)
+  })
+
+  it('softens the edge as hardness drops', () => {
+    const partial = (m: Uint8ClampedArray) => {
+      let n = 0
+      for (let y = 0; y < 50; y++) {
+        const v = m[y * 100 + 30]
+        if (v > 8 && v < 247) n++
+      }
+      return n
+    }
+    const hard = renderSelectionMask(source, identity, 100, 50, sel({ ops: [stroke({ hardness: 100 })] }))!
+    const soft = renderSelectionMask(source, identity, 100, 50, sel({ ops: [stroke({ hardness: 0 })] }))!
+    // A hard stroke only has antialiasing at its rim; a soft one ramps.
+    expect(hard[25 * 100 + 30]).toBe(255)
+    expect(partial(soft)).toBeGreaterThan(partial(hard) + 2)
+  })
+
+  it('erases when subtracting', () => {
+    const ops = [rect(0, 0, 1, 1), stroke({ mode: 'subtract' })]
+    const mask = renderSelectionMask(source, identity, 100, 50, sel({ ops }))!
+    expect(mask[25 * 100 + 30]).toBe(0)
+    expect(mask[25 * 100 + 80]).toBe(255)
+  })
+
+  it('keeps its thickness relative to the photo at any render size', () => {
+    const full = renderSelectionMask(source, identity, 100, 50, sel({ ops: [stroke()] }))!
+    const half = renderSelectionMask(source, identity, 50, 25, sel({ ops: [stroke()] }))!
+    const rowCoverage = (m: Uint8ClampedArray, w: number, y: number) => {
+      let n = 0
+      for (let x = 0; x < w; x++) if (m[y * w + x] > 128) n++
+      return n / w
+    }
+    expect(rowCoverage(half, 50, 12)).toBeCloseTo(rowCoverage(full, 100, 25), 1)
+  })
+})
+
+describe('gradient masks (PHOTO-011 phase 3)', () => {
+  const source = splitSource()
+  const identity = planGeometry(DEFAULT_GEOMETRY, 100, 50)
+
+  it('fades a graduated mask from full at the start to nothing at the end', () => {
+    const op: GradientOp = { kind: 'gradient', mode: 'add', shape: 'linear', from: { x: 0, y: 0.5 }, to: { x: 1, y: 0.5 } }
+    const mask = renderSelectionMask(source, identity, 100, 50, sel({ ops: [op] }))!
+    const at = (x: number) => mask[25 * 100 + x]
+    expect(at(0)).toBeGreaterThan(250)
+    expect(at(99)).toBeLessThan(5)
+    expect(at(50)).toBeGreaterThan(100)
+    expect(at(50)).toBeLessThan(160)
+    // Monotonic across the frame.
+    expect(at(20)).toBeGreaterThan(at(70))
+  })
+
+  it('fades a radial mask outward from its centre', () => {
+    const op: GradientOp = { kind: 'gradient', mode: 'add', shape: 'radial', from: { x: 0.5, y: 0.5 }, to: { x: 0.8, y: 0.5 } }
+    const mask = renderSelectionMask(source, identity, 100, 50, sel({ ops: [op] }))!
+    expect(mask[25 * 100 + 50]).toBeGreaterThan(240)
+    expect(mask[25 * 100 + 65]).toBeGreaterThan(50)
+    expect(mask[25 * 100 + 95]).toBeLessThan(5)
+  })
+
+  it('follows the photo through a rotation', () => {
+    // Full at the source's left edge; turned a quarter clockwise that's the top.
+    const turned = planGeometry({ ...DEFAULT_GEOMETRY, quarterTurns: 1 }, 100, 50)
+    const op: GradientOp = { kind: 'gradient', mode: 'add', shape: 'linear', from: { x: 0, y: 0.5 }, to: { x: 1, y: 0.5 } }
+    const mask = renderSelectionMask(source, turned, turned.width, turned.height, sel({ ops: [op] }))!
+    expect(mask[2 * 50 + 25]).toBeGreaterThan(240)
+    expect(mask[97 * 50 + 25]).toBeLessThan(15)
   })
 })

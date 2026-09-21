@@ -1,8 +1,15 @@
-import { Circle, Lasso, Square, WandSparkles } from 'lucide-react'
+import { Blend, Brush, Circle, Lasso, Square, WandSparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
-import { DEFAULT_WAND_TOLERANCE, activeLayer, selectActiveSelection, usePhotoEditorStore } from '../store/usePhotoEditorStore'
-import type { SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
+import {
+  DEFAULT_BRUSH_HARDNESS,
+  DEFAULT_BRUSH_SIZE,
+  DEFAULT_WAND_TOLERANCE,
+  activeLayer,
+  selectActiveSelection,
+  usePhotoEditorStore,
+} from '../store/usePhotoEditorStore'
+import type { GradientShape, SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import { hasSelection } from '../utils/selection'
 
@@ -11,6 +18,13 @@ const TOOLS: { tool: SelectionTool; label: string; icon: LucideIcon }[] = [
   { tool: 'ellipse', label: 'Ellipse marquee', icon: Circle },
   { tool: 'lasso', label: 'Lasso', icon: Lasso },
   { tool: 'wand', label: 'Magic wand', icon: WandSparkles },
+  { tool: 'brush', label: 'Brush', icon: Brush },
+  { tool: 'gradient', label: 'Gradient', icon: Blend },
+]
+
+const GRADIENT_SHAPES: { shape: GradientShape; label: string }[] = [
+  { shape: 'linear', label: 'Graduated' },
+  { shape: 'radial', label: 'Radial' },
 ]
 
 const COMBINES: { combine: SelectionCombine; label: string }[] = [
@@ -49,6 +63,12 @@ export function SelectionPanel() {
   const setWandTolerance = usePhotoEditorStore((s) => s.setWandTolerance)
   const wandContiguous = usePhotoEditorStore((s) => s.wandContiguous)
   const setWandContiguous = usePhotoEditorStore((s) => s.setWandContiguous)
+  const brushSize = usePhotoEditorStore((s) => s.brushSize)
+  const setBrushSize = usePhotoEditorStore((s) => s.setBrushSize)
+  const brushHardness = usePhotoEditorStore((s) => s.brushHardness)
+  const setBrushHardness = usePhotoEditorStore((s) => s.setBrushHardness)
+  const gradientShape = usePhotoEditorStore((s) => s.gradientShape)
+  const setGradientShape = usePhotoEditorStore((s) => s.setGradientShape)
   const setFeather = usePhotoEditorStore((s) => s.setSelectionFeather)
   const invert = usePhotoEditorStore((s) => s.invertSelection)
   const clear = usePhotoEditorStore((s) => s.clearSelection)
@@ -82,7 +102,13 @@ export function SelectionPanel() {
           </button>
         ))}
       </div>
-      <p className="text-[11px] leading-snug text-editor-text-subtle">Hold Shift to add, Alt to subtract.</p>
+      <p className="text-[11px] leading-snug text-editor-text-subtle">
+        {tool === 'brush'
+          ? 'Paint to add; hold Alt to erase.'
+          : tool === 'gradient'
+            ? 'Drag from the full-strength end to where it should fade out.'
+            : 'Hold Shift to add, Alt to subtract.'}
+      </p>
 
       {tool === 'wand' && (
         <div className="space-y-2">
@@ -104,6 +130,39 @@ export function SelectionPanel() {
             />
             Contiguous
           </label>
+        </div>
+      )}
+
+      {tool === 'brush' && (
+        <div className="space-y-2">
+          <AdjustmentSlider
+            label="Brush size"
+            value={brushSize}
+            min={1}
+            max={100}
+            neutral={DEFAULT_BRUSH_SIZE}
+            onChange={setBrushSize}
+            onReset={() => setBrushSize(DEFAULT_BRUSH_SIZE)}
+          />
+          <AdjustmentSlider
+            label="Hardness"
+            value={brushHardness}
+            min={0}
+            max={100}
+            neutral={DEFAULT_BRUSH_HARDNESS}
+            onChange={setBrushHardness}
+            onReset={() => setBrushHardness(DEFAULT_BRUSH_HARDNESS)}
+          />
+        </div>
+      )}
+
+      {tool === 'gradient' && (
+        <div className="flex items-center gap-1" role="group" aria-label="Gradient shape">
+          {GRADIENT_SHAPES.map(({ shape, label }) => (
+            <button key={shape} onClick={() => setGradientShape(shape)} className={chip(gradientShape === shape)}>
+              {label}
+            </button>
+          ))}
         </div>
       )}
 

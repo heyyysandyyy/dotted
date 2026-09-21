@@ -40,7 +40,36 @@ export interface WandOp {
   contiguous: boolean
 }
 
-export type SelectionOp = PolygonOp | WandOp
+/**
+ * A brush stroke (PHOTO-011 phase 3): the path painted, as normalized source
+ * points. `radius` is a fraction of the source's shorter edge — like every
+ * other radius in the pipeline — so the stroke is the same thickness at the
+ * capped preview and the full-size bake. `hardness` 100 is a crisp edge, 0
+ * fades out over the whole radius.
+ */
+export interface StrokeOp {
+  kind: 'stroke'
+  mode: SelectionMode
+  points: Point[]
+  radius: number
+  hardness: number
+}
+
+/**
+ * A graduated (linear) or radial gradient mask (PHOTO-011 phase 3) — the
+ * classic "darken the sky" / "brighten the subject" tool. Coverage is full at
+ * `from` and fades to nothing at `to`: along the line for a linear gradient,
+ * or outward from the centre for a radial one, where `to` sits on its edge.
+ */
+export interface GradientOp {
+  kind: 'gradient'
+  mode: SelectionMode
+  shape: 'linear' | 'radial'
+  from: Point
+  to: Point
+}
+
+export type SelectionOp = PolygonOp | WandOp | StrokeOp | GradientOp
 
 export interface PhotoSelection {
   ops: SelectionOp[]
@@ -61,6 +90,14 @@ const MAX_FEATHER_FRACTION = 0.05
  *  a region's edge, and fast enough to feel instant on a click. The mask is
  *  scaled up (smoothly) to whatever size it's rendered at. */
 const WAND_MAX_EDGE = 1600
+
+/** Brush size at 100, as a fraction of the source's shorter edge. */
+export const MAX_BRUSH_FRACTION = 0.2
+
+/** A UI brush size (1..100) as the stored radius fraction. */
+export function brushRadius(size: number): number {
+  return (Math.max(1, Math.min(100, size)) / 100) * MAX_BRUSH_FRACTION
+}
 
 /** True when there's anything selected at all. Only subtractions (from
  *  nothing) select nothing, so they don't count. */
@@ -100,9 +137,13 @@ export function combineSelection(
 /** Drop junk from ops arriving from anywhere (history, stored edits). */
 export function normalizeSelection(s: PhotoSelection): PhotoSelection {
   const finite = (p: Point) => Number.isFinite(p.x) && Number.isFinite(p.y)
-  const ops = (s.ops ?? []).filter((op) =>
-    op.kind === 'polygon' ? op.points.length >= 3 && op.points.every(finite) : finite(op.seed),
-  )
+  const usable = (op: SelectionOp) => {
+    if (op.kind === 'polygon') return op.points.length >= 3 && op.points.every(finite)
+    if (op.kind === 'stroke') return op.points.length >= 1 && op.points.every(finite) && op.radius > 0
+    if (op.kind === 'gradient') return finite(op.from) && finite(op.to)
+    return finite(op.seed)
+  }
+  const ops = (s.ops ?? []).filter(usable)
   return {
     ops,
     feather: Math.max(0, Math.min(100, Number.isFinite(s.feather) ? s.feather : 0)),
@@ -295,8 +336,71 @@ export function renderSelectionMask(
   const forward = invert(renderMatrix(plan, width, height))
   let scratch: HTMLCanvasElement | null = null
 
+  // Render pixels per source pixel, for radii that are stored against the
+  // source: the average linear scale of the (possibly rotated, cropped,
+  // resized) forward map.
+  const pixelsPerSource = Math.sqrt(Math.abs(forward[0] * forward[4] - forward[1] * forward[3])) || 1
+  const shortSourceEdge = Math.min(plan.sourceWidth, plan.sourceHeight)
+  const scratchContext = () => {
+    if (!scratch) {
+      scratch = document.createElement('canvas')
+      scratch.width = width
+      scratch.height = height
+    }
+    const sctx = scratch.getContext('2d')
+    sctx?.clearRect(0, 0, width, height)
+    return sctx
+  }
+
   for (const op of selection.ops) {
     ctx.globalCompositeOperation = op.mode === 'add' ? 'source-over' : 'destination-out'
+    if (op.kind === 'stroke') {
+      const sctx = scratchContext()
+      if (!sctx) continue
+      const pts = toRender(op.points, forward, plan)
+      const radiusPx = Math.max(0.5, op.radius * shortSourceEdge * pixelsPerSource)
+      sctx.strokeStyle = '#ffffff'
+      sctx.fillStyle = '#ffffff'
+      sctx.lineWidth = radiusPx * 2
+      sctx.lineCap = 'round'
+      sctx.lineJoin = 'round'
+      if (pts.length === 1) {
+        // A single dab — a click rather than a drag.
+        sctx.beginPath()
+        sctx.arc(pts[0].x, pts[0].y, radiusPx, 0, Math.PI * 2)
+        sctx.fill()
+      } else {
+        sctx.beginPath()
+        sctx.moveTo(pts[0].x, pts[0].y)
+        for (let i = 1; i < pts.length; i++) sctx.lineTo(pts[i].x, pts[i].y)
+        sctx.stroke()
+      }
+      // Hardness softens the edge: the blur eats into the stroke, so the
+      // painted radius above already includes what the blur will spread.
+      const soft = Math.round(((100 - op.hardness) / 100) * radiusPx)
+      if (soft >= 1) {
+        const strokeImage = sctx.getImageData(0, 0, width, height)
+        const alpha = new Uint8ClampedArray(width * height)
+        for (let i = 0; i < alpha.length; i++) alpha[i] = strokeImage.data[i * 4 + 3]
+        featherMask(alpha, width, height, soft)
+        for (let i = 0; i < alpha.length; i++) strokeImage.data[i * 4 + 3] = alpha[i]
+        sctx.putImageData(strokeImage, 0, 0)
+      }
+      ctx.drawImage(sctx.canvas, 0, 0)
+      continue
+    }
+    if (op.kind === 'gradient') {
+      const [from, to] = toRender([op.from, op.to], forward, plan)
+      const gradient =
+        op.shape === 'linear'
+          ? ctx.createLinearGradient(from.x, from.y, to.x, to.y)
+          : ctx.createRadialGradient(from.x, from.y, 0, from.x, from.y, Math.hypot(to.x - from.x, to.y - from.y) || 1)
+      gradient.addColorStop(0, 'rgba(255,255,255,1)')
+      gradient.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, width, height)
+      continue
+    }
     if (op.kind === 'polygon') {
       const pts = toRender(op.points, forward, plan)
       ctx.beginPath()
@@ -309,16 +413,11 @@ export function renderSelectionMask(
     }
     const pick = wandMaskCanvas(source, plan.sourceWidth, plan.sourceHeight, op)
     if (!pick) continue
-    if (!scratch) {
-      scratch = document.createElement('canvas')
-      scratch.width = width
-      scratch.height = height
-    }
-    const sctx = scratch.getContext('2d')
+    const sctx = scratchContext()
     if (!sctx) continue
     // Always smooth: the mask is upscaled from the wand's working size.
     drawGeometry(sctx, pick, { ...plan, resample: 'smooth' }, width, height)
-    ctx.drawImage(scratch, 0, 0)
+    ctx.drawImage(sctx.canvas, 0, 0)
   }
 
   const pixels = ctx.getImageData(0, 0, width, height).data

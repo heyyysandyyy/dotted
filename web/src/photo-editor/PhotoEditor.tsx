@@ -53,6 +53,9 @@ export function PhotoEditor() {
   const selectionCombine = usePhotoEditorStore((s) => s.selectionCombine)
   const wandTolerance = usePhotoEditorStore((s) => s.wandTolerance)
   const wandContiguous = usePhotoEditorStore((s) => s.wandContiguous)
+  const brushSize = usePhotoEditorStore((s) => s.brushSize)
+  const brushHardness = usePhotoEditorStore((s) => s.brushHardness)
+  const gradientShape = usePhotoEditorStore((s) => s.gradientShape)
   const applySelectionOp = usePhotoEditorStore((s) => s.applySelectionOp)
   const clearSelection = usePhotoEditorStore((s) => s.clearSelection)
   const activeSelection = usePhotoEditorStore(selectActiveSelection)
@@ -103,6 +106,9 @@ export function PhotoEditor() {
                     combine={selectionCombine}
                     wandTolerance={wandTolerance}
                     wandContiguous={wandContiguous}
+                    brushSize={brushSize}
+                    brushHardness={brushHardness}
+                    gradientShape={gradientShape}
                     onOp={applySelectionOp}
                     onDeselect={clearSelection}
                   />

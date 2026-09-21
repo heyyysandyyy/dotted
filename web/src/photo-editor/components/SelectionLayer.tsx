@@ -1,14 +1,31 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { apply, cappedSize } from '../utils/geometry'
+import { apply, cappedSize, invert } from '../utils/geometry'
 import type { GeometryPlan } from '../utils/geometry'
-import { gestureOutline, renderSelectionMask, selectionEdges, simplifyPath } from '../utils/selection'
+import { brushRadius, gestureOutline, renderSelectionMask, selectionEdges, simplifyPath } from '../utils/selection'
 import type { PhotoSelection, Point, SelectionOp } from '../utils/selection'
 
-/** Lasso points closer together than this are dropped as noise. */
+/** Lasso and brush points closer together than this are dropped as noise. */
 const LASSO_STEP_PX = 2
+/** A drag shorter than this is a click, not a shape. */
+const CLICK_PX = 3
+
+/**
+ * The brush's on-screen width, so the preview line matches what it paints.
+ * The stored radius is a fraction of the source's shorter edge, so the
+ * screen width has to come from the plan's own source→output scale (the
+ * matrix, not the output size: a crop changes the size without scaling
+ * anything) times the preview's on-screen scale.
+ */
+function brushStrokeWidth(size: number, width: number, plan: GeometryPlan): number {
+  const m = invert(plan.toSource)
+  const outputPerSource = Math.sqrt(Math.abs(m[0] * m[4] - m[1] * m[3])) || 1
+  const screenPerOutput = width / plan.width
+  const shortSource = Math.min(plan.sourceWidth, plan.sourceHeight)
+  return Math.max(2, brushRadius(size) * shortSource * outputPerSource * screenPerOutput * 2)
+}
 import { PREVIEW_MAX_EDGE } from '../hooks/useAdjustedPreviewCanvas'
-import type { SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
+import type { GradientShape, SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
 
 interface Props {
   /** The decoded photo — the wand samples it, and the outline is traced
@@ -23,6 +40,9 @@ interface Props {
   combine: SelectionCombine
   wandTolerance: number
   wandContiguous: boolean
+  brushSize: number
+  brushHardness: number
+  gradientShape: GradientShape
   onOp: (op: SelectionOp, combine: SelectionCombine) => void
   onDeselect: () => void
 }
@@ -54,6 +74,9 @@ export function SelectionLayer({
   combine,
   wandTolerance,
   wandContiguous,
+  brushSize,
+  brushHardness,
+  gradientShape,
   onOp,
   onDeselect,
 }: Props) {
@@ -85,13 +108,14 @@ export function SelectionLayer({
       return
     }
     surfaceRef.current?.setPointerCapture?.(e.pointerId)
-    setGesture({ points: [p, p], combine: how })
+    // A brush paints from the point it starts on; everything else spans a drag.
+    setGesture({ points: tool === 'brush' ? [p] : [p, p], combine: how })
   }
 
   const move = (e: ReactPointerEvent) => {
     if (!gesture) return
     const p = local(e)
-    if (tool === 'lasso') {
+    if (tool === 'lasso' || tool === 'brush') {
       const last = gesture.points[gesture.points.length - 1]
       if (Math.hypot(p.x - last.x, p.y - last.y) < LASSO_STEP_PX) return
       setGesture({ ...gesture, points: [...gesture.points, p] })
@@ -105,6 +129,33 @@ export function SelectionLayer({
     surfaceRef.current?.releasePointerCapture?.(e.pointerId)
     const g = gesture
     setGesture(null)
+    if (tool === 'brush') {
+      onOp(
+        {
+          kind: 'stroke',
+          mode: 'add',
+          points: simplifyPath(g.points).map(toSource),
+          radius: brushRadius(brushSize),
+          hardness: brushHardness,
+        },
+        // Paint builds up: a stroke adds to the mask (or erases with Alt),
+        // never replaces it, whatever the combine mode says. Replacing would
+        // wipe the previous stroke every time the pointer went down, which
+        // is no use for painting a mask.
+        g.combine === 'subtract' ? 'subtract' : 'add',
+      )
+      return
+    }
+    if (tool === 'gradient') {
+      const [start, end] = [g.points[0], g.points[g.points.length - 1]]
+      // A gradient with no length has no direction to fade along.
+      if (Math.hypot(end.x - start.x, end.y - start.y) < CLICK_PX) return
+      onOp(
+        { kind: 'gradient', mode: 'add', shape: gradientShape, from: toSource(start), to: toSource(end) },
+        g.combine,
+      )
+      return
+    }
     const outline = gestureOutline(tool, g.points)
     if (!outline) {
       // A plain click with a fresh selection mode clears the selection, the
@@ -115,7 +166,9 @@ export function SelectionLayer({
     onOp({ kind: 'polygon', mode: 'add', points: simplifyPath(outline).map(toSource) }, g.combine)
   }
 
-  const inProgress = gesture ? gestureOutline(tool, gesture.points, true) : null
+  const inProgress = gesture && tool !== 'brush' && tool !== 'gradient' ? gestureOutline(tool, gesture.points, true) : null
+  const brushPath = gesture && tool === 'brush' ? gesture.points : null
+  const gradientLine = gesture && tool === 'gradient' ? [gesture.points[0], gesture.points[gesture.points.length - 1]] : null
 
   return (
     <>
@@ -130,6 +183,41 @@ export function SelectionLayer({
           onPointerUp={up}
           onPointerCancel={() => setGesture(null)}
         >
+          {brushPath && (
+            <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
+              <polyline
+                points={brushPath.map((p) => `${p.x},${p.y}`).join(' ')}
+                fill="none"
+                stroke="rgba(255,255,255,0.75)"
+                strokeWidth={brushStrokeWidth(brushSize, width, plan)}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+          {gradientLine && (
+            <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
+              <line
+                x1={gradientLine[0].x}
+                y1={gradientLine[0].y}
+                x2={gradientLine[1].x}
+                y2={gradientLine[1].y}
+                stroke="#ffffff"
+                strokeWidth={1}
+                strokeDasharray="4 3"
+              />
+              {gradientShape === 'radial' ? (
+                <circle
+                  cx={gradientLine[0].x}
+                  cy={gradientLine[0].y}
+                  r={Math.hypot(gradientLine[1].x - gradientLine[0].x, gradientLine[1].y - gradientLine[0].y)}
+                  fill="rgba(99,102,241,0.12)"
+                  stroke="#ffffff"
+                  strokeWidth={1}
+                />
+              ) : null}
+            </svg>
+          )}
           {inProgress && (
             <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
               <polygon

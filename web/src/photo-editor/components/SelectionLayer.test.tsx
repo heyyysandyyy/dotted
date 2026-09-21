@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { SelectionLayer } from './SelectionLayer'
 import { DEFAULT_GEOMETRY, planGeometry } from '../utils/geometry'
 import { EMPTY_SELECTION } from '../utils/selection'
-import type { PolygonOp } from '../utils/selection'
+import type { GradientOp, PolygonOp, StrokeOp } from '../utils/selection'
 import type { SelectionTool } from '../store/usePhotoEditorStore'
 
 // jsdom has no PointerEvent; without one fireEvent drops clientX/clientY.
@@ -21,7 +21,7 @@ beforeAll(() => {
 })
 
 /** The layer shown 200×100 on screen over a 400×200 photo, at the origin. */
-function layer(tool: SelectionTool, geometry = DEFAULT_GEOMETRY) {
+function layer(tool: SelectionTool, geometry = DEFAULT_GEOMETRY, extra: { gradientShape?: 'linear' | 'radial' } = {}) {
   const plan = planGeometry(geometry, 400, 200)
   const onOp = vi.fn()
   const onDeselect = vi.fn()
@@ -40,6 +40,9 @@ function layer(tool: SelectionTool, geometry = DEFAULT_GEOMETRY) {
         combine="new"
         wandTolerance={20}
         wandContiguous={false}
+      brushSize={25}
+      brushHardness={50}
+      gradientShape={extra.gradientShape ?? 'linear'}
         onOp={onOp}
         onDeselect={onDeselect}
       />
@@ -115,6 +118,59 @@ describe('SelectionLayer (PHOTO-011)', () => {
     const pts = (onOp.mock.calls[0][0] as PolygonOp).points
     expect(pts.length).toBeLessThanOrEqual(400)
     expect(pts.length).toBeGreaterThan(100)
+  })
+
+  it('paints a brush stroke, carrying its size and hardness', () => {
+    const { surface, onOp } = layer('brush')
+    drag(surface, [[20, 10], [60, 12], [100, 40]])
+    const [op, combine] = onOp.mock.calls[0]
+    const stroke = op as StrokeOp
+    expect(stroke.kind).toBe('stroke')
+    expect(combine).toBe('add')
+    expect(stroke.hardness).toBe(50)
+    expect(stroke.radius).toBeCloseTo(0.05) // brush size 25 of a 20% maximum
+    expect(stroke.points.length).toBeGreaterThanOrEqual(3)
+    expect(stroke.points[0].x).toBeCloseTo(0.1)
+    expect(stroke.points[0].y).toBeCloseTo(0.1)
+  })
+
+  it('builds strokes up instead of replacing, whatever the combine mode', () => {
+    const { surface, onOp } = layer('brush')
+    drag(surface, [[20, 10], [60, 20]])
+    drag(surface, [[20, 30], [60, 40]])
+    // The panel's mode here is "new"; painting must still add.
+    expect(onOp.mock.calls.map((c) => c[1])).toEqual(['add', 'add'])
+  })
+
+  it('dabs a single point when the brush is clicked, not dragged', () => {
+    const { surface, onOp } = layer('brush')
+    fireEvent.pointerDown(surface, { clientX: 50, clientY: 25, button: 0, pointerId: 1 })
+    fireEvent.pointerUp(surface, { clientX: 50, clientY: 25, pointerId: 1 })
+    expect((onOp.mock.calls[0][0] as StrokeOp).points).toHaveLength(1)
+  })
+
+  it('erases with Alt rather than clearing the selection', () => {
+    const { surface, onOp, onDeselect } = layer('brush')
+    drag(surface, [[20, 10], [60, 20]], { altKey: true })
+    expect(onOp.mock.calls[0][1]).toBe('subtract')
+    expect(onDeselect).not.toHaveBeenCalled()
+  })
+
+  it('drags out a gradient from full strength to its fade-out point', () => {
+    const { surface, onOp } = layer('gradient', DEFAULT_GEOMETRY, { gradientShape: 'radial' })
+    drag(surface, [[20, 10], [120, 60]])
+    const op = onOp.mock.calls[0][0] as GradientOp
+    expect(op).toMatchObject({ kind: 'gradient', shape: 'radial' })
+    expect(op.from.x).toBeCloseTo(0.1)
+    expect(op.to.x).toBeCloseTo(0.6)
+    expect(op.to.y).toBeCloseTo(0.6)
+  })
+
+  it('ignores a gradient with no length', () => {
+    const { surface, onOp, onDeselect } = layer('gradient')
+    drag(surface, [[30, 30], [31, 31]])
+    expect(onOp).not.toHaveBeenCalled()
+    expect(onDeselect).not.toHaveBeenCalled()
   })
 
   it('deselects on a plain click', () => {

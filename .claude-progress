@@ -1,37 +1,42 @@
-PHOTO-011 phase 2 (adjustment layers) is implemented on branch
-feat/PHOTO-011-adjustment-layers — check `gh pr list` before assuming it's
-merged. PHOTO-011 stays unticked: the local adjustment brush and
-graduated/radial filters are still to come.
+PHOTO-011 is COMPLETE (phase 3 on branch feat/PHOTO-011-brush-gradients —
+check `gh pr list` before assuming it's merged). All three phases are in:
+selections, adjustment layers, and brush/gradient masks.
 
-What phase 2 added, and what's worth knowing before phase 3:
-- Store: ToneAdjustments is now its own type (every tone/colour/levels/
-  curves/detail field). PhotoAdjustments extends it with geometry, the base
-  selection, and `layers: AdjustmentLayer[]` (id, name, visible, opacity,
-  selection = its mask, adjustments: ToneAdjustments).
-- The *active target* (activeLayerId, UI state, not history) decides what
-  the panels and selection tools edit. Every tone setter goes through
-  commitTone, every selection action through commitSelection; the panels read
-  selectActiveTone / selectActiveSelection. A dangling id falls back to base.
-- addLayer moves the base selection (if any) into the new layer's mask, so
-  "select, add layer, adjust" is the flow. No mask = whole photo.
-- renderAdjustedImage: fast path unchanged when there's no base selection
-  and no visible non-neutral layer. Otherwise it works from the framed
-  original's pixels: base tone inside the base selection, then each layer on
-  the result so far, inside its mask and at its opacity (applyTone). Masks
-  are cached per selection object and render size.
-- Scratch canvases for the CSS-filter step are reused only up to 2.5 MP; a
-  full-size bake uses one-off canvases (memory).
+What phase 3 added, and what's worth knowing before touching masks again:
+- Two new op kinds in PhotoSelection (utils/selection.ts), alongside
+  'polygon' and 'wand':
+  - 'stroke': painted path (normalized source points) + radius (a fraction
+    of the source's shorter edge, MAX_BRUSH_FRACTION) + hardness. Rasterized
+    as a round-capped path on the scratch canvas, then the soft edge comes
+    from featherMask at (100 - hardness)% of the radius.
+  - 'gradient': 'linear' (graduated) or 'radial', from full coverage at
+    `from` to nothing at `to`, painted with a canvas gradient.
+  Both work as the base selection or as any layer's mask, and both go
+  through the same add/subtract compositing as the other ops.
+- Brush strokes always ADD (Alt erases) regardless of the New/Add/Subtract
+  mode — replacing on every pointer-down made painting useless. Gradients
+  still respect the combine mode.
+- Radii map source→render through the plan matrix (sqrt of its determinant),
+  not through the output size: a crop changes the size without scaling, so
+  using plan.width there makes the brush the wrong thickness. The live
+  preview width uses the same maths.
+- Every mask kind is stored in normalized source coordinates, so masks
+  survive later geometry changes.
 
-Suggested phase 3: the local adjustment brush and graduated/radial filters
-as *new mask kinds* on the same layers — extend PhotoSelection's op list with
-'stroke' (brush dabs: points + radius + hardness, add/erase) and 'gradient'
-(linear: two points; radial: centre + radii + feather) ops, rasterized in
-renderSelectionMask like polygons. No new layer model needed.
+Known limitations, deliberate:
+- The mask is rebuilt from all ops whenever it changes, so a mask painted
+  from very many strokes gets slower to re-rasterize (cached per selection
+  object and render size, so only on change).
+- The wand samples the original photo's colours, not the adjusted preview.
+- The selection outline is static dashes, not animated marching ants.
 
-PHOTO-014 (cut/copy/paste a selection as a movable layer) builds on this
-layer stack — but these are *adjustment* layers; a pixel layer is new.
-
-Other open tickets, each needing a decision:
-- PHOTO-010 (retouching brushes), PHOTO-012 (filters/presets), PHOTO-013
-  (non-destructive stack — `edits` now carries geometry, selection, layers).
+Next ticket: no auto-pickable one. What's open, each needing a decision:
+- PHOTO-010 (retouching brushes: spot/clone/red-eye/dodge/burn) — now
+  unblocked, and the closest neighbour to what phase 3 built (it can reuse
+  the stroke op's geometry and the brush UI).
+- PHOTO-012 (filters and preset effects) — can be scoped per-layer now.
+- PHOTO-013 (non-destructive adjustment stack) — `edits` already carries
+  geometry, selection and layers; this is mostly re-loading them.
+- PHOTO-014 (cut/copy/paste a selection as a movable layer) — needs a
+  *pixel* layer, which the adjustment-layer stack does not provide.
 - PROD-002 (not yet scoped), BOOK-001 (needs phasing), BOOK-004 (deferred).
