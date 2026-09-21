@@ -44,6 +44,23 @@ describe('SelectionPanel (PHOTO-011)', () => {
     expect(usePhotoEditorStore.getState().wandContiguous).toBe(false)
   })
 
+  it('shows the brush and gradient settings only with those tools', () => {
+    render(<SelectionPanel />)
+    expect(screen.queryByText('Brush size')).toBeNull()
+    fireEvent.click(screen.getByLabelText('Brush'))
+    expect(screen.getByText('Brush size')).toBeTruthy()
+    expect(screen.getByText('Hardness')).toBeTruthy()
+    expect(screen.getByText('Paint to add; hold Alt to erase.')).toBeTruthy()
+    const [size] = screen.getAllByRole('slider')
+    fireEvent.change(size, { target: { value: '80' } })
+    expect(usePhotoEditorStore.getState().brushSize).toBe(80)
+
+    fireEvent.click(screen.getByLabelText('Gradient'))
+    expect(screen.queryByText('Brush size')).toBeNull()
+    fireEvent.click(screen.getByText('Radial'))
+    expect(usePhotoEditorStore.getState().gradientShape).toBe('radial')
+  })
+
   it('sets how the next shape combines', () => {
     render(<SelectionPanel />)
     fireEvent.click(screen.getByText('Subtract'))

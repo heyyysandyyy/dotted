@@ -275,11 +275,17 @@ export function selectActiveSelection(s: { adjustments: PhotoAdjustments; active
  * linear stack of adjustment snapshots, session-scoped only (reset whenever
  * a new image loads, same as the adjustments themselves).
  */
-export type SelectionTool = 'rect' | 'ellipse' | 'lasso' | 'wand'
+export type SelectionTool = 'rect' | 'ellipse' | 'lasso' | 'wand' | 'brush' | 'gradient'
+export type GradientShape = 'linear' | 'radial'
 export type SelectionCombine = 'new' | 'add' | 'subtract'
 
 /** The wand's default reach: a colour within about an eighth of the range. */
 export const DEFAULT_WAND_TOLERANCE = 12
+
+/** Brush defaults: a middling size, and an edge soft enough that strokes
+ *  blend rather than showing a hard rim (PHOTO-011 phase 3). */
+export const DEFAULT_BRUSH_SIZE = 25
+export const DEFAULT_BRUSH_HARDNESS = 50
 
 interface PhotoEditorState {
   /** The loaded image, as a data URL — null means the empty state shows. */
@@ -363,6 +369,14 @@ interface PhotoEditorState {
   wandContiguous: boolean
   setWandTolerance: (tolerance: number) => void
   setWandContiguous: (contiguous: boolean) => void
+  /** The brush's settings for its next stroke (1..100 each). */
+  brushSize: number
+  brushHardness: number
+  setBrushSize: (size: number) => void
+  setBrushHardness: (hardness: number) => void
+  /** Whether the gradient tool draws a graduated (linear) or radial mask. */
+  gradientShape: GradientShape
+  setGradientShape: (shape: GradientShape) => void
   undo: () => void
   redo: () => void
 }
@@ -377,6 +391,9 @@ function resetTools() {
     selectionCombine: 'new' as SelectionCombine,
     wandTolerance: DEFAULT_WAND_TOLERANCE,
     wandContiguous: true,
+    brushSize: DEFAULT_BRUSH_SIZE,
+    brushHardness: DEFAULT_BRUSH_HARDNESS,
+    gradientShape: 'linear' as GradientShape,
     activeLayerId: null,
   }
 }
@@ -588,6 +605,9 @@ export const usePhotoEditorStore = create<PhotoEditorState>((set, get) => {
     setSelectionCombine: (combine) => set({ selectionCombine: combine }),
     setWandTolerance: (tolerance) => set({ wandTolerance: Math.max(0, Math.min(100, tolerance)) }),
     setWandContiguous: (contiguous) => set({ wandContiguous: contiguous }),
+    setBrushSize: (size) => set({ brushSize: Math.max(1, Math.min(100, size)) }),
+    setBrushHardness: (hardness) => set({ brushHardness: Math.max(0, Math.min(100, hardness)) }),
+    setGradientShape: (shape) => set({ gradientShape: shape }),
 
     undo: () => {
       if (historyDebounceTimer) {
