@@ -410,10 +410,37 @@ export const createObjectsSlice: StateCreator<CanvasState, [], [], ObjectsSlice>
     const { canvas } = get()
     if (!canvas) return
     const objs = canvas.getActiveObjects()
-    objs.forEach((o) => canvas.remove(o))
+    if (objs.length === 0) return
+    // A child being edited in place (UX-016) belongs to its group, not to the
+    // canvas — canvas.remove() would silently do nothing to it, so take it out
+    // of the group it's actually in (the same split the layers panel's
+    // cross-group move makes). A group emptied this way goes too, rather than
+    // being left as an invisible, unselectable husk.
+    let fromGroup: fabric.Group | null = null
+    for (const obj of objs) {
+      const parent = obj.parent
+      if (!parent) {
+        canvas.remove(obj)
+        continue
+      }
+      parent.remove(obj)
+      fromGroup = parent
+      // Walk up while each group is left empty — reading the parent *before*
+      // removing, since leaving a group clears the child's own parent link.
+      for (let g: fabric.Group | undefined = parent; g && g.size() === 0; ) {
+        const up: fabric.Group | undefined = g.parent
+        if (up) up.remove(g)
+        else canvas.remove(g)
+        g = up
+      }
+    }
     canvas.discardActiveObject()
     canvas.requestRenderAll()
     set({ selection: [] })
+    // Removing a child fires the group's own event, not the canvas's
+    // object:removed — without this the deletion would never reach history
+    // or the autosave (CanvasStage wires both to canvas events).
+    if (fromGroup) fireModified(canvas, fromGroup, `Deleted ${kindName(objs[0])}`)
   },
 
   duplicateActive: async () => {
