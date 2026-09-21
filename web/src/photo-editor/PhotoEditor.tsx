@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { usePhotoEditorStore } from './store/usePhotoEditorStore'
+import { selectActiveSelection, usePhotoEditorStore } from './store/usePhotoEditorStore'
 import { PhotoEditorTopBar } from './components/PhotoEditorTopBar'
 import { EmptyState } from './components/EmptyState'
 import { AdjustmentsPanel } from './components/AdjustmentsPanel'
@@ -16,6 +16,7 @@ import { PhotoStage } from './components/PhotoStage'
 import { planGeometry } from './utils/geometry'
 import { SelectionLayer } from './components/SelectionLayer'
 import { SelectionPanel } from './components/SelectionPanel'
+import { LayersPanel } from './components/LayersPanel'
 
 /**
  * Photo Editor workspace shell (PHOTO-001). A separate top-level workspace
@@ -54,6 +55,7 @@ export function PhotoEditor() {
   const wandContiguous = usePhotoEditorStore((s) => s.wandContiguous)
   const applySelectionOp = usePhotoEditorStore((s) => s.applySelectionOp)
   const clearSelection = usePhotoEditorStore((s) => s.clearSelection)
+  const activeSelection = usePhotoEditorStore(selectActiveSelection)
   const decoded = useDecodedImage(image)
   const canvasRef = useAdjustedPreviewCanvas(decoded, adjustments, cropMode)
   const histogram = useHistogram(decoded, adjustments)
@@ -96,7 +98,7 @@ export function PhotoEditor() {
                     plan={plan}
                     width={width}
                     height={height}
-                    selection={adjustments.selection}
+                    selection={activeSelection}
                     tool={selectionTool}
                     combine={selectionCombine}
                     wandTolerance={wandTolerance}
@@ -112,6 +114,7 @@ export function PhotoEditor() {
         {image && (
           <aside className="w-64 shrink-0 overflow-y-auto border-l border-editor bg-editor-bg">
             {plan && <GeometryPanel plan={plan} />}
+            <LayersPanel />
             <SelectionPanel />
             <AdjustmentsPanel />
             <LevelsPanel histogram={histogram} />

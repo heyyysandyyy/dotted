@@ -622,3 +622,63 @@ describe('duplicateActive / copyObjects / pasteObjects (UX-022)', () => {
     expect(useCanvasStore.getState().objectClipboard).toBeNull()
   })
 })
+
+describe('deleteActive on a group child (BUG-008)', () => {
+  let canvas: fabric.Canvas
+
+  beforeEach(() => {
+    canvas = new fabric.Canvas(document.createElement('canvas'), { width: 400, height: 400 })
+    useCanvasStore.setState({ canvas, selection: [] })
+  })
+
+  it('deletes a child being edited in place, leaving its siblings', () => {
+    const keep = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const doomed = new fabric.Ellipse({ left: 40, top: 0, rx: 5, ry: 5 })
+    const group = new fabric.Group([keep, doomed])
+    canvas.add(group)
+    canvas.setActiveObject(doomed)
+
+    useCanvasStore.getState().deleteActive()
+
+    expect(group.getObjects()).toEqual([keep])
+    expect(canvas.getObjects()).toEqual([group])
+    expect(useCanvasStore.getState().selection).toEqual([])
+  })
+
+  it('records the deletion, which a group child’s removal does not do on its own', () => {
+    const child = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const group = new fabric.Group([child, new fabric.Rect({ left: 40, top: 0, width: 10, height: 10 })])
+    canvas.add(group)
+    canvas.setActiveObject(child)
+    const modified = vi.fn()
+    canvas.on('object:modified', modified)
+
+    useCanvasStore.getState().deleteActive()
+
+    expect(modified).toHaveBeenCalledTimes(1)
+    expect(modified.mock.calls[0][0]).toMatchObject({ historyLabel: 'Deleted rectangle' })
+  })
+
+  it('takes away a group left empty, and nested empty groups with it', () => {
+    const child = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const inner = new fabric.Group([child])
+    const outer = new fabric.Group([inner])
+    canvas.add(outer)
+    canvas.setActiveObject(child)
+
+    useCanvasStore.getState().deleteActive()
+
+    expect(canvas.getObjects()).toEqual([])
+  })
+
+  it('still deletes plain objects at the canvas root', () => {
+    const a = new fabric.Rect({ left: 0, top: 0, width: 10, height: 10 })
+    const b = new fabric.Rect({ left: 40, top: 0, width: 10, height: 10 })
+    canvas.add(a, b)
+    canvas.setActiveObject(a)
+
+    useCanvasStore.getState().deleteActive()
+
+    expect(canvas.getObjects()).toEqual([b])
+  })
+})

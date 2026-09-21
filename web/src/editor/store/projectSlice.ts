@@ -19,6 +19,10 @@ import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, 
 import { downscaleDataUrl } from '../../lib/downscaleImage'
 import { placeOnCanvas } from '../../photo-editor/utils/geometryPlacement'
 import type { SerializedImageGeometry } from '../../photo-editor/utils/geometryPlacement'
+
+/** A serialized fabric object as it sits in a page's saved JSON; a group
+ *  carries its children in `objects`. */
+type SerializedObject = Record<string, unknown>
 import type { CanvasState, ProjectSlice } from './storeTypes'
 
 export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice> = (set, get) => ({
@@ -340,18 +344,35 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     // With it (PHOTO-009 cropped, rotated or resized the image), the object
     // is re-placed so the content it keeps stays where it was on the page at
     // the same size — see geometryPlacement.ts's placeOnCanvas.
+    //
+    // The object is looked for through nested groups too, not just at the top
+    // level: "Edit in Photo Editor" is offered on an image drilled into
+    // inside a group (UX-016), and a grouped image's JSON lives in its
+    // group's own `objects` array. placeOnCanvas works in whatever space the
+    // object sits in — a group child's left/top are relative to its group,
+    // and the rule ("keep the content where it was, at the same density") is
+    // the same there.
     let replaced = false
+    const replaceIn = (objects: SerializedObject[]): SerializedObject[] =>
+      objects.map((obj) => {
+        if (obj.id === sourceRef.objectId) {
+          replaced = true
+          const geometry = placement ? placeOnCanvas(obj as SerializedImageGeometry, placement) : {}
+          return { ...obj, ...geometry, src: newSrc, edits }
+        }
+        // A group carries its children in its own `objects` array.
+        if (!replaced && Array.isArray(obj.objects)) {
+          const children = replaceIn(obj.objects as SerializedObject[])
+          if (replaced) return { ...obj, objects: children }
+        }
+        return obj
+      })
+
     const nextPages = pages.map((p) => {
       if (p.id !== sourceRef.pageId) return p
-      const canvasData = p.canvas as { objects?: Array<Record<string, unknown>> }
+      const canvasData = p.canvas as { objects?: SerializedObject[] }
       if (!Array.isArray(canvasData.objects)) return p
-      const nextObjects = canvasData.objects.map((obj) => {
-        if (obj.id !== sourceRef.objectId) return obj
-        replaced = true
-        const geometry = placement ? placeOnCanvas(obj as SerializedImageGeometry, placement) : {}
-        return { ...obj, ...geometry, src: newSrc, edits }
-      })
-      return { ...p, canvas: { ...canvasData, objects: nextObjects } }
+      return { ...p, canvas: { ...canvasData, objects: replaceIn(canvasData.objects) } }
     })
     if (!replaced) return false
     set({ pages: nextPages })

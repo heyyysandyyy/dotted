@@ -1,7 +1,7 @@
 import { CollapsibleSection } from '../../editor/components/CollapsibleSection'
 import { Histogram } from './Histogram'
 import { AdjustmentSlider } from './AdjustmentSlider'
-import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
+import { selectActiveTone, usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import { DEFAULT_LEVELS, LEVELS_LIMITS, type PhotoLevels } from '../utils/levelsCurves'
 import type { Histogram as HistogramData } from '../utils/histogram'
 
@@ -30,7 +30,7 @@ interface Props {
  * exponent.
  */
 export function LevelsPanel({ histogram }: Props) {
-  const levels = usePhotoEditorStore((s) => s.adjustments.levels)
+  const levels = usePhotoEditorStore((s) => selectActiveTone(s).levels)
   const setLevel = usePhotoEditorStore((s) => s.setLevel)
   const resetLevel = usePhotoEditorStore((s) => s.resetLevel)
 
