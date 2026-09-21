@@ -125,6 +125,50 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     expect(img.top).toBeCloseTo(6 - 49.5)
   })
 
+  it('finds an image inside a group, and re-places it in the group’s own space', () => {
+    // "Edit in Photo Editor" is offered on an image drilled into inside a
+    // group (UX-016); its JSON lives in the group's `objects`, not the page's.
+    const grouped = {
+      id: 'group-1',
+      type: 'group',
+      left: 0,
+      top: 0,
+      objects: [
+        { id: 'rect-inner', type: 'rect' },
+        { id: 'img-2', type: 'image', src: 'x', left: 20, top: 10, width: 400, height: 300, scaleX: 1, scaleY: 1 },
+      ],
+    }
+    useCanvasStore.setState({
+      pages: [{ id: 'page-1', canvas: { objects: [grouped] } }],
+    })
+    const placement = { width: 200, height: 150, sourceCenter: { x: 100, y: 75 }, pixelScale: { x: 1, y: 1 } }
+
+    const ok = useCanvasStore
+      .getState()
+      .portBackFromPhotoEditor({ ...SOURCE_REF, objectId: 'img-2' }, 'data:image/png;base64,new', DEFAULT_ADJUSTMENTS, placement)
+
+    expect(ok).toBe(true)
+    const page = useCanvasStore.getState().pages.find((p) => p.id === 'page-1')!
+    const group = (page.canvas as { objects: Array<Record<string, unknown>> }).objects[0]
+    const children = group.objects as Array<Record<string, unknown>>
+    expect(children[0]).toEqual({ id: 'rect-inner', type: 'rect' })
+    expect(children[1]).toMatchObject({ src: 'data:image/png;base64,new', width: 200, height: 150 })
+    // The kept quarter's centre was 100px left and 75px up of the image's
+    // centre, in the group's own coordinates.
+    expect(children[1].left).toBeCloseTo(20 - 100)
+    expect(children[1].top).toBeCloseTo(10 - 75)
+  })
+
+  it('still reports a genuinely missing object, group or no group', () => {
+    useCanvasStore.setState({
+      pages: [{ id: 'page-1', canvas: { objects: [{ id: 'group-1', type: 'group', objects: [{ id: 'other' }] }] } }],
+    })
+    const ok = useCanvasStore
+      .getState()
+      .portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,new', DEFAULT_ADJUSTMENTS)
+    expect(ok).toBe(false)
+  })
+
   it('leaves other objects and other pages completely untouched', () => {
     useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,flattened', DEFAULT_ADJUSTMENTS)
 
