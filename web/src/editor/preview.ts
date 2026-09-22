@@ -16,14 +16,23 @@ export function renderPreview(
   height: number,
 ): () => void {
   const sc = new fabric.StaticCanvas(el, { width, height, backgroundColor: '#ffffff' })
-  let disposed = false
-  sc.loadFromJSON(json).then(() => {
-    if (disposed) return
-    migrateStrokeDefaults(sc)
-    sc.requestRenderAll()
-  })
+  // fabric's loadFromJSON calls clear() on the canvas when it settles, so a
+  // thumbnail unmounted mid-load (switching workspace or page, of which the
+  // strip does plenty) would clear a canvas whose contexts dispose() has
+  // already freed — an uncaught TypeError. Aborting makes the load reject
+  // instead, before it can touch the canvas (BUG-010).
+  const load = new AbortController()
+  sc.loadFromJSON(json, undefined, { signal: load.signal })
+    .then(() => {
+      migrateStrokeDefaults(sc)
+      sc.requestRenderAll()
+    })
+    .catch(() => {
+      // Aborted, or bad page JSON: nothing to draw, and nothing to report —
+      // the thumbnail just stays blank.
+    })
   return () => {
-    disposed = true
+    load.abort()
     sc.dispose()
   }
 }

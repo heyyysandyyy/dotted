@@ -46,6 +46,34 @@ export function migrateStrokeDefaults(canvas: fabric.StaticCanvas): void {
   canvas.getObjects().forEach(visit)
 }
 
+/**
+ * The in-flight page load, so it can be cancelled.
+ *
+ * fabric's loadFromJSON calls `clear()` on the canvas when its promise
+ * settles. Navigating away (to the Photo Editor, or between pages) tears the
+ * canvas down first, and that late `clear()` then runs against a canvas whose
+ * contexts are gone — an uncaught TypeError on every workspace switch
+ * (BUG-010). fabric takes an AbortSignal for exactly this, so every load goes
+ * through here and the teardown aborts it.
+ */
+let pendingLoad: AbortController | null = null
+
+/** Load page JSON into the canvas, cancelling any load still in flight. */
+export function loadCanvasJSON(canvas: fabric.Canvas, json: object): Promise<fabric.Canvas> {
+  pendingLoad?.abort()
+  const controller = new AbortController()
+  pendingLoad = controller
+  return canvas.loadFromJSON(json, undefined, { signal: controller.signal }).finally(() => {
+    if (pendingLoad === controller) pendingLoad = null
+  })
+}
+
+/** Cancel any load in flight — call before disposing the canvas. */
+export function abortCanvasLoad(): void {
+  pendingLoad?.abort()
+  pendingLoad = null
+}
+
 /** Serialize the live canvas into a page payload. */
 export function serializeCanvas(canvas: fabric.Canvas): object {
   return canvas.toObject(EXTRA_PROPS)

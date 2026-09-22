@@ -15,7 +15,14 @@ import {
 } from '../storage'
 import { buildSheetLayout, productArtboardSize, productGuideSpec } from '../products'
 import { useHistoryStore } from './useHistoryStore'
-import { DEFAULT_NAME, serializeCanvas, loadCanvasFonts, migrateStrokeDefaults, pageSize } from './storeHelpers'
+import {
+  DEFAULT_NAME,
+  loadCanvasJSON,
+  serializeCanvas,
+  loadCanvasFonts,
+  migrateStrokeDefaults,
+  pageSize,
+} from './storeHelpers'
 import { downscaleDataUrl } from '../../lib/downscaleImage'
 import { placeOnCanvas } from '../../photo-editor/utils/geometryPlacement'
 import type { SerializedImageGeometry } from '../../photo-editor/utils/geometryPlacement'
@@ -243,7 +250,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     canvas.setDimensions({ width: tpl.width, height: tpl.height })
     setCurrentProjectId(id)
     saveProject({ id, name: tpl.name, width: tpl.width, height: tpl.height, pages, activePageId: active.id })
-    canvas.loadFromJSON(active.canvas).then(() => {
+    loadCanvasJSON(canvas, active.canvas).then(() => {
       migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
@@ -272,7 +279,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     })
     canvas.setDimensions(size)
     setCurrentProjectId(id)
-    canvas.loadFromJSON(active.canvas).then(() => {
+    loadCanvasJSON(canvas, active.canvas).then(() => {
       // Backfill old saves onto the current stroke defaults (see stroke fix).
       migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
@@ -456,7 +463,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     const size = pageSize(target, { width, height })
     if (size.width !== width || size.height !== height) canvas.setDimensions(size)
     set({ pages: synced, activePageId: pageId, selection: [], width: size.width, height: size.height })
-    canvas.loadFromJSON(target.canvas).then(() => {
+    loadCanvasJSON(canvas, target.canvas).then(() => {
       migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
@@ -577,7 +584,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
         set({ width, height })
       }
     }
-    return canvas.loadFromJSON(active.canvas).then(() => {
+    return loadCanvasJSON(canvas, active.canvas).then(() => {
       migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
@@ -605,7 +612,7 @@ export const createProjectSlice: StateCreator<CanvasState, [], [], ProjectSlice>
     const size = pageSize(neighbour, { width, height })
     if (size.width !== width || size.height !== height) canvas.setDimensions(size)
     set({ pages: remaining, activePageId: neighbour.id, selection: [], width: size.width, height: size.height })
-    canvas.loadFromJSON(neighbour.canvas).then(() => {
+    loadCanvasJSON(canvas, neighbour.canvas).then(() => {
       migrateStrokeDefaults(canvas)
       canvas.requestRenderAll()
       loadCanvasFonts(canvas)
