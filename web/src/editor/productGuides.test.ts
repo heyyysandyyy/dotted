@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
+  cornerMarkSegments,
   drawProductCutLines,
   drawProductGuides,
   productCellCentres,
@@ -10,8 +11,10 @@ import {
   buildSheetLayout,
   customProductTemplate,
   findProductTemplate,
+  productArtboardSize,
   productCanvasSize,
   productGuideSpec,
+  trimSizePx,
 } from './products'
 
 function mockCtx() {
@@ -29,6 +32,7 @@ function mockCtx() {
     setLineDash: vi.fn(),
     fillStyle: '',
     strokeStyle: '',
+    lineTo: vi.fn(),
     lineWidth: 0,
   } as unknown as CanvasRenderingContext2D
 }
@@ -339,5 +343,106 @@ describe('rectangular products (PROD-001 custom sizes)', () => {
 
     expect(markup).not.toContain('<circle')
     expect(markup).toContain('<rect x="37.5" y="37.5" width="600" height="900"')
+  })
+})
+
+describe('corner crop marks (PROD-003)', () => {
+  const pad = findProductTemplate('notepad-a6')!
+  const spec = productGuideSpec(pad)
+  const trim = trimSizePx(spec)
+  const centre = { x: 500, y: 700 }
+
+  it('puts two marks at each corner, clear of the trim and running outward', () => {
+    const segs = cornerMarkSegments(centre, trim.width, trim.height, spec.bleedPx)
+    expect(segs).toHaveLength(8)
+    const left = centre.x - trim.width / 2
+    const top = centre.y - trim.height / 2
+    // The pair at the top-left corner: one along the top edge going left, one
+    // along the left edge going up. Neither touches the trim corner itself.
+    const horizontal = segs.find((s) => s.y1 === top && s.y2 === top && s.x2 < left)!
+    const vertical = segs.find((s) => s.x1 === left && s.x2 === left && s.y2 < top)!
+    expect(horizontal.x1).toBeLessThan(left)
+    expect(vertical.y1).toBeLessThan(top)
+    expect(left - horizontal.x1).toBeCloseTo(top - vertical.y1)
+  })
+
+  it('never reaches across into the next product on a ganged sheet', () => {
+    const segs = cornerMarkSegments(centre, trim.width, trim.height, spec.bleedPx)
+    const left = centre.x - trim.width / 2
+    const furthest = Math.min(...segs.map((s) => Math.min(s.x1, s.x2)))
+    // Two bleeds is the whole gap between neighbouring trims.
+    expect(left - furthest).toBeLessThanOrEqual(spec.bleedPx * 2)
+  })
+
+  it('draws nothing at all when there is no bleed to put marks in', () => {
+    expect(cornerMarkSegments(centre, trim.width, trim.height, 0)).toEqual([])
+  })
+
+  it('composites marks, not an outline, into a raster export', () => {
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: 1300, height: 1800 }, spec, 1)
+    expect(ctx.rect).not.toHaveBeenCalled()
+    expect(ctx.arc).not.toHaveBeenCalled()
+    expect(ctx.moveTo).toHaveBeenCalledTimes(8)
+    expect(ctx.lineTo).toHaveBeenCalledTimes(8)
+    // Solid, not dashed: a blade is lined up against these.
+    expect(ctx.setLineDash).toHaveBeenCalledWith([])
+  })
+
+  it('writes marks into the SVG export too', () => {
+    const svg = productCutLinesSVG(spec, productCanvasSize(pad))
+    expect(svg.match(/<line /g)).toHaveLength(8)
+    expect(svg).not.toContain('<rect')
+    expect(svg).not.toContain('stroke-dasharray')
+  })
+
+  it('still outlines a pin, on both export paths', () => {
+    const pin = productGuideSpec(findProductTemplate('pin-2-25')!)
+    const ctx = mockCtx()
+    drawProductCutLines(ctx, { x: 0, y: 0, width: 825, height: 825 }, pin, 1)
+    expect(ctx.arc).toHaveBeenCalledTimes(1)
+    expect(productCutLinesSVG(pin, productCanvasSize(findProductTemplate('pin-2-25')!))).toContain('<circle')
+  })
+
+  it('marks every cell of a ganged sheet', () => {
+    const sheet = buildSheetLayout(pad, { sheetId: 'letter', count: 4 })!
+    const ganged = productGuideSpec(pad, sheet)
+    const svg = productCutLinesSVG(ganged, productArtboardSize(pad, sheet))
+    expect(svg.match(/<line /g)).toHaveLength(8 * sheet.count)
+  })
+})
+
+describe('a ganged sheet laid out on its side (PROD-003)', () => {
+  const pad = findProductTemplate('notepad-half-letter')!
+  const layout = buildSheetLayout(pad, { sheetId: 'letter', count: 2 })!
+  const spec = productGuideSpec(pad, layout)
+  const size = productArtboardSize(pad, layout)
+
+  it('draws each cell turned a quarter, marks and all', () => {
+    const svg = productCutLinesSVG(spec, size)
+    const marks = [...svg.matchAll(/<line x1="(-?[\d.]+)" y1="(-?[\d.]+)" x2="(-?[\d.]+)" y2="(-?[\d.]+)"/g)]
+    expect(marks).toHaveLength(16)
+    // The cut line the two pads share runs across the sheet's middle, so the
+    // marks around it sit just above and below it at both ends.
+    const middle = size.height / 2
+    const nearMiddle = marks.filter(([, , y1]) => Math.abs(Number(y1) - middle) < spec.bleedPx * 2)
+    expect(nearMiddle.length).toBeGreaterThan(0)
+  })
+
+  it('tiles the sheet edge to edge, leaving no waste band between pads', () => {
+    const centres = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
+    expect(centres).toHaveLength(2)
+    expect(centres[0].y).toBeCloseTo(size.height / 4)
+    expect(centres[1].y).toBeCloseTo((size.height * 3) / 4)
+    expect(centres[0].x).toBeCloseTo(size.width / 2)
+  })
+
+  it('turns the screen guides too, so what is drawn matches what is cut', () => {
+    const ctx = mockCtx()
+    drawProductGuides(ctx, { x: 0, y: 0, ...size }, spec, 1)
+    // Cells are wider than they are tall once turned: 8.5 × 5.5in.
+    const rects = (ctx.rect as unknown as { mock: { calls: number[][] } }).mock.calls
+    expect(rects.length).toBeGreaterThan(0)
+    for (const [, , w, h] of rects) expect(w).toBeGreaterThan(h)
   })
 })

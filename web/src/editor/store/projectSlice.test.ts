@@ -376,6 +376,7 @@ describe('newProductProject — multi-up sheets (PROD-001)', () => {
       columns: 2,
       rows: 3,
       count: 6,
+      rotated: false,
     })
     // The product's own geometry is unchanged by ganging it up.
     expect(pages[0].product?.trimWidthPx).toBe(675)

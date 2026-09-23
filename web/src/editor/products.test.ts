@@ -16,9 +16,11 @@ import {
   productArtboardSize,
   productCanvasSize,
   productGuideSpec,
+  productMarks,
   productsInCategory,
   pxToInches,
   sheetCapacity,
+  sheetCellSize,
   sheetSizePx,
 } from './products'
 
@@ -26,7 +28,34 @@ describe('PRODUCT_TEMPLATES (PROD-001)', () => {
   it('ships the pin and magnet sizes the ticket calls for, each category ascending', () => {
     expect(productsInCategory('pin').map((t) => t.widthIn)).toEqual([1, 1.25, 1.5, 2.25, 3])
     expect(productsInCategory('magnet').map((t) => t.widthIn)).toEqual([2, 3])
-    expect(PRODUCT_TEMPLATES).toHaveLength(7)
+  })
+
+  it('ships the pad sizes, smallest first, all rectangular (PROD-003)', () => {
+    const pads = productsInCategory('notepad')
+    expect(pads.map((t) => t.label)).toEqual([
+      '3 × 5″ memo pad',
+      'Quarter-letter pad',
+      '4 × 6″ pad',
+      'A6 pad',
+      '5 × 7″ pad',
+      'Half-letter pad',
+      'A5 pad',
+    ])
+    for (const pad of pads) {
+      expect(pad.shape).toBe('rect')
+      expect(pad.heightIn).toBeGreaterThan(pad.widthIn)
+    }
+    // Areas ascend, which is the order the picker shows them in.
+    const areas = pads.map((t) => t.widthIn * t.heightIn)
+    expect([...areas].sort((a, b) => a - b)).toEqual(areas)
+  })
+
+  it('marks a pad at its corners and a pin on its outline (PROD-003)', () => {
+    expect(productMarks('notepad')).toBe('corner')
+    expect(productMarks('pin')).toBe('outline')
+    expect(productMarks('magnet')).toBe('outline')
+    expect(productGuideSpec(findProductTemplate('notepad-a6')!).marks).toBe('corner')
+    expect(productGuideSpec(findProductTemplate('pin-1')!).marks).toBe('outline')
   })
 
   it('gives every template a unique id, a print dpi and a positive bleed and safe zone', () => {
@@ -34,7 +63,7 @@ describe('PRODUCT_TEMPLATES (PROD-001)', () => {
     expect(ids.size).toBe(PRODUCT_TEMPLATES.length)
     for (const t of PRODUCT_TEMPLATES) {
       expect(t.dpi).toBe(PRODUCT_DPI)
-      expect(t.shape).toBe('circle')
+      expect(t.shape).toBe(t.category === 'notepad' ? 'rect' : 'circle')
       expect(t.bleedIn).toBeGreaterThan(0)
       expect(t.safeZoneIn).toBeGreaterThan(0)
       // A safe zone that ate the whole face would leave nothing designable.
@@ -55,11 +84,12 @@ describe('productCanvasSize', () => {
     expect(productCanvasSize(pin)).toEqual({ width: 825, height: 825 })
   })
 
-  it('is square for every circular product', () => {
+  it('is the product plus its bleed on each side, square only when the product is', () => {
     for (const t of PRODUCT_TEMPLATES) {
       const { width, height } = productCanvasSize(t)
-      expect(width).toBe(height)
       expect(width).toBe(Math.round((t.widthIn + t.bleedIn * 2) * t.dpi))
+      expect(height).toBe(Math.round((t.heightIn + t.bleedIn * 2) * t.dpi))
+      if (t.shape === 'circle') expect(width).toBe(height)
     }
   })
 })
@@ -76,6 +106,7 @@ describe('productGuideSpec', () => {
       bleedPx: 37.5,
       safeZonePx: 37.5,
       dpi: 300,
+      marks: 'outline',
     })
   })
 
@@ -107,9 +138,9 @@ describe('multi-up sheets (PROD-001)', () => {
   it('fits as many whole cells as the paper allows once its margin is taken off', () => {
     // 2.75in cells on 8.5x11in with a 0.25in margin all round: 8in / 2.75 = 2
     // across, 10.5in / 2.75 = 3 down.
-    expect(sheetCapacity(pin, 'letter')).toEqual({ columns: 2, rows: 3, max: 6 })
+    expect(sheetCapacity(pin, 'letter')).toMatchObject({ columns: 2, rows: 3, max: 6 })
     // A4 is narrower but taller, so the same pin gets an extra row.
-    expect(sheetCapacity(pin, 'a4')).toEqual({ columns: 2, rows: 4, max: 8 })
+    expect(sheetCapacity(pin, 'a4')).toMatchObject({ columns: 2, rows: 4, max: 8 })
     expect(sheetCapacity(findProductTemplate('pin-1')!, 'letter').max).toBe(35)
   })
 
@@ -120,6 +151,7 @@ describe('multi-up sheets (PROD-001)', () => {
       columns: 2,
       rows: 2,
       count: 3,
+      rotated: false,
     })
   })
 
@@ -205,14 +237,14 @@ describe('customProductTemplate (PROD-001)', () => {
     const magnet = customProductTemplate('magnet', 'rect', 2, 3)
 
     // 2.25 × 3.25in cells on US Letter's 8 × 10.5in usable area.
-    expect(sheetCapacity(magnet, 'letter')).toEqual({ columns: 3, rows: 3, max: 9 })
+    expect(sheetCapacity(magnet, 'letter')).toMatchObject({ columns: 3, rows: 3, max: 9 })
     expect(cellSizePx(productGuideSpec(magnet))).toEqual({ width: 675, height: 975 })
   })
 
   it('makes a tall custom product fit fewer down the page than across it', () => {
     const tall = customProductTemplate('magnet', 'rect', 2, 5)
 
-    expect(sheetCapacity(tall, 'letter')).toEqual({ columns: 3, rows: 2, max: 6 })
+    expect(sheetCapacity(tall, 'letter')).toMatchObject({ columns: 3, rows: 2, max: 6 })
   })
 })
 
@@ -276,5 +308,52 @@ describe('productWithShape (PROD-001)', () => {
   it('rounds a squared preset back off', () => {
     const round = productWithShape(productWithShape(magnet2, 'rect'), 'circle')
     expect(round).toMatchObject({ shape: 'circle', widthIn: 2, heightIn: 2 })
+  })
+})
+
+describe('ganging pads onto a sheet (PROD-003)', () => {
+  const capacityOf = (id: string, sheet: 'letter' | 'a4' = 'letter') =>
+    sheetCapacity(findProductTemplate(id)!, sheet)
+
+  it('tiles pads across the whole sheet, since the guillotine trims its edges off', () => {
+    // Quarter-letter is a quarter of US Letter: four of them, exactly.
+    expect(capacityOf('notepad-quarter-letter')).toMatchObject({ columns: 2, rows: 2, max: 4 })
+    // A6 is two across, one down — 5.83″ twice is taller than the sheet.
+    expect(capacityOf('notepad-a6')).toMatchObject({ columns: 2, rows: 1, max: 2 })
+    expect(capacityOf('notepad-half-letter')).toMatchObject({ columns: 1, rows: 2, max: 2 })
+    expect(capacityOf('notepad-3x5')).toMatchObject({ max: 4 })
+    // A5 on A4 is the same relationship as half-letter on Letter.
+    expect(capacityOf('notepad-a5', 'a4')).toMatchObject({ columns: 1, rows: 2, max: 2 })
+  })
+
+  it('turns the pad a quarter where that gangs more of them', () => {
+    // Half-letter on Letter and A5 on A4 are the classic two-ups, and both
+    // only fit that way round.
+    expect(capacityOf('notepad-half-letter').rotated).toBe(true)
+    expect(capacityOf('notepad-a5', 'a4').rotated).toBe(true)
+    // A6 fits two across upright, so it stays as it is.
+    expect(capacityOf('notepad-a6').rotated).toBe(false)
+    const layout = buildSheetLayout(findProductTemplate('notepad-half-letter')!, { sheetId: 'letter', count: 2 })!
+    expect(layout).toMatchObject({ columns: 1, rows: 2, count: 2, rotated: true })
+    // The cells are laid out on their side to match.
+    const spec = productGuideSpec(findProductTemplate('notepad-half-letter')!, layout)
+    expect(cellSizePx(spec)).toEqual({ width: 2550, height: 1650 })
+  })
+
+  it('keeps pins on their own margins and bleed, which they are cut out with', () => {
+    const pin = findProductTemplate('pin-1')!
+    const cell = productCanvasSize(pin)
+    expect(sheetCellSize(pin)).toEqual(cell)
+    // 1″ pin + 0.25″ bleed each side = 1.5″ cells inside an 8 × 10.5″ area.
+    expect(sheetCapacity(pin, 'letter')).toMatchObject({ columns: 5, rows: 7, max: 35 })
+  })
+
+  it('lays a pad cell out at its trim size, so neighbours share one cut line', () => {
+    const pad = findProductTemplate('notepad-a6')!
+    expect(sheetCellSize(pad)).toEqual({ width: 1240, height: 1748 })
+    expect(cellSizePx(productGuideSpec(pad))).toEqual(trimSizePx(productGuideSpec(pad)))
+    // A pin's cell still carries its bleed on every side.
+    const pinSpec = productGuideSpec(findProductTemplate('pin-1')!)
+    expect(cellSizePx(pinSpec).width).toBe(trimSizePx(pinSpec).width + pinSpec.bleedPx * 2)
   })
 })

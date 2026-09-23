@@ -117,9 +117,21 @@ describe('NewDesignModal — print products', () => {
 
     fireEvent.click(screen.getByText('Custom product'))
 
-    // Straight into the size fields — no preset to undo first.
+    // Straight into the size fields — no preset to undo first. Pins are the
+    // category it opens on, and a pin is round, so it asks for a diameter.
     expect(screen.getByText('Product setup')).toBeInTheDocument()
+    expect(screen.getByLabelText('Diameter (in)')).toBeInTheDocument()
+  })
+
+  it('asks a custom pad for both sides, since a pad is never round (PROD-003)', () => {
+    render(<NewDesignModal open onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Products' }))
+    fireEvent.click(screen.getByText('Custom product'))
+    // The category radio in the setup panel, not a preset card.
+    fireEvent.click(screen.getByRole('button', { name: /Notepads\s*7 sizes/ }))
+
     expect(screen.getByLabelText('Width (in)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Height (in)')).toBeInTheDocument()
   })
 
   it('sends the page-size box’s reader to the product flow instead', () => {
@@ -130,7 +142,7 @@ describe('NewDesignModal — print products', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Products filter' }))
 
     expect(screen.getByText('Product setup')).toBeInTheDocument()
-    expect(screen.getByLabelText('Width (in)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Diameter (in)')).toBeInTheDocument()
     // The link has done its job and steps aside once setup is up.
     expect(screen.queryByRole('button', { name: 'Products filter' })).not.toBeInTheDocument()
   })

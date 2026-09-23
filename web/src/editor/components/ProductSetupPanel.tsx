@@ -8,6 +8,8 @@ import {
   SHEET_SIZES,
   buildSheetLayout,
   canChooseShape,
+  defaultShape,
+  productMarks,
   customProductTemplate,
   findProductTemplate,
   formatIn,
@@ -42,6 +44,18 @@ interface Props {
 }
 
 /**
+ * What a size button says. A round product is sold by one number, so its
+ * diameter is the whole story; a pad is a rectangle where the width alone
+ * says nothing ("4″" and "4.134″" are a 4 × 6 and an A6), so it shows both
+ * sides — or its own name where it has one, like A6 (PROD-003).
+ */
+function sizeLabel(option: PresetTemplate): string {
+  if (option.shape === 'circle') return `${formatIn(option.widthIn)}″`
+  const named = option.label.match(/^(A\d|Quarter-letter|Half-letter)/)
+  return named ? named[0] : `${formatIn(option.widthIn)} × ${formatIn(option.heightIn)}″`
+}
+
+/**
  * Product setup flow shown in the new-design modal once a print product is
  * picked (PROD-001) — the same shape as BookSetupPanel: choose the category,
  * then the size, see exactly what will be printed and what gets lost around
@@ -71,7 +85,12 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
 
   const sizes = productsInCategory(category)
   const customW = Number(wStr)
-  const customH = customShape === 'circle' ? customW : Number(hStr)
+  // The shape control only shows for categories that offer a choice, and the
+  // last choice sticks while switching between them — so a custom pad would
+  // inherit "circle" from a magnet picked a moment earlier. A pad is always a
+  // rectangle, a pin always round.
+  const shape = canChooseShape(category) ? customShape : defaultShape(category)
+  const customH = shape === 'circle' ? customW : Number(hStr)
   const customValid = isValidProductSize(customW) && isValidProductSize(customH)
   const pickedPreset = sizes.find((t) => t.id === templateId) ?? sizes[0]
   const preset = canChooseShape(category)
@@ -81,7 +100,7 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
   // page follows from it further down: on its own artboard it's the product
   // plus bleed, and on a sheet it's the paper, with the grid working out how
   // many of this size fit.
-  const template = custom ? customProductTemplate(category, customShape, customW, customH) : preset
+  const template = custom ? customProductTemplate(category, shape, customW, customH) : preset
   const capacity = sheetCapacity(template, sheetId)
   const count = Math.max(1, Math.min(wantedCount ?? capacity.max, capacity.max))
   const layout: ProductSheetLayout | null =
@@ -154,7 +173,7 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
                         : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
                     }`}
                   >
-                    {formatIn(option.widthIn)}″
+                    {sizeLabel(option)}
                   </button>
                 )
               })}
@@ -223,7 +242,7 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
               </div>
             </div>
             <label className="flex flex-col text-xs text-editor-text-muted">
-              {customShape === 'circle' ? 'Diameter (in)' : 'Width (in)'}
+              {shape === 'circle' ? 'Diameter (in)' : 'Width (in)'}
               <input
                 type="number"
                 min={MIN_PRODUCT_IN}
@@ -234,7 +253,7 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
                 className={input}
               />
             </label>
-            {customShape === 'rect' && (
+            {shape === 'rect' && (
               <label className="flex flex-col text-xs text-editor-text-muted">
                 Height (in)
                 <input
@@ -312,7 +331,15 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
             </label>
             <p className="pb-1 text-[11px] text-editor-text-subtle">
               Up to {capacity.max} fit on {SHEET_SIZES.find((s) => s.id === sheetId)?.label} —{' '}
-              {capacity.columns} across × {capacity.rows} down.
+              {capacity.columns} across × {capacity.rows} down
+              {capacity.rotated ? ', turned on their side' : ''}.
+              {productMarks(category) === 'corner' && (
+                <>
+                  {' '}
+                  Pads tile the whole sheet and are cut apart on the marks, so the paper&rsquo;s edges — and any
+                  margin a home printer can&rsquo;t reach — are trimmed off with them.
+                </>
+              )}
             </p>
           </>
         )}
