@@ -2,6 +2,59 @@ import { cellSizePx, trimSizePx } from './products'
 import type { ProductGuideSpec, ProductShape } from './products'
 
 /**
+ * Corner crop marks (PROD-003), as fractions of an inch: how far off the trim
+ * they start, and how long they run. A pad is guillotined, so the marks have
+ * to sit clear of the artwork — the gap — while staying long enough to line a
+ * blade up against.
+ */
+const MARK_GAP_IN = 0.0625
+const MARK_LEN_IN = 0.125
+
+/**
+ * Where one cell's corner marks go, in the caller's pixel space: eight
+ * segments, two at each corner, running outward along the trim's own edges.
+ *
+ * Both are held inside the space between this product and the next one on a
+ * ganged sheet (two bleeds' worth), so a mark can never reach across into a
+ * neighbour's artwork — which on a full sheet of pads would print a line
+ * through someone's design.
+ */
+export function cornerMarkSegments(
+  centre: { x: number; y: number },
+  trimW: number,
+  trimH: number,
+  bleedPx: number,
+): { x1: number; y1: number; x2: number; y2: number }[] {
+  const gap = Math.min(bleedPx / 2, MARK_GAP_IN * DPI_REFERENCE)
+  const len = Math.min(MARK_LEN_IN * DPI_REFERENCE, Math.max(0, 2 * bleedPx - gap))
+  if (len <= 0) return []
+  const left = centre.x - trimW / 2
+  const right = centre.x + trimW / 2
+  const top = centre.y - trimH / 2
+  const bottom = centre.y + trimH / 2
+  const segments: { x1: number; y1: number; x2: number; y2: number }[] = []
+  for (const [x, sx] of [
+    [left, -1],
+    [right, 1],
+  ] as const) {
+    for (const [y, sy] of [
+      [top, -1],
+      [bottom, 1],
+    ] as const) {
+      // Along the horizontal trim edge, running away from the product...
+      segments.push({ x1: x + sx * gap, y1: y, x2: x + sx * (gap + len), y2: y })
+      // ...and along the vertical one.
+      segments.push({ x1: x, y1: y + sy * gap, x2: x, y2: y + sy * (gap + len) })
+    }
+  }
+  return segments
+}
+
+/** Marks are sized in inches; everything here is already in artboard px at
+ *  the product's own print resolution, which PROD-001 fixes at 300. */
+const DPI_REFERENCE = 300
+
+/**
  * Trim/bleed/safe-zone drawing math for print products (PROD-001). The
  * counterpart to pageGuides.ts, which does the same job for rectangular book
  * pages — one function, several callers (the canvas overlay and the
@@ -129,17 +182,29 @@ export function drawProductCutLines(
   style = PRINT_CUT_LINE_STYLE,
 ): void {
   const trim = trimSizePx(spec)
-  const trimW = trim.width * scale
-  const trimH = trim.height * scale
+  // A rotated sheet lays every cell on its side, marks and outline with it.
+  const turned = spec.sheet?.rotated === true
+  const trimW = (turned ? trim.height : trim.width) * scale
+  const trimH = (turned ? trim.width : trim.height) * scale
   if (trimW <= 0 || trimH <= 0) return
 
+  const corners = spec.marks === 'corner'
   ctx.save()
   ctx.strokeStyle = style.color
   ctx.lineWidth = Math.max(1, style.widthPx * scale)
-  ctx.setLineDash(style.dash.map((d) => Math.max(1, d * scale)))
+  // Corner marks are solid: they're a target for a blade, not an outline to
+  // follow by eye, and a dashed one reads as part of the artwork.
+  ctx.setLineDash(corners ? [] : style.dash.map((d) => Math.max(1, d * scale)))
   ctx.beginPath()
   for (const centre of productCellCentres(box, spec, scale)) {
-    outlineSubpath(ctx, spec.shape, centre.x, centre.y, trimW, trimH)
+    if (!corners) {
+      outlineSubpath(ctx, spec.shape, centre.x, centre.y, trimW, trimH)
+      continue
+    }
+    for (const s of cornerMarkSegments(centre, trimW, trimH, spec.bleedPx * scale)) {
+      ctx.moveTo(s.x1, s.y1)
+      ctx.lineTo(s.x2, s.y2)
+    }
   }
   ctx.stroke()
   ctx.restore()
@@ -157,12 +222,24 @@ export function productCutLinesSVG(
 ): string {
   const trim = trimSizePx(spec)
   if (trim.width <= 0 || trim.height <= 0) return ''
-  const shapes = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
+  const centres = productCellCentres({ x: 0, y: 0, ...size }, spec, 1)
+  const turned = spec.sheet?.rotated === true
+  const trimW = turned ? trim.height : trim.width
+  const trimH = turned ? trim.width : trim.height
+  if (spec.marks === 'corner') {
+    const lines = centres
+      .flatMap((c) => cornerMarkSegments(c, trimW, trimH, spec.bleedPx))
+      .map((s) => `<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" />`)
+      .join('')
+    if (!lines) return ''
+    return `<g fill="none" stroke="${style.color}" stroke-width="${style.widthPx}">${lines}</g>`
+  }
+  const shapes = centres
     .map((c) =>
       spec.shape === 'rect'
-        ? `<rect x="${c.x - trim.width / 2}" y="${c.y - trim.height / 2}" ` +
-          `width="${trim.width}" height="${trim.height}" />`
-        : `<circle cx="${c.x}" cy="${c.y}" r="${trim.width / 2}" />`,
+        ? `<rect x="${c.x - trimW / 2}" y="${c.y - trimH / 2}" ` +
+          `width="${trimW}" height="${trimH}" />`
+        : `<circle cx="${c.x}" cy="${c.y}" r="${trimW / 2}" />`,
     )
     .join('')
   return (
@@ -189,14 +266,17 @@ export function drawProductGuides(
   style: ProductGuideStyle = DEFAULT_PRODUCT_GUIDE_STYLE,
 ): void {
   const trim = trimSizePx(spec)
-  const trimW = trim.width * scale
-  const trimH = trim.height * scale
+  // A sheet ganged with the product turned a quarter (PROD-003) draws every
+  // cell that way round: trim, safe zone and the tint punched out of them.
+  const turned = spec.sheet?.rotated === true
+  const trimW = (turned ? trim.height : trim.width) * scale
+  const trimH = (turned ? trim.width : trim.height) * scale
   if (trimW <= 0 || trimH <= 0) return
   // The safe zone is inset by the same amount on every edge, so a rectangle
   // loses two insets off each axis and a circle loses one off its radius —
   // which is the same sum, since its width is its diameter.
-  const safeW = Math.max(0, trim.width - spec.safeZonePx * 2) * scale
-  const safeH = Math.max(0, trim.height - spec.safeZonePx * 2) * scale
+  const safeW = Math.max(0, (turned ? trim.height : trim.width) - spec.safeZonePx * 2) * scale
+  const safeH = Math.max(0, (turned ? trim.width : trim.height) - spec.safeZonePx * 2) * scale
   const centres = productCellCentres(box, spec, scale)
 
   // Tint the whole artboard, then clear every trim outline out of it, so only

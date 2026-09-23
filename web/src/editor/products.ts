@@ -13,12 +13,36 @@ export function formatIn(value: number): string {
   return String(Number(value.toFixed(3)))
 }
 
-export const PRODUCT_CATEGORIES = ['pin', 'magnet'] as const
+export const PRODUCT_CATEGORIES = ['pin', 'magnet', 'notepad'] as const
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number]
 
 export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
   pin: 'Pins & buttons',
   magnet: 'Magnets',
+  notepad: 'Notepads',
+}
+
+/**
+ * How a product's trim line is marked on the print (PROD-003).
+ *
+ * A pin or magnet is cut out one at a time on its own outline, so the line
+ * itself is what's wanted — 'outline' draws it dashed, round or square.
+ * A pad is guillotined in stacks through straight cuts that run the width of
+ * the sheet, so what a print shop wants is 'corner': short marks sitting out
+ * in the bleed at each corner, clear of the artwork, that the blade is lined
+ * up against.
+ */
+export const PRODUCT_MARKS = ['outline', 'corner'] as const
+export type ProductMarks = (typeof PRODUCT_MARKS)[number]
+
+const CATEGORY_MARKS: Record<ProductCategory, ProductMarks> = {
+  pin: 'outline',
+  magnet: 'outline',
+  notepad: 'corner',
+}
+
+export function productMarks(category: ProductCategory): ProductMarks {
+  return CATEGORY_MARKS[category]
 }
 
 /** Product outline. The stock presets are all round; a custom size can be
@@ -65,6 +89,10 @@ export const PRODUCT_DPI = 300
 export const CATEGORY_MARGINS: Record<ProductCategory, { bleedIn: number; safeZoneIn: number }> = {
   pin: { bleedIn: 0.25, safeZoneIn: 0.25 },
   magnet: { bleedIn: 0.125, safeZoneIn: 0.125 },
+  // A pad is trimmed on a guillotine, which drifts a little through a stack:
+  // an ordinary print bleed covers the cut, and the safe zone is wider than a
+  // magnet's because the sheets nearest the glued head lose a touch more.
+  notepad: { bleedIn: 0.125, safeZoneIn: 0.25 },
 }
 
 /**
@@ -124,6 +152,23 @@ export function findSheet(id: SheetId) {
   return SHEET_SIZES.find((s) => s.id === id) ?? SHEET_SIZES[0]
 }
 
+const rect = (
+  category: ProductCategory,
+  widthIn: number,
+  heightIn: number,
+  label: string,
+  id: string,
+): PresetTemplate => ({
+  id: `${category}-${id}`,
+  category,
+  label,
+  shape: 'rect',
+  widthIn,
+  heightIn,
+  ...CATEGORY_MARGINS[category],
+  dpi: PRODUCT_DPI,
+})
+
 const round = (category: ProductCategory, diameterIn: number, label: string): PresetTemplate => ({
   id: `${category}-${String(diameterIn).replace('.', '-')}`,
   category,
@@ -146,6 +191,16 @@ export const PRODUCT_TEMPLATES: PresetTemplate[] = [
   round('pin', 3, '3″ pin'),
   round('magnet', 2, '2″ magnet'),
   round('magnet', 3, '3″ magnet'),
+  // Pads, smallest first. The metric pair are their millimetre sizes in
+  // inches; the letter-derived pair are what a US Letter sheet halves and
+  // quarters into, which is why they cut without waste.
+  rect('notepad', 3, 5, '3 × 5″ memo pad', '3x5'),
+  rect('notepad', 4.25, 5.5, 'Quarter-letter pad', 'quarter-letter'),
+  rect('notepad', 4, 6, '4 × 6″ pad', '4x6'),
+  rect('notepad', 105 / 25.4, 148 / 25.4, 'A6 pad', 'a6'),
+  rect('notepad', 5, 7, '5 × 7″ pad', '5x7'),
+  rect('notepad', 5.5, 8.5, 'Half-letter pad', 'half-letter'),
+  rect('notepad', 148 / 25.4, 210 / 25.4, 'A5 pad', 'a5'),
 ]
 
 export function productsInCategory(category: ProductCategory): PresetTemplate[] {
@@ -185,7 +240,7 @@ export function customProductTemplate(
   // A circle is stored as equal sides so no consumer has to special-case it;
   // the width input is the diameter the panel shows.
   const h = shape === 'circle' ? w : clamp(heightIn)
-  const noun = category === 'pin' ? 'pin' : 'magnet'
+  const noun = category === 'pin' ? 'pin' : category === 'magnet' ? 'magnet' : 'pad'
   return {
     id: `custom-${category}`,
     category,
@@ -233,6 +288,9 @@ export interface ProductSheetLayout {
   rows: number
   /** How many cells are actually in use — the last row can be partial. */
   count: number
+  /** Cells laid out with the product turned a quarter, where that gangs more
+   *  of them (half-letter on Letter, A5 on A4). */
+  rotated?: boolean
 }
 
 /** What the setup panel hands to the store: a sheet and how many to put on it. */
@@ -263,6 +321,9 @@ export interface ProductGuideSpec {
   /** Safe-zone inset inside the trim, in px. */
   safeZonePx: number
   dpi: number
+  /** How the trim line is marked on the print (PROD-003). Absent on designs
+   *  saved before pads existed, which are all cut on their own outline. */
+  marks?: ProductMarks
   /** Multi-up layout (absent for a single product on its own artboard). */
   sheet?: ProductSheetLayout
   /**
@@ -303,13 +364,43 @@ export function sheetSizePx(sheetId: SheetId, dpi: number): { width: number; hei
 export function sheetCapacity(
   template: PresetTemplate,
   sheetId: SheetId,
-): { columns: number; rows: number; max: number } {
-  const cell = productCanvasSize(template)
+): { columns: number; rows: number; max: number; rotated: boolean } {
   const sheet = sheetSizePx(sheetId, template.dpi)
-  const margin = Math.round(SHEET_MARGIN_IN * template.dpi)
-  const columns = Math.max(0, Math.floor((sheet.width - margin * 2) / cell.width))
-  const rows = Math.max(0, Math.floor((sheet.height - margin * 2) / cell.height))
-  return { columns, rows, max: columns * rows }
+  const cell = sheetCellSize(template)
+  // A product cut out one at a time needs its bleed around every copy, and
+  // its own margin clear of what the printer can't reach. Pads don't: they're
+  // guillotined through cut lines two neighbours share, and the sheet's outer
+  // edges — margin and all — are trimmed off the finished pad, so they tile
+  // the whole sheet edge to edge (PROD-003). Keeping the pin behaviour would
+  // gang an A6 pad one per sheet, which is no ganging at all.
+  const margin = productMarks(template.category) === 'corner' ? 0 : Math.round(SHEET_MARGIN_IN * template.dpi)
+  const usableW = sheet.width - margin * 2
+  const usableH = sheet.height - margin * 2
+  const fit = (w: number, h: number) => {
+    const columns = Math.max(0, Math.floor(usableW / w))
+    const rows = Math.max(0, Math.floor(usableH / h))
+    return { columns, rows, max: columns * rows }
+  }
+  const upright = fit(cell.width, cell.height)
+  // Turned a quarter: half-letter on Letter and A5 on A4 are both the classic
+  // two-up, and both only fit that way round (PROD-003). A round product is
+  // the same either way, so it never needs the comparison.
+  if (template.shape === 'circle') return { ...upright, rotated: false }
+  const turned = fit(cell.height, cell.width)
+  return turned.max > upright.max ? { ...turned, rotated: true } : { ...upright, rotated: false }
+}
+
+/**
+ * One cell of a ganged sheet: the product and its bleed for something cut out
+ * individually, the bare trim size for something guillotined, where each cut
+ * line serves both neighbours and the artwork runs straight through it.
+ */
+export function sheetCellSize(template: PresetTemplate): { width: number; height: number } {
+  if (productMarks(template.category) !== 'corner') return productCanvasSize(template)
+  return {
+    width: Math.round(template.widthIn * template.dpi),
+    height: Math.round(template.heightIn * template.dpi),
+  }
 }
 
 /**
@@ -322,7 +413,7 @@ export function buildSheetLayout(
   template: PresetTemplate,
   choice: ProductSheetChoice,
 ): ProductSheetLayout | null {
-  const { columns, max } = sheetCapacity(template, choice.sheetId)
+  const { columns, max, rotated } = sheetCapacity(template, choice.sheetId)
   if (max <= 0) return null
   const count = Math.max(1, Math.min(Math.round(choice.count) || 1, max))
   return {
@@ -333,6 +424,7 @@ export function buildSheetLayout(
     // what's there instead of leaving a blank band where unused rows would be.
     rows: Math.ceil(count / columns),
     count,
+    rotated,
   }
 }
 
@@ -356,6 +448,7 @@ export function productGuideSpec(
     templateId: template.id,
     label: template.label,
     shape: template.shape,
+    marks: productMarks(template.category),
     trimWidthPx,
     trimHeightPx,
     // Derived from the artboard rather than from bleedIn directly, so the trim
@@ -376,7 +469,15 @@ export function productGuideSpec(
 /** One product's cell — the trim size plus its bleed margin on every side. */
 export function cellSizePx(spec: ProductGuideSpec): { width: number; height: number } {
   const trim = trimSizePx(spec)
-  return { width: trim.width + spec.bleedPx * 2, height: trim.height + spec.bleedPx * 2 }
+  // Guillotined products abut on their trim lines (see sheetCellSize); the
+  // bleed is shared with the neighbour rather than sitting between them.
+  const cell =
+    spec.marks === 'corner'
+      ? trim
+      : { width: trim.width + spec.bleedPx * 2, height: trim.height + spec.bleedPx * 2 }
+  // A sheet that gangs more copies with the product turned a quarter lays its
+  // cells out that way round too.
+  return spec.sheet?.rotated ? { width: cell.height, height: cell.width } : cell
 }
 
 /** Format a px length back to inches for display (e.g. "0.25 in"). */

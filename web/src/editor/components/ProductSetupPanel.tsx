@@ -42,6 +42,18 @@ interface Props {
 }
 
 /**
+ * What a size button says. A round product is sold by one number, so its
+ * diameter is the whole story; a pad is a rectangle where the width alone
+ * says nothing ("4″" and "4.134″" are a 4 × 6 and an A6), so it shows both
+ * sides — or its own name where it has one, like A6 (PROD-003).
+ */
+function sizeLabel(option: PresetTemplate): string {
+  if (option.shape === 'circle') return `${formatIn(option.widthIn)}″`
+  const named = option.label.match(/^(A\d|Quarter-letter|Half-letter)/)
+  return named ? named[0] : `${formatIn(option.widthIn)} × ${formatIn(option.heightIn)}″`
+}
+
+/**
  * Product setup flow shown in the new-design modal once a print product is
  * picked (PROD-001) — the same shape as BookSetupPanel: choose the category,
  * then the size, see exactly what will be printed and what gets lost around
@@ -154,7 +166,7 @@ export function ProductSetupPanel({ initialTemplateId, startCustom = false, onCr
                         : 'border-editor-strong text-editor-text-secondary hover:border-editor-input'
                     }`}
                   >
-                    {formatIn(option.widthIn)}″
+                    {sizeLabel(option)}
                   </button>
                 )
               })}

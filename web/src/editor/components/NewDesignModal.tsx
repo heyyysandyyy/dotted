@@ -274,7 +274,13 @@ export function NewDesignModal({ open, onClose }: Props) {
         })}
         {products.map((t) => {
           const size = productCanvasSize(t)
-          const circleSize = THUMB_BOX * (t.widthIn / LARGEST_PRODUCT_IN)
+          // Drawn to scale against the biggest product, and in the product's
+          // own outline: a pad is a rectangle, and showing every product as a
+          // circle made the pads unreadable in the picker (PROD-003).
+          const longest = Math.max(t.widthIn, t.heightIn)
+          const thumbLong = THUMB_BOX * (longest / LARGEST_PRODUCT_IN)
+          const thumbW = t.shape === 'circle' ? thumbLong : thumbLong * (t.widthIn / longest)
+          const thumbH = t.shape === 'circle' ? thumbLong : thumbLong * (t.heightIn / longest)
           const isSelected = selectedProductId === t.id
           return (
             <button
@@ -290,11 +296,11 @@ export function NewDesignModal({ open, onClose }: Props) {
                 {PRODUCT_CATEGORY_LABELS[t.category].split(' ')[0]}
               </span>
               <div className="flex h-[72px] w-[72px] items-center justify-center">
-                {/* Circular, because the product is — the square artboard
-                    around it is what the guides are there to explain. */}
+                {/* The product's own outline, to scale — the artboard around
+                    it is what the guides are there to explain. */}
                 <div
-                  className="rounded-full bg-editor-surface-3"
-                  style={{ width: circleSize, height: circleSize }}
+                  className={`bg-editor-surface-3 ${t.shape === 'circle' ? 'rounded-full' : 'rounded-sm'}`}
+                  style={{ width: thumbW, height: thumbH }}
                 />
               </div>
               <div className="text-xs font-medium leading-tight text-editor-text">{t.label}</div>
@@ -322,7 +328,7 @@ export function NewDesignModal({ open, onClose }: Props) {
               <div className="h-[52px] w-[44px] rounded-sm border-2 border-dashed border-editor-input" />
             </div>
             <div className="text-xs font-medium leading-tight text-editor-text">Custom product</div>
-            <div className="text-[11px] text-editor-text-subtle">Pin or magnet, any size</div>
+            <div className="text-[11px] text-editor-text-subtle">Pin, magnet or pad, any size</div>
           </button>
         )}
         {presets.length === 0 && products.length === 0 && !showCustomProduct && (
