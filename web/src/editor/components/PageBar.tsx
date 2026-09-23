@@ -180,12 +180,12 @@ function StripThumb({
           until hover left these unreachable by keyboard, so a page could only
           be duplicated or deleted with a mouse (BUG-012). Faded out and
           click-through instead, and revealed on focus as well as hover. */}
-      <div className="pointer-events-none absolute right-0 top-0 flex overflow-hidden rounded-bl rounded-tr bg-editor-bg/85 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+      <div className="pointer-events-none absolute right-0.5 top-0.5 flex gap-1 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
         <button
           onClick={onDuplicate}
           title="Duplicate page"
           aria-label={`Duplicate page ${index + 1}`}
-          className="px-1 py-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-editor-text-strong focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-indigo-400"
+          className="rounded bg-editor-bg/85 p-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-editor-text-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-indigo-400"
         >
           <Copy size={9} />
         </button>
@@ -194,7 +194,7 @@ function StripThumb({
             onClick={onDelete}
             title="Delete page"
             aria-label={`Delete page ${index + 1}`}
-            className="px-1 py-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-red-400 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-indigo-400"
+            className="rounded bg-editor-bg/85 p-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-red-400 focus-visible:outline focus-visible:outline-1 focus-visible:outline-indigo-400"
           >
             <X size={9} />
           </button>
