@@ -106,6 +106,12 @@ export function canChooseShape(category: ProductCategory): boolean {
   return SHAPEABLE_CATEGORIES.includes(category)
 }
 
+/** The outline a category is made in when it isn't offering a choice: a pin
+ *  is a round shell, a pad is guillotined out of a sheet. */
+export function defaultShape(category: ProductCategory): ProductShape {
+  return category === 'notepad' ? 'rect' : 'circle'
+}
+
 /**
  * A preset in the other outline it can be ordered in: a 2″ magnet as a 2 × 2″
  * square. The side length is the diameter it replaces — that's the size the
