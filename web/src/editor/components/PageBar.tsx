@@ -163,7 +163,10 @@ function StripThumb({
           {/* Drag handle affordance — dragging works from anywhere on the
               thumbnail (the listeners above are on the whole button); this is
               just the hover hint, purely decorative. */}
-          <div className="pointer-events-none absolute left-0.5 top-0.5 hidden rounded bg-editor-bg/60 p-0.5 text-editor-text-secondary group-hover:block">
+          {/* Bottom-left, clear of the action buttons at the top: a portrait
+              page's thumbnail is only ~40px wide, which isn't enough to line
+              this up beside them without them overlapping (BUG-013). */}
+          <div className="pointer-events-none absolute bottom-0.5 left-0.5 hidden rounded bg-editor-bg/60 p-0.5 text-editor-text-secondary group-hover:block">
             <GripVertical size={9} />
           </div>
         </div>
@@ -173,11 +176,16 @@ function StripThumb({
           (not offset past the thumbnail's own edge) so it can't get clipped by
           the strip's scroll container, which forces vertical clipping too once
           horizontal scroll is enabled. */}
-      <div className="absolute right-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
+      {/* Shown on hover, but kept in the DOM and in the tab order: `hidden`
+          until hover left these unreachable by keyboard, so a page could only
+          be duplicated or deleted with a mouse (BUG-012). Faded out and
+          click-through instead, and revealed on focus as well as hover. */}
+      <div className="pointer-events-none absolute right-0.5 top-0.5 flex gap-1 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
         <button
           onClick={onDuplicate}
           title="Duplicate page"
-          className="rounded bg-editor-bg/80 p-0.5 text-editor-text-secondary hover:text-editor-text-strong"
+          aria-label={`Duplicate page ${index + 1}`}
+          className="rounded bg-editor-bg/85 p-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-editor-text-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-indigo-400"
         >
           <Copy size={9} />
         </button>
@@ -185,7 +193,8 @@ function StripThumb({
           <button
             onClick={onDelete}
             title="Delete page"
-            className="rounded bg-editor-bg/80 p-0.5 text-editor-text-secondary hover:text-red-400"
+            aria-label={`Delete page ${index + 1}`}
+            className="rounded bg-editor-bg/85 p-0.5 text-editor-text-secondary hover:bg-editor-surface hover:text-red-400 focus-visible:outline focus-visible:outline-1 focus-visible:outline-indigo-400"
           >
             <X size={9} />
           </button>

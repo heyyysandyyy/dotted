@@ -237,11 +237,11 @@ function PagePreview({
       </div>
       <div className="flex items-center gap-1.5 text-xs text-editor-text-muted">
         <span>Page {index + 1}</span>
-        <button onClick={onDuplicate} title="Duplicate page" className="text-editor-text-subtle hover:text-editor-text">
+        <button onClick={onDuplicate} title="Duplicate page" aria-label={`Duplicate page ${index + 1}`} className="text-editor-text-subtle hover:text-editor-text">
           <Copy size={12} />
         </button>
         {canDelete && (
-          <button onClick={onDelete} title="Delete page" className="text-editor-text-subtle hover:text-red-400">
+          <button onClick={onDelete} title="Delete page" aria-label={`Delete page ${index + 1}`} className="text-editor-text-subtle hover:text-red-400">
             <X size={12} />
           </button>
         )}

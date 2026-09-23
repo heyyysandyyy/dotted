@@ -5,6 +5,7 @@ import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher'
 import { useCanvasStore } from '../../editor/store/useCanvasStore'
 import { usePhotoEditorStore } from '../store/usePhotoEditorStore'
 import { flattenImage } from '../utils/flattenImage'
+import { shortcut } from '../../lib/keyLabels'
 
 /**
  * Photo Editor's own top bar (PHOTO-001) — intentionally not a reuse of the
@@ -70,7 +71,7 @@ export function PhotoEditorTopBar() {
         <button
           onClick={undo}
           disabled={!canUndo}
-          title="Undo (Cmd/Ctrl+Z)"
+          title={`Undo (${shortcut('Z')})`}
           className="rounded-md p-1.5 hover:bg-editor-surface disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Undo2 size={16} />
@@ -78,7 +79,7 @@ export function PhotoEditorTopBar() {
         <button
           onClick={redo}
           disabled={!canRedo}
-          title="Redo (Cmd/Ctrl+Shift+Z)"
+          title={`Redo (${shortcut('Z', true)})`}
           className="rounded-md p-1.5 hover:bg-editor-surface disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Redo2 size={16} />

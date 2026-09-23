@@ -12,14 +12,15 @@ import {
 import type { GradientShape, SelectionCombine, SelectionTool } from '../store/usePhotoEditorStore'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import { hasSelection } from '../utils/selection'
+import { ALT_KEY, shortcut } from '../../lib/keyLabels'
 
-const TOOLS: { tool: SelectionTool; label: string; icon: LucideIcon }[] = [
-  { tool: 'rect', label: 'Rectangle marquee', icon: Square },
-  { tool: 'ellipse', label: 'Ellipse marquee', icon: Circle },
-  { tool: 'lasso', label: 'Lasso', icon: Lasso },
-  { tool: 'wand', label: 'Magic wand', icon: WandSparkles },
-  { tool: 'brush', label: 'Brush', icon: Brush },
-  { tool: 'gradient', label: 'Gradient', icon: Blend },
+const TOOLS: { tool: SelectionTool; label: string; short: string; icon: LucideIcon }[] = [
+  { tool: 'rect', label: 'Rectangle marquee', short: 'Box', icon: Square },
+  { tool: 'ellipse', label: 'Ellipse marquee', short: 'Oval', icon: Circle },
+  { tool: 'lasso', label: 'Lasso', short: 'Lasso', icon: Lasso },
+  { tool: 'wand', label: 'Magic wand', short: 'Wand', icon: WandSparkles },
+  { tool: 'brush', label: 'Brush', short: 'Brush', icon: Brush },
+  { tool: 'gradient', label: 'Gradient', short: 'Fade', icon: Blend },
 ]
 
 const GRADIENT_SHAPES: { shape: GradientShape; label: string }[] = [
@@ -48,7 +49,8 @@ const chip = (active: boolean) =>
  *
  * Shapes combine with the selection as New / Add / Subtract (Shift and Alt
  * do the same for one gesture). Feather softens the edge, Invert swaps what's
- * selected, and Deselect (Cmd/Ctrl+D) goes back to the whole photo. Each of
+ * selected, and Deselect (Cmd/Ctrl+D — shown as the platform's own keys)
+ * goes back to the whole photo. Each of
  * those is an undo step; which tool is active is not.
  */
 export function SelectionPanel() {
@@ -72,28 +74,51 @@ export function SelectionPanel() {
   const setFeather = usePhotoEditorStore((s) => s.setSelectionFeather)
   const invert = usePhotoEditorStore((s) => s.invertSelection)
   const clear = usePhotoEditorStore((s) => s.clearSelection)
+  const addLayer = usePhotoEditorStore((s) => s.addLayer)
+  const showMask = usePhotoEditorStore((s) => s.showMask)
+  const setShowMask = usePhotoEditorStore((s) => s.setShowMask)
   const selected = hasSelection(selection)
 
   return (
     <CollapsibleSection title="Selection" storageKey="photo-selection" className="space-y-3 border-t border-editor p-4">
-      <div className="flex gap-1" role="group" aria-label="Selection tool">
-        {TOOLS.map(({ tool: t, label, icon: Icon }) => (
+      <div className="grid grid-cols-3 gap-1" role="group" aria-label="Selection tool">
+        {TOOLS.map(({ tool: t, label, short, icon: Icon }) => (
           <button
             key={t}
             title={label}
             aria-label={label}
             aria-pressed={tool === t}
             onClick={() => setTool(tool === t ? null : t)}
-            className={`flex flex-1 items-center justify-center rounded border py-1.5 ${
+            className={`flex flex-col items-center gap-0.5 rounded border py-1.5 text-[10px] ${
               tool === t
                 ? 'border-indigo-500 bg-indigo-600 text-white'
                 : 'border-editor-strong text-editor-text-secondary hover:border-editor-input hover:text-editor-text'
             }`}
           >
             <Icon size={14} />
+            {short}
           </button>
         ))}
       </div>
+
+      {/* What to do next, in order — the flow is select, then adjust, and
+          nothing on screen said so. */}
+      <p className="rounded bg-editor-surface px-2 py-1.5 text-[11px] leading-snug text-editor-text-secondary">
+        {!tool && !selected ? (
+          <>
+            <b>1.</b> Pick a tool above, then drag on the photo to choose an area.
+          </>
+        ) : !selected ? (
+          <>
+            <b>2.</b> {tool === 'brush' ? 'Paint over' : tool === 'gradient' ? 'Drag across' : 'Drag on'} the photo.{' '}
+            {tool === 'wand' ? 'Click a colour to select everything like it.' : ''}
+          </>
+        ) : (
+          <>
+            <b>3.</b> Move any slider below and only this area changes — or start a separate layer for it.
+          </>
+        )}
+      </p>
 
       <div className="flex items-center gap-1" role="group" aria-label="Combine selection">
         {COMBINES.map(({ combine: c, label }) => (
@@ -104,10 +129,10 @@ export function SelectionPanel() {
       </div>
       <p className="text-[11px] leading-snug text-editor-text-subtle">
         {tool === 'brush'
-          ? 'Paint to add; hold Alt to erase.'
+          ? `Paint to add; hold ${ALT_KEY} to erase.`
           : tool === 'gradient'
             ? 'Drag from the full-strength end to where it should fade out.'
-            : 'Hold Shift to add, Alt to subtract.'}
+            : `Hold Shift to add, ${ALT_KEY} to subtract.`}
       </p>
 
       {tool === 'wand' && (
@@ -175,6 +200,28 @@ export function SelectionPanel() {
         onReset={() => setFeather(0)}
       />
 
+      {selected && !layerName && (
+        <button
+          onClick={() => {
+            addLayer()
+            document.getElementById('photo-adjust-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          className="w-full rounded bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+        >
+          Adjust this area separately
+        </button>
+      )}
+
+      <label className="flex items-center gap-2 text-xs text-editor-text-muted">
+        <input
+          type="checkbox"
+          checked={showMask}
+          onChange={(e) => setShowMask(e.target.checked)}
+          className="h-3.5 w-3.5 accent-indigo-500"
+        />
+        Show mask
+      </label>
+
       <div className="flex gap-2">
         <button
           onClick={invert}
@@ -187,7 +234,7 @@ export function SelectionPanel() {
         <button
           onClick={clear}
           disabled={!selected}
-          title="Deselect (Cmd/Ctrl+D)"
+          title={`Deselect (${shortcut('D')})`}
           className="flex-1 rounded border border-editor-strong py-1.5 text-xs hover:border-editor-input disabled:cursor-not-allowed disabled:opacity-40"
         >
           Deselect

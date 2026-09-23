@@ -4,6 +4,7 @@ import type { TPointerEventInfo, BasicTransformEvent } from 'fabric'
 import { AligningGuidelines } from 'fabric/extensions'
 import { useCanvasStore } from '../store/useCanvasStore'
 import { useHistoryStore } from '../store/useHistoryStore'
+import { abortCanvasLoad } from '../store/storeHelpers'
 import {
   getCurrentProjectId,
   loadProject,
@@ -206,6 +207,7 @@ export function CanvasStage() {
     if (!id || !loadProject(id)) id = listProjects()[0]?.id ?? null
     if (id) store.openProject(id)
     else store.newProject(width, height)
+
     // A change inside the 300ms autosave debounce (scheduleRecord) must not
     // be lost to a full page close/refresh, or to navigating away from this
     // route entirely (e.g. to Photo Editor, PHOTO-003) — both tear the
@@ -216,6 +218,12 @@ export function CanvasStage() {
       window.removeEventListener('beforeunload', flush)
       flush()
       setCanvas(null)
+      // Cancel work that would land on a canvas that no longer exists: a
+      // page load still in flight (fabric's loadFromJSON calls clear() when
+      // it settles) and any frame already queued. Both otherwise throw,
+      // uncaught, on every switch to the Photo Editor and back (BUG-010).
+      abortCanvasLoad()
+      canvas.cancelRequestedRender()
       canvas.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

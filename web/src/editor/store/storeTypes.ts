@@ -52,6 +52,10 @@ export interface ProjectSlice {
   designName: string
   /** Id of the project currently open in the editor (null before first load). */
   currentProjectId: string | null
+  /** Set by a Photo Editor port-back (PHOTO-006) while Canvas is unmounted:
+   *  the project state from just before it, which CanvasStage hands to the
+   *  history store on mount so the save is undoable. Cleared once used. */
+  pendingPhotoEdit: { before: string; label: string } | null
   /** Pages of the open design; the active page's content lives in the canvas. */
   pages: PageData[]
   /** Id of the page currently shown on the canvas. */

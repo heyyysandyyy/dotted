@@ -222,6 +222,29 @@ describe('portBackFromPhotoEditor (PHOTO-006)', () => {
     expect(ok).toBe(true)
     expect(useCanvasStore.getState().saveError).toMatch(/storage is full/)
   })
+
+  // BUG-009: the save happens while Canvas is unmounted, so nothing else
+  // can record it — the pre-edit state is stashed for the history instead.
+  it('keeps the pre-edit project state for the history to pick up', () => {
+    const pagesBefore = useCanvasStore.getState().pages
+    useCanvasStore.getState().portBackFromPhotoEditor(SOURCE_REF, 'data:image/png;base64,edited', DEFAULT_ADJUSTMENTS)
+
+    const pending = useCanvasStore.getState().pendingPhotoEdit!
+    expect(pending.label).toBe('Photo Editor edit')
+    const before = JSON.parse(pending.before)
+    expect(before.pages).toEqual(pagesBefore)
+    // ...and it really is the old image, not the new one.
+    const img = before.pages[0].canvas.objects.find((o: { id: string }) => o.id === 'img-1')
+    expect(img.src).toBe('data:image/png;base64,original')
+  })
+
+  it('leaves nothing pending when the object could not be found', () => {
+    useCanvasStore.setState({ pendingPhotoEdit: null })
+    useCanvasStore
+      .getState()
+      .portBackFromPhotoEditor({ ...SOURCE_REF, objectId: 'gone' }, 'data:image/png;base64,x', DEFAULT_ADJUSTMENTS)
+    expect(useCanvasStore.getState().pendingPhotoEdit).toBeNull()
+  })
 })
 
 describe('newProductProject (PROD-001)', () => {

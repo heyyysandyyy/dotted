@@ -61,6 +61,14 @@ interface HistoryState {
   jumpTo: (index: number) => void
   /** Drop all history, keeping the current state as the new baseline. */
   clearHistory: () => void
+  /**
+   * Put a state from before the canvas existed behind the current one as a
+   * single undo step. A Photo Editor save (PHOTO-006) patches the project
+   * while Canvas is unmounted, so nothing records it and the replaced image
+   * would otherwise be unrecoverable — undo needs the old page JSON handed
+   * to it after the canvas mounts again.
+   */
+  seedPreviousState: (before: string, label: string) => void
 }
 
 function snapshot(): string | null {
@@ -95,6 +103,29 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       labels: snap ? ['Initial state'] : [],
       index: snap ? 0 : -1,
       canUndo: false,
+      canRedo: false,
+      pendingLabel: '',
+    })
+    // A Photo Editor save (PHOTO-006) rewrote the project while Canvas was
+    // unmounted; this baseline *is* the edited state. Put the pre-edit state
+    // behind it so the replacement can be undone. Done here rather than at
+    // the call site because loading a project resets history asynchronously,
+    // after the canvas JSON lands — anything seeded earlier is wiped.
+    const pending = useCanvasStore.getState().pendingPhotoEdit
+    if (pending && snap) {
+      get().seedPreviousState(pending.before, pending.label)
+      useCanvasStore.setState({ pendingPhotoEdit: null })
+    }
+  },
+
+  seedPreviousState: (before, label) => {
+    const snap = snapshot()
+    if (snap == null || snap === before) return
+    set({
+      stack: [before, snap],
+      labels: ['Before the Photo Editor edit', label],
+      index: 1,
+      canUndo: true,
       canRedo: false,
       pendingLabel: '',
     })

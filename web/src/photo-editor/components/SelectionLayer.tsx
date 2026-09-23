@@ -43,6 +43,8 @@ interface Props {
   brushSize: number
   brushHardness: number
   gradientShape: GradientShape
+  /** Tint what's selected, not just outline it. */
+  showMask: boolean
   onOp: (op: SelectionOp, combine: SelectionCombine) => void
   onDeselect: () => void
 }
@@ -77,10 +79,13 @@ export function SelectionLayer({
   brushSize,
   brushHardness,
   gradientShape,
+  showMask,
   onOp,
   onDeselect,
 }: Props) {
   const [gesture, setGesture] = useState<{ points: Point[]; combine: SelectionCombine } | null>(null)
+  // Where the brush is hovering, for the size ring under the pointer.
+  const [hover, setHover] = useState<Point | null>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
 
   /** Screen point (relative to the preview) → normalized source point. */
@@ -113,6 +118,7 @@ export function SelectionLayer({
   }
 
   const move = (e: ReactPointerEvent) => {
+    if (tool === 'brush') setHover(local(e))
     if (!gesture) return
     const p = local(e)
     if (tool === 'lasso' || tool === 'brush') {
@@ -172,7 +178,14 @@ export function SelectionLayer({
 
   return (
     <>
-      <SelectionOutline source={source} plan={plan} width={width} height={height} selection={selection} />
+      <SelectionOutline
+        source={source}
+        plan={plan}
+        width={width}
+        height={height}
+        selection={selection}
+        showMask={showMask}
+      />
       {tool && (
         <div
           ref={surfaceRef}
@@ -182,7 +195,29 @@ export function SelectionLayer({
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={() => setGesture(null)}
+          onPointerLeave={() => setHover(null)}
+          style={tool === 'brush' ? { cursor: 'none' } : undefined}
         >
+          {tool === 'brush' && hover && (
+            <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
+              <circle
+                cx={hover.x}
+                cy={hover.y}
+                r={brushStrokeWidth(brushSize, width, plan) / 2}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={1}
+              />
+              <circle
+                cx={hover.x}
+                cy={hover.y}
+                r={brushStrokeWidth(brushSize, width, plan) / 2 + 1}
+                fill="none"
+                stroke="rgba(0,0,0,0.5)"
+                strokeWidth={1}
+              />
+            </svg>
+          )}
           {brushPath && (
             <svg className="pointer-events-none absolute inset-0" width={width} height={height}>
               <polyline
@@ -247,12 +282,14 @@ function SelectionOutline({
   width,
   height,
   selection,
+  showMask,
 }: {
   source: HTMLImageElement
   plan: GeometryPlan
   width: number
   height: number
   selection: PhotoSelection
+  showMask: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -268,6 +305,19 @@ function SelectionOutline({
     const mask = renderSelectionMask(source, plan, w, h, selection)
     if (!mask) return
     const img = ctx.createImageData(w, h)
+    // The mask itself, tinted — an outline alone says nothing about a soft
+    // brush edge or a gradient's falloff.
+    if (showMask) {
+      for (let i = 0; i < mask.length; i++) {
+        const m = mask[i]
+        if (!m) continue
+        const p = i * 4
+        img.data[p] = 239
+        img.data[p + 1] = 68
+        img.data[p + 2] = 68
+        img.data[p + 3] = Math.round(m * 0.4)
+      }
+    }
     // Dashes a few render pixels long, scaled so they read the same on screen.
     const dash = Math.max(2, Math.round((4 * w) / Math.max(1, width)))
     for (const i of selectionEdges(mask, w, h)) {
@@ -281,7 +331,7 @@ function SelectionOutline({
     ctx.putImageData(img, 0, 0)
     // Rebuilt only on a new selection, framing or on-screen size — the plan
     // is memoized upstream, so dragging an adjustment slider doesn't retrace.
-  }, [source, plan, selection, width])
+  }, [source, plan, selection, width, showMask])
 
   return (
     <canvas

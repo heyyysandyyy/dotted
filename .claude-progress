@@ -30,6 +30,15 @@ Known limitations, deliberate:
 - The wand samples the original photo's colours, not the adjusted preview.
 - The selection outline is static dashes, not animated marching ants.
 
+UX-029 (masking flow legibility) followed PHOTO-011 on branch
+feat/photo-masking-usability: labelled tools, a numbered step hint, a red
+mask tint (store flag `showMask`, drawn in SelectionLayer's outline pass), a
+brush-size ring that follows the pointer, and an "Adjust this area
+separately" button that calls addLayer() and scrolls to #photo-adjust-anchor.
+The feature was complete before it; what was missing was telling anyone how
+to use it. Worth remembering for the next photo tool: ship the flow, not
+just the capability.
+
 Next ticket: no auto-pickable one. What's open, each needing a decision:
 - PHOTO-010 (retouching brushes: spot/clone/red-eye/dodge/burn) — now
   unblocked, and the closest neighbour to what phase 3 built (it can reuse

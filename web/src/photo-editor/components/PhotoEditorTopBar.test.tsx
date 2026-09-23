@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { PhotoEditorTopBar } from './PhotoEditorTopBar'
 import { usePhotoEditorStore, DEFAULT_ADJUSTMENTS, type PhotoEditorSourceRef } from '../store/usePhotoEditorStore'
+import { shortcut } from '../../lib/keyLabels'
 import { useCanvasStore } from '../../editor/store/useCanvasStore'
 
 // WorkspaceSwitcher (rendered inside PhotoEditorTopBar) calls useLocation,
@@ -49,13 +50,13 @@ describe('PhotoEditorTopBar — undo/redo (PHOTO-005)', () => {
 
   it('undo is enabled and redo is disabled when there is history behind but nothing ahead', () => {
     render(<PhotoEditorTopBar />)
-    expect(screen.getByTitle('Undo (Cmd/Ctrl+Z)')).toBeEnabled()
-    expect(screen.getByTitle('Redo (Cmd/Ctrl+Shift+Z)')).toBeDisabled()
+    expect(screen.getByTitle(`Undo (${shortcut('Z')})`)).toBeEnabled()
+    expect(screen.getByTitle(`Redo (${shortcut('Z', true)})`)).toBeDisabled()
   })
 
   it('clicking undo steps the adjustments back', () => {
     render(<PhotoEditorTopBar />)
-    fireEvent.click(screen.getByTitle('Undo (Cmd/Ctrl+Z)'))
+    fireEvent.click(screen.getByTitle(`Undo (${shortcut('Z')})`))
     expect(usePhotoEditorStore.getState().adjustments).toEqual(DEFAULT_ADJUSTMENTS)
   })
 
@@ -66,8 +67,8 @@ describe('PhotoEditorTopBar — undo/redo (PHOTO-005)', () => {
       adjustments: DEFAULT_ADJUSTMENTS,
     })
     render(<PhotoEditorTopBar />)
-    expect(screen.getByTitle('Undo (Cmd/Ctrl+Z)')).toBeDisabled()
-    expect(screen.getByTitle('Redo (Cmd/Ctrl+Shift+Z)')).toBeDisabled()
+    expect(screen.getByTitle(`Undo (${shortcut('Z')})`)).toBeDisabled()
+    expect(screen.getByTitle(`Redo (${shortcut('Z', true)})`)).toBeDisabled()
   })
 })
 
