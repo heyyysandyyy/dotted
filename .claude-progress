@@ -1,51 +1,40 @@
-PHOTO-011 is COMPLETE (phase 3 on branch feat/PHOTO-011-brush-gradients —
-check `gh pr list` before assuming it's merged). All three phases are in:
-selections, adjustment layers, and brush/gradient masks.
+PROD-003 (notepad product templates) is implemented on branch
+feat/PROD-003-notepads — check `gh pr list` before assuming it's merged.
 
-What phase 3 added, and what's worth knowing before touching masks again:
-- Two new op kinds in PhotoSelection (utils/selection.ts), alongside
-  'polygon' and 'wand':
-  - 'stroke': painted path (normalized source points) + radius (a fraction
-    of the source's shorter edge, MAX_BRUSH_FRACTION) + hardness. Rasterized
-    as a round-capped path on the scratch canvas, then the soft edge comes
-    from featherMask at (100 - hardness)% of the radius.
-  - 'gradient': 'linear' (graduated) or 'radial', from full coverage at
-    `from` to nothing at `to`, painted with a canvas gradient.
-  Both work as the base selection or as any layer's mask, and both go
-  through the same add/subtract compositing as the other ops.
-- Brush strokes always ADD (Alt erases) regardless of the New/Add/Subtract
-  mode — replacing on every pointer-down made painting useless. Gradients
-  still respect the combine mode.
-- Radii map source→render through the plan matrix (sqrt of its determinant),
-  not through the output size: a crop changes the size without scaling, so
-  using plan.width there makes the brush the wrong thickness. The live
-  preview width uses the same maths.
-- Every mask kind is stored in normalized source coordinates, so masks
-  survive later geometry changes.
+What it added, and the two things worth knowing before touching products:
+- A 'notepad' category with seven rectangular presets and a custom size, and
+  a new per-category property: how the trim line is MARKED. Pins and magnets
+  are cut out one at a time, so they keep their dashed outline; pads are
+  guillotined, so they get corner crop marks (productMarks / PRODUCT_MARKS,
+  carried on ProductGuideSpec.marks — optional, so designs saved before pads
+  keep the old behaviour).
+- Imposition now differs by mark style, which is the load-bearing bit:
+  * 'outline' products keep PROD-001's layout — every copy carries its own
+    bleed, inside the sheet's printer margin.
+  * 'corner' products tile the sheet edge to edge at TRIM size: neighbours
+    share one cut line and the sheet's outer edges (margin and all) are
+    trimmed off the finished pad. Without this an A6 pad ganged one per
+    sheet, which is no ganging at all.
+  * Capacity also tries the product turned a quarter and keeps whichever
+    gangs more (`rotated` on the layout). Half-letter on Letter and A5 on A4
+    only reach their classic two-up that way. Anything that draws a cell —
+    screen guides, export marks, cell size — has to swap its axes when
+    `sheet.rotated` is set; three places do, and all three have tests.
+- A custom product's shape is now derived (defaultShape) when the category
+  doesn't offer a choice: the shape control is per-category and its state
+  persisted, so a custom pad used to inherit "circle" from a magnet.
 
-Known limitations, deliberate:
-- The mask is rebuilt from all ops whenever it changes, so a mask painted
-  from very many strokes gets slower to re-rasterize (cached per selection
-  object and render size, so only on change).
-- The wand samples the original photo's colours, not the adjusted preview.
-- The selection outline is static dashes, not animated marching ants.
-
-UX-029 (masking flow legibility) followed PHOTO-011 on branch
-feat/photo-masking-usability: labelled tools, a numbered step hint, a red
-mask tint (store flag `showMask`, drawn in SelectionLayer's outline pass), a
-brush-size ring that follows the pointer, and an "Adjust this area
-separately" button that calls addLayer() and scrolls to #photo-adjust-anchor.
-The feature was complete before it; what was missing was telling anyone how
-to use it. Worth remembering for the next photo tool: ship the flow, not
-just the capability.
+Known trade-off, deliberate and stated in the setup panel: tiling to the
+sheet edge means a home printer's unprintable margin is inside the trimmed-off
+border, so the outermost pads lose a sliver unless printed on a press.
 
 Next ticket: no auto-pickable one. What's open, each needing a decision:
-- PHOTO-010 (retouching brushes: spot/clone/red-eye/dodge/burn) — now
-  unblocked, and the closest neighbour to what phase 3 built (it can reuse
-  the stroke op's geometry and the brush UI).
-- PHOTO-012 (filters and preset effects) — can be scoped per-layer now.
-- PHOTO-013 (non-destructive adjustment stack) — `edits` already carries
-  geometry, selection and layers; this is mostly re-loading them.
-- PHOTO-014 (cut/copy/paste a selection as a movable layer) — needs a
-  *pixel* layer, which the adjustment-layer stack does not provide.
-- PROD-002 (not yet scoped), BOOK-001 (needs phasing), BOOK-004 (deferred).
+- PROD-002 (further product families: stickers, cards, patches, keychains,
+  totes, mugs, phone cases) — now has two shapes of precedent to follow, and
+  die-cut stickers still need a path-based guide.
+- PHOTO-010 (retouching brushes) — unblocked by PHOTO-011 phase 3; can reuse
+  the stroke op geometry and brush UI.
+- PHOTO-012 (filters/presets), PHOTO-013 (non-destructive stack),
+  PHOTO-014 (cut/copy/paste a selection as a movable layer — needs a pixel
+  layer, which the adjustment-layer stack does not provide).
+- BOOK-001 (page templates) — large, needs phasing. BOOK-004 — deferred.
