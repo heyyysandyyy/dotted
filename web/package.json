@@ -27,7 +27,7 @@
     "lucide-react": "^1.45.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "shadcn": "^4.21.0",
+    "shadcn": "^4.23.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.0",
     "tinycolor2": "^1.6.0",
